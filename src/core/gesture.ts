@@ -35,6 +35,22 @@ export function resample(frames: number[][], n = RESAMPLE_N): number[][] {
 }
 
 /** Extent, not path length: tracking jitter adds up over a path but not over an extent. */
+/**
+ * Position dims are centred on the gesture's own mean, so where the hand (or cursor) happened to
+ * start doesn't matter, only the shape of the movement. Hand frames are [wrist xyz, 5 curls] × 2 hands.
+ */
+const POSITION_DIMS: Record<GestureSignature['modality'], number[]> = { pointer: [0, 1], hands: [0, 1, 2, 8, 9, 10] };
+
+export function prepare(frames: number[][], modality: GestureSignature['modality']): number[][] {
+  const out = resample(frames);
+  for (const d of POSITION_DIMS[modality]) {
+    if (!out.length || out[0][d] === undefined) continue;
+    const mean = out.reduce((s, f) => s + f[d], 0) / out.length;
+    for (const f of out) f[d] -= mean;
+  }
+  return out;
+}
+
 export function motion(frames: number[][]): number {
   let m = 0;
   for (let i = 1; i < frames.length; i++) m = Math.max(m, dist(frames[i], frames[0]));
@@ -66,7 +82,7 @@ export function enrol(
   take2: number[][],
 ): EnrolResult {
   if (motion(take1) < MIN_MOTION || motion(take2) < MIN_MOTION) return { ok: false, reason: 'still' };
-  const a = resample(take1), b = resample(take2);
+  const a = prepare(take1, modality), b = prepare(take2, modality);
   const gap = dtw(a, b);
   if (gap > MAX_ENROL_GAP) return { ok: false, reason: 'inconsistent' };
   return { ok: true, signature: { modality, takes: [a, b], tolerance: Math.max(gap, TOLERANCE_FLOOR) } };
@@ -81,7 +97,7 @@ export interface MatchResult {
 export function match(sig: GestureSignature, frames: number[][], modality: GestureSignature['modality']): MatchResult | null {
   if (modality !== sig.modality) return null;
   if (motion(frames) < MIN_MOTION) return { ok: false, score: 0 };
-  const x = resample(frames);
+  const x = prepare(frames, modality);
   const d = Math.min(dtw(x, sig.takes[0]), dtw(x, sig.takes[1]));
   const limit = sig.tolerance * LENIENT;
   return { ok: d <= limit, score: Math.max(0, Math.min(1, 1 - d / (2 * limit))) };

@@ -2,3 +2,4 @@ ika.md
 node_modules
 dist
 .env
+.playwright-mcp

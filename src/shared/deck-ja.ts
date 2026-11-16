@@ -11,7 +11,7 @@ export const JA_STARTER: DeckItem[] = [
     scenes: [
       { mnemonic: 'A cat curled around your NECK, purring "neko".', focus: 1, props: [
         { prop: 'person', pos: [0, 0, 0] },
-        { prop: 'cat', pos: [0, 0.2, 0.02], scale: 0.6, color: '#e8873a', rot: 1.57 },
+        { prop: 'cat', pos: [0, 0.095, 0.035], scale: 0.55, color: '#e8873a' },
       ] },
       { mnemonic: 'A cat sneaks up a NECK-tall tower of books.', focus: 2, props: [
         { prop: 'book', pos: [0, 0, 0], color: '#7a4fbf' },
@@ -60,7 +60,7 @@ export const JA_STARTER: DeckItem[] = [
         { prop: 'drop', pos: [-0.05, 0.16, 0.02], scale: 0.4 },
       ] },
       { mnemonic: 'A cloud says "Me? Zoo!" and rains on a zoo of animals.', props: [
-        { prop: 'cloud', pos: [0, 0.2, 0] },
+        { prop: 'cloud', pos: [0, 0.19, 0], scale: 0.8 },
         { prop: 'drop', pos: [-0.04, 0.12, 0], scale: 0.4 },
         { prop: 'drop', pos: [0.04, 0.1, 0], scale: 0.4 },
         { prop: 'dog', pos: [-0.06, 0, 0.03], scale: 0.6, color: '#b07a3e' },
@@ -137,7 +137,7 @@ export const JA_STARTER: DeckItem[] = [
       { mnemonic: 'A cat hides under an umbrella: "Ka-sa, it\'s raining!"', props: [
         { prop: 'umbrella', pos: [0, 0, 0], color: '#d94848' },
         { prop: 'cat', pos: [0, 0, 0.02], scale: 0.6, color: '#444444' },
-        { prop: 'cloud', pos: [0, 0.3, 0], scale: 0.6 },
+        { prop: 'cloud', pos: [0.06, 0.24, -0.04], scale: 0.5 },
       ] },
     ],
   },

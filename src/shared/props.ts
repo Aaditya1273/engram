@@ -83,7 +83,7 @@ const BUILDERS: Record<PropId, Builder> = {
   umbrella(r, c) {
     const pole = mat('#3b2b1f');
     part(r, cyl(6), pole, [0, 0.09, 0], [0.006, 0.18, 0.006]);
-    part(r, cone(8), c, [0, 0.19, 0], [0.2, 0.06, 0.2]);
+    part(r, cone(8), c, [0, 0.19, 0], [0.18, 0.055, 0.18]);
     part(r, g('handle', () => new THREE.TorusGeometry(0.015, 0.004, 4, 8, Math.PI)), pole, [0.015, 0.005, 0], [1, 1, 1], [Math.PI, 0, 0]);
   },
   house(r, c) {

@@ -35,6 +35,11 @@ describe('gesture matcher', () => {
     expect(match(sig, path(circle, 30, 0.05, 0.7), 'pointer')!.ok).toBe(true);
   });
 
+  it('ignores where the gesture starts', () => {
+    const shifted = path(circle).map(([x, y]) => [x + 3, y - 2]);
+    expect(match(sig, shifted, 'pointer')!.ok).toBe(true);
+  });
+
   it('rejects different gestures', () => {
     expect(match(sig, path(line), 'pointer')!.ok).toBe(false);
     expect(match(sig, path(zigzag), 'pointer')!.ok).toBe(false);

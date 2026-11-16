@@ -1,4 +1,4 @@
-import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card } from 'ts-fsrs';
+import { createEmptyCard, fsrs, generatorParameters, Rating, State, type Card, type Grade as FsrsGrade } from 'ts-fsrs';
 import type { Grade, Review } from '../shared/types';
 
 /** FSRS desired retention: a memory is due when its recall probability drops below this. */
@@ -10,7 +10,7 @@ const DECAY = params.w[20];
 const FACTOR = 0.9 ** (-1 / DECAY) - 1;
 const DAY = 86_400_000;
 
-const RATING: Record<Grade, Rating.Again | Rating.Hard | Rating.Good | Rating.Easy> = {
+const RATING: Record<Grade, FsrsGrade> = {
   again: Rating.Again, hard: Rating.Hard, good: Rating.Good, easy: Rating.Easy,
 };
 

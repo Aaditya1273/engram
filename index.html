@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#120d09" />
+    <title>Atrium</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2710%27 fill=%27%23ffcf7a%27/%3E%3C/svg%3E" />
+    <style>
+      :root { color-scheme: dark; --fg: #f6ead6; --accent: #ffcf7a; --bg: #120d09; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+      #app canvas { display: block; }
+      #overlay { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #2a1d12, var(--bg) 70%); padding: 16px; }
+      #overlay[hidden] { display: none; }
+      .card { max-width: 30rem; text-align: center; }
+      h1 { font-weight: 600; letter-spacing: 0.08em; color: var(--accent); margin: 0 0 0.25rem; font-size: 2.6rem; }
+      p { line-height: 1.5; opacity: 0.85; }
+      .buttons { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
+      button { font: inherit; font-size: 1.05rem; padding: 0.8rem 1.4rem; border-radius: 999px; border: 1px solid #6b4d2c; background: #3a2816; color: var(--fg); cursor: pointer; }
+      button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
+      button.primary { background: var(--accent); color: #2a1a0a; border-color: var(--accent); font-weight: 600; }
+      .hint { font-size: 0.85rem; opacity: 0.6; margin-top: 1.25rem; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="overlay">
+      <div class="card">
+        <h1>ATRIUM</h1>
+        <p>Your hands write it. Your palace keeps it. You never fall behind.</p>
+        <div class="buttons">
+          <button id="enter-vr" class="primary" hidden>Enter VR</button>
+          <button id="desktop">Try on desktop</button>
+        </div>
+        <p class="hint">Sit down, put the controllers away and raise your hands. On desktop: point with the mouse, click to select, arrow keys to turn, Esc to pause.</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

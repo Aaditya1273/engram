@@ -17,7 +17,8 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 export function lanternLook(r: number): LanternLook {
   return {
-    intensity: 0.08 + 0.92 * clamp01((r - BAND.floor) / (BAND.full - BAND.floor)),
+    // Squared: the eye reads brightness non-linearly, so a linear ramp makes early fading invisible.
+    intensity: 0.08 + 0.92 * clamp01((r - BAND.floor) / (BAND.full - BAND.floor)) ** 2,
     flicker: r < BAND.flicker,
     saturation: r >= BAND.grey ? 1 : clamp01((r - BAND.floor) / (BAND.grey - BAND.floor)),
   };

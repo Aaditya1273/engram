@@ -9,9 +9,12 @@ You co-create every memory with an AI agent, write it with your own gesture, and
 
 `Productivity track` · `New Experience division` · `Meta VR Start Developer Competition 2026`
 
-[Live build](#try-it-for-judges) · [Demo video](#demo) · [Architecture](#architecture) · [MCP server](#mcp-server-for-ai-agents) · [Research](#research-foundation)
+[Run it](#getting-started-developers) · [Demo video](#demo) · [Architecture](#architecture) · [MCP server](#mcp-server-for-ai-agents) · [Research](#research-foundation)
 
 </div>
+
+> **Build status (Nov 2026):** the offline headset core is playable: the first five minutes, co-created scenes, gesture signatures, FSRS-driven lanterns, graded recall by voice + gesture, no-backlog daily sessions, comeback walk, ember streaks, gaze-only mode, captions. It runs in the Quest browser and on desktop.
+> **Not built yet:** cloud API, sync, MCP server, AI scene drafting, phone companion. Sections describing them are the design, marked *(planned)*.
 
 ---
 
@@ -88,13 +91,15 @@ AI agents now find and summarise everything for us. That multiplies what we're e
 
 ## Try it (for judges)
 
+> *(Deployment pending: until then, run it locally; see [Getting started](#getting-started-developers).)*
+
 Atrium runs in the Meta Quest browser. No install, no controllers and no account needed.
 
 1. Put on a **Meta Quest 3 or 3S** and sit down.
 2. Open the browser and go to **`<your-deployment-url>`**.
 3. Press **Enter VR**, put the controllers down and raise your hands.
 4. Follow the narrator. In about five minutes you'll learn six Japanese words and recall them.
-5. **To try the agent:** on a phone or laptop, open **`<your-deployment-url>/companion`** and sign in with the demo key printed on the welcome screen. Type a topic (for example *"the 12 cranial nerves"*) and watch the items arrive in the headset inbox.
+5. *(planned)* **To try the agent:** on a phone or laptop, open **`<your-deployment-url>/companion`** and sign in with the demo key printed on the welcome screen. Type a topic (for example *"the 12 cranial nerves"*) and watch the items arrive in the headset inbox.
 
 > **If hands aren't detected:** hold both hands in front of the headset for two seconds. If tracking still doesn't start, pinch once or restart the headset. This is a known Quest wake-from-sleep issue.
 
@@ -133,13 +138,15 @@ From then on the lantern dims along the memory's forgetting curve. A daily **7-m
 | Action | Hands | Gaze-only mode | Voice |
 | --- | --- | --- | --- |
 | Select | Look + pinch | Look + dwell 1 s | "Select" |
-| Next arc of alcoves | Pinch + flick | Dwell on edge arrow | "Next" |
-| Bring a scene closer | Pinch + pull toward you | Dwell on scene | "Closer" |
+| Next arc of alcoves | Pinch + flick sideways | Dwell on edge arrow | *(planned)* |
 | Answer a recall | Say the answer + perform your gesture | Say the answer | Say the answer |
-| Reveal | Pinch | Dwell | "Show me" |
-| Pause | Open palm toward the room, 1 s | Dwell on pause icon | "Pause" |
+| Reveal | Pinch "Show me" | Dwell "Show me" | |
+| Pause | Leaving the headset view pauses; hands lost > 2 s pauses | | |
 
-No action ever needs a controller, standing up, or turning your body.
+**Desktop:** the mouse points, click selects, arrow keys turn the room, Esc pauses, and gestures are mouse paths.
+**No speech recogniser?** Recall switches to three pinchable answers, still graded and never self-rated.
+
+No action ever needs a controller, standing up, or turning your body. *(Planned: pull-to-inspect, open-palm pause, voice commands.)*
 
 ---
 
@@ -157,16 +164,18 @@ Each lantern's brightness **is** the memory's live recall probability from the F
 | Recall probability | Lantern |
 | --- | --- |
 | ≥ 90% | Full, steady glow |
-| 70–90% | Dimming |
-| 50–70% | Flickering |
-| < 50% | Flickering, scene loses colour |
+| 82–90% | Dimming |
+| 75–82% | Flickering |
+| < 75% | Flickering, scene loses colour |
+
+The bands sit just under the 90% retention target because the FSRS-6 forgetting curve is long-tailed: a memory left alone for three weeks is still at ~74%. Wider bands would almost never show. They are one constant in `src/core/lantern.ts`, to be tuned with real review data.
 
 Relighting a flickering lantern with a correct recall plays a warm chime and a burst of light. That moment is the core reward.
 
 ### 4. No-backlog sessions
 Each session has a fixed time budget (7 minutes by default). Atrium ranks due memories by how close they are to being forgotten, weighted by your goal and deadline, and fills only that budget. Overflow is spread across the coming days. After three or more missed days, a **Comeback walk** shows only the 10 most important fading memories, with no due count shown.
 
-### 5. Readiness score
+### 5. Readiness score *(planned)*
 Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium forecasts what share of that goal you'll recall on the day, and sets the daily load needed to hit your target.
 
 ### 6. Habit system
@@ -182,18 +191,20 @@ Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium forecasts what share of 
 
 **Guardrails:** no paid streak protection, no loot boxes, at most one notification a day, and a gentle stop after 20 minutes.
 
-### 7. Phone companion
+### 7. Phone companion *(planned)*
 Capture from anywhere, and keep the streak alive with a 60-second **mental walk**: recall one wing of your palace from a top-down map, then check your answers.
 
-### 8. Room mode *(optional)*
+### 8. Room mode *(planned, optional)*
 Pin memories to real objects you can see from your chair (a lamp, a shelf, the window) using spatial anchors, so your real room can cue recall after the headset comes off. The virtual palace stays the default.
 
-### 9. Wind-down mode *(optional)*
+### 9. Wind-down mode *(planned, optional)*
 A low-light walk through the day's new memories before bed.
 
 ---
 
 ## Architecture
+
+*The headset half below is built. The cloud half is planned.*
 
 One web project holds the headset app, the API, the MCP server and the companion page, deployed to a single URL.
 
@@ -236,16 +247,16 @@ flowchart LR
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Headset app | [Immersive Web SDK](https://developers.meta.com/horizon/) (TypeScript, Three.js) | Hand tracking and gaze-and-pinch built in; ships as a link; the same code targets VR Glasses |
-| Fallback engine | Unity + Meta XR SDK v207 | Only if browser speech or passthrough camera access falls short |
-| Scheduler | [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) | FSRS in TypeScript, runs on the device |
+| Headset app | [three.js](https://threejs.org) + raw WebXR (TypeScript, Vite) | Hand joints, select-on-pinch and head gaze straight from WebXR; ships as a link; the same code targets VR Glasses. IWSDK (built on three.js) is an option later; direct WebXR keeps the input layer fully under our control. |
+| Scheduler | [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) | FSRS-6 in TypeScript, runs on the device |
 | Gesture matching | Custom recogniser (DTW) | Grades your gesture against your own recording |
-| Speech | Web Speech API → cloud speech-to-text fallback | Spoken answers and twists |
-| AI pipeline | Any LLM with structured JSON output | Providers can be swapped |
-| 3D assets | CC0 low-poly prop kit (glTF) | Instant, licence-safe, holds 60 fps |
-| Hosting | Vercel (static app + API routes + MCP endpoint) | One deploy, one URL |
-| Database | Postgres (e.g. Neon) | Memories, review logs, gesture signatures |
-| MCP | MCP TypeScript SDK over remote HTTP | Any MCP client can connect |
+| Speech | Web Speech API (recognition in `ja-JP`, narration via speech synthesis) | Spoken answers and twists; pinchable fallback when missing |
+| Audio | Web Audio, synthesised | No audio files to download |
+| 3D assets | Procedural low-poly prop kit (three.js primitives) | Zero downloads, so the first five minutes work offline. Swap in a CC0 glTF kit later; the scene JSON doesn't change. |
+| AI pipeline *(planned)* | Any LLM with structured JSON output | Providers can be swapped |
+| Hosting *(planned)* | Vercel (static app + API routes + MCP endpoint) | One deploy, one URL |
+| Database *(planned)* | Postgres (e.g. Neon) | Memories, review logs, gesture signatures |
+| MCP *(planned)* | MCP TypeScript SDK over remote HTTP | Any MCP client can connect |
 
 ---
 
@@ -253,39 +264,36 @@ flowchart LR
 
 ```
 atrium/
+├── index.html                  # landing overlay: Enter VR / Try on desktop
 ├── src/
-│   ├── headset/                 # IWSDK app
-│   │   ├── palace/              # alcoves, lanterns, wings, snap movement
-│   │   ├── input/               # pinch, gaze, gesture recorder + matcher
-│   │   ├── session/             # first-five-minutes, daily session, comeback walk
-│   │   ├── scheduler/           # ts-fsrs wrapper, triage, readiness
-│   │   ├── capture/             # voice capture, inbox, co-creation flow
-│   │   ├── audio/               # narration, captions, spatial audio
-│   │   └── sync/                # offline queue, sync with the API
-│   ├── companion/               # phone page: capture, QR pairing, mental walk
-│   └── shared/                  # types, scene JSON schema, prop catalogue
-├── api/
-│   ├── mcp.ts                   # remote MCP endpoint
-│   ├── memories.ts              # create, list, inbox
-│   ├── sync.ts                  # due memories down, reviews up
-│   ├── goals.ts                 # goals + readiness
-│   └── pipeline/
-│       ├── extract.ts           # text → facts
-│       └── draft-scenes.ts      # fact → 3 scene options (JSON)
-├── db/
-│   ├── schema.sql
-│   └── seed/                    # preset decks (work offline)
-├── public/
-│   └── assets/props/            # CC0 low-poly prop kit (glTF)
-├── tests/
-│   ├── gesture-matcher.test.ts
-│   ├── triage.test.ts
-│   └── scene-schema.test.ts
-├── docs/
-│   └── media/                   # GIFs and screenshots for this README
-├── .env.example
-└── README.md
+│   ├── main.ts                 # renderer, XR session, loop, home screen, settings
+│   ├── core/                   # pure logic, no DOM; all unit-tested
+│   │   ├── gesture.ts          # resample, centre, DTW, enrol, match
+│   │   ├── model.ts            # FSRS replay from the review log, recall probability
+│   │   ├── grade.ts            # answer + gesture + latency → again/hard/good
+│   │   ├── triage.ts           # no-backlog session planning, comeback walk
+│   │   ├── streak.ts           # ember streak, freezes, 48 h repair
+│   │   ├── lantern.ts          # recall probability → brightness, flicker, saturation
+│   │   ├── answer.ts           # kanji / kana / romaji answer matching
+│   │   └── twist.ts            # spoken twist → prop kit changes (offline)
+│   ├── headset/
+│   │   ├── palace.ts           # room, 20 alcoves, lanterns, snap-and-fade turning
+│   │   ├── input.ts            # gaze + pinch, flick, dwell, hand-joint gesture features
+│   │   ├── stage.ts            # captions, buttons, scene cards, pause: awaitable steps
+│   │   ├── flows.ts            # first five minutes, graded recall, daily session
+│   │   ├── scene-builder.ts    # scene JSON → 3D group, desaturation
+│   │   ├── store.ts            # offline store (review log is the source of truth)
+│   │   ├── speech.ts           # recognition + narration, with fallbacks
+│   │   ├── audio.ts            # synthesised chimes
+│   │   └── ui.ts               # canvas-text panels and buttons
+│   └── shared/
+│       ├── types.ts            # Memory, Review, SceneSpec, GestureSignature
+│       ├── props.ts            # procedural prop kit
+│       └── deck-ja.ts          # preset 6-word Japanese deck (ships offline)
+└── tests/core.test.ts          # gesture, grading, FSRS, triage, streak, answers, deck schema
 ```
+
+Planned: `api/` (memories, sync, goals, MCP), `api/pipeline/` (extract, draft scenes), `db/schema.sql`, `src/companion/`.
 
 ---
 
@@ -294,9 +302,7 @@ atrium/
 ### Prerequisites
 
 - **Node.js 20.19+**
-- **Postgres 15+**, local or hosted
-- An **LLM API key** with structured JSON output
-- A **Meta Quest 3 / 3S** for device testing. The IWSDK emulator is fine for day-to-day development, but performance and hand tracking must be checked on hardware.
+- A **Meta Quest 3 / 3S** for device testing. Desktop mode is fine for day-to-day work, but performance, hand tracking and speech must be checked on hardware.
 
 ### Install and run
 
@@ -305,14 +311,16 @@ git clone https://github.com/<your-org>/atrium.git
 cd atrium
 npm install
 
-cp .env.example .env          # fill in the values below
-npm run db:migrate            # create tables
-npm run db:seed               # load preset decks
-
-npm run dev                   # starts the headset app, companion page and API
+npm run dev                   # Vite dev server on your LAN
 ```
 
-Open the printed local URL in a desktop browser to use the IWSDK emulator.
+Open the printed URL and press **Try on desktop**. Useful URL flags:
+
+| Flag | Effect |
+| --- | --- |
+| `?reset` | Erase local data and start the first five minutes again |
+| `?skip=3d` / `?skip=12h` | Run the clock ahead to see lanterns fade, the daily session and the comeback walk (`?skip=0d` restores real time) |
+| `?gaze=1` | Gaze-only mode (dwell 1 s to select) |
 
 ### Test on a Quest headset
 
@@ -326,17 +334,16 @@ The Quest browser needs **HTTPS** to enter VR. Either:
 | Script | What it does |
 | --- | --- |
 | `npm run dev` | Local dev server with hot reload |
-| `npm run build` | Production build |
-| `npm run test` | Unit tests (gesture matcher, triage, scene schema) |
-| `npm run lint` | Lint and type-check |
-| `npm run db:migrate` | Apply database migrations |
-| `npm run db:seed` | Load preset decks |
-| `npm run deploy:preview` | Deploy a preview build |
-| `npm run deploy` | Deploy to production |
+| `npm run build` | Type-check + production build |
+| `npm run preview` | Serve the production build |
+| `npm run test` | Unit tests (gesture matcher, grading, FSRS, triage, streak, answers, deck schema) |
+| `npm run lint` | Type-check |
 
 ---
 
 ## Environment variables
+
+None needed for the headset core. Planned for the cloud half:
 
 | Variable | Required | Description |
 | --- | :---: | --- |
@@ -350,7 +357,7 @@ The Quest browser needs **HTTPS** to enter VR. Either:
 
 ---
 
-## MCP server for AI agents
+## MCP server for AI agents *(planned)*
 
 Atrium exposes a remote **Model Context Protocol** server, so any MCP-compatible agent can **write** things you need to remember and **read** what you already know.
 
@@ -394,6 +401,8 @@ Atrium → 12 items appear in your headset inbox, ready to co-create.
 
 ## Data model
 
+Built today: the same shapes in `src/shared/types.ts`, stored locally. FSRS state isn't stored; it is replayed from the append-only review log, so syncing will just merge new reviews. Planned Postgres schema:
+
 ```sql
 -- simplified
 memories (
@@ -407,7 +416,6 @@ memories (
   gesture       jsonb,         -- recorded joint paths (2 enrolments)
   topic         text,
   goal_id       uuid,
-  fsrs_state    jsonb,         -- stability, difficulty, due date
   created_at    timestamptz
 )
 
@@ -431,24 +439,26 @@ agents (id uuid, user_id uuid, name text, scopes text[], key_hash text, revoked 
 
 ### Gesture matching
 
-1. **Capture:** 6 key joints per hand (wrist and five fingertips) at ~30 Hz for ~2 s.
-2. **Normalise:** express every point relative to the wrist and divide by hand size, so position and hand size don't matter.
-3. **Enrol:** record the gesture twice. The distance between the two takes sets your personal tolerance.
-4. **Match:** at recall, compute the **dynamic time warping** distance to the nearer enrolment. Accept if it falls within your tolerance × a lenient factor.
-5. **Grade:** spoken answer correct + gesture matched → *good*. Answer correct, gesture missed → *hard*. Answer wrong → *again*. A slow correct answer drops one grade.
+1. **Capture:** every frame for 2 s (3 s at recall). Per hand: the **wrist's path** in the head's yaw frame (÷ 15 cm), plus five **finger curls** (fingertip-to-wrist ÷ hand size, down-weighted). Keeping the wrist path matters because iconic gestures (stroking a cat) are mostly wrist movement. On desktop, the mouse path.
+2. **Normalise:** resample to 32 frames; centre the position dimensions on the gesture's own mean, so where you start doesn't matter, only the shape.
+3. **Enrol:** record twice. The DTW distance between the takes sets your tolerance, with a floor so two near-identical takes don't make the gesture impossible to repeat. If you barely moved, or the takes differ a lot, Atrium asks again.
+4. **Match:** banded **dynamic time warping** to the nearer take; accept within tolerance × 2.2 (lenient on purpose).
+5. **Grade:** the spoken answer decides pass or fail. Correct + gesture matched → *good*. Correct but gesture missed or slow (> 8 s) → *hard*. Wrong or "Show me" → *again*. A correct answer never grades below *hard*, because *again* resets FSRS stability.
 
 ### Session triage
 
 ```text
+due              = recall_probability < 0.9  or  FSRS due time passed (short learning steps)
 priority(memory) = (1 − recall_probability) × goal_weight × deadline_urgency
-session          = top items by priority until the time budget (default 7 min) is filled
-overflow         = rescheduled with load balancing across the next days
-comeback walk    = after ≥ 3 missed days: top 10 by priority, no due count shown
+session          = top items by priority until the time budget (7 min ≈ 21 recalls) is filled
+overflow         = simply waits; it is ranked again tomorrow, and no pile is ever shown
+comeback walk    = after ≥ 3 days with no reviews: top 10 by priority, no due count shown
+repair           = a missed item is asked again two items later, once
 ```
 
 ### Lantern brightness
 
-`brightness = recall_probability` from FSRS, recomputed whenever the palace opens. It flickers below 0.7 and desaturates below 0.5. The scale uses **brightness, not hue**, so it's safe for colour-blind users.
+Brightness follows the live recall probability on the FSRS-6 forgetting curve, computed in fractional days so lanterns fade smoothly rather than in daily steps. It is squared so early fading is visible. Lanterns flicker below 0.82 and the scene desaturates below 0.75. The scale uses **brightness, not hue**, so it's safe for colour-blind users.
 
 ---
 
@@ -458,7 +468,7 @@ comeback walk    = after ≥ 3 missed days: top 10 by priority, no due count sho
 - **Seated, two-foot radius:** nothing needs reaching beyond a forearm's length or turning the torso.
 - **Central 35°:** all text, active lanterns and buttons sit in the middle of the view, to fit the ~70° field of view of Meta VR Glasses.
 - **No palm-up gestures near the face:** that pose opens the Quest system menu.
-- **Hands-lost recovery:** if tracking drops for more than 2 s, pause and show *"Show your hands"*.
+- **Hands-lost recovery:** if tracking drops for more than 2 s, pause and show *"Show your hands"*; resume when they're back.
 - **Comfort:** snap movement with a 150 ms fade, no smooth camera motion, a fixed horizon, a floor under the chair.
 - **Fast in, fast out:** cold start to first pinch in under 10 s; pause and resume keep your exact place.
 
@@ -466,12 +476,12 @@ comeback walk    = after ≥ 3 missed days: top 10 by priority, no due count sho
 
 ## Accessibility
 
-- **Gaze-only mode:** dwell to select; no gestures needed
-- **Voice-only mode:** every action has a spoken command
-- **One-handed mode**
-- **Captions** on all narration
-- **Adjustable text size** and a **high-contrast theme**
-- **Colour-blind-safe** lanterns (brightness, not hue)
+- **Gaze-only mode:** dwell to select; no gestures needed ✅
+- **Captions** on all narration ✅
+- **Larger text** ✅
+- **Colour-blind-safe** lanterns (brightness, not hue) ✅
+- **No-speech fallback:** pinchable answers ✅
+- *(planned)* Voice-only mode, explicit one-handed mode, high-contrast theme
 
 ---
 
@@ -479,9 +489,9 @@ comeback walk    = after ≥ 3 missed days: top 10 by priority, no due count sho
 
 | Metric | Target (Quest 3) |
 | --- | --- |
-| Frame rate | Steady 60 fps (≤ 16.6 ms per frame) |
+| Frame rate | Steady 72 fps (≤ 13.9 ms per frame); Quest 3's lowest refresh rate is 72 Hz, requested via `updateTargetFrameRate` |
 | Visible scenes | ≤ 12 alcoves at once |
-| Lighting | 1 real-time light, baked shadows |
+| Lighting | 1 hemisphere light, no shadows; lanterns are emissive + additive sprites |
 | Cold start to first pinch | < 10 s |
 | Scene creation after choosing | Instant (assembled from the prop kit, no mesh generation) |
 | First five minutes | Fully offline |
@@ -508,11 +518,11 @@ Every core feature rests on published work. These are the studies' own results, 
 | --- | --- | --- |
 | A memory palace in a headset gave **8.8% better recall** than the same palace on a monitor | Krokos, Plaisant & Varshney, *Virtual Reality* (2019) | The palace |
 | Gestures help word memory **only when they match the meaning**; mismatched or meaningless gestures did worse than none | *Applied Psycholinguistics*, gestures and L2 learning | Invented iconic gestures |
-| Writing your own mnemonic scored **18.8 points higher** immediately (pilot, n = 8) | [arXiv 2611.01973](https://www.alphaxiv.org/abs/2611.01973) | Co-creation |
+| Writing your own mnemonic story for Chinese characters scored **18.8 percentage points higher** on written recall immediately (descriptive pilot, n = 8), but took 1.69× as long to study | [arXiv 2611.01973](https://www.alphaxiv.org/abs/2611.01973) | Co-creation (keep it quick) |
 | Unrestricted AI help raised task scores but **not knowledge gained** | [arXiv 2412.09315](https://www.alphaxiv.org/abs/2412.09315) | AI drafts, you decide |
 | Flip-and-self-rate is an impoverished review; effortful recall works better | [Memdora, arXiv 2607.25096](https://www.alphaxiv.org/abs/2607.25096) | Graded recall |
-| Generated 3D mnemonics took ~1 min 55 s each and flickered on Quest 3 | [VocabulARy 2.0, arXiv 2611.07798](https://www.alphaxiv.org/abs/2611.07798) | Prop-kit scenes |
-| Simple rooms with distinct landmarks support palace recall | [CogLocus, arXiv 2506.02700](https://www.alphaxiv.org/abs/2506.02700) | Alcove design |
+| Personalised mnemonics as AI-generated 3D models in AR (slow to generate; timings in the paper) | [VocabulARy 2.0, arXiv 2611.07798](https://www.alphaxiv.org/abs/2611.07798) | Prop-kit scenes instead of mesh generation |
+| Adjusting a VR memory palace's spatial layout to a person's cognitive load raised EEG focus markers (n = 10) | [arXiv 2506.02700](https://www.alphaxiv.org/abs/2506.02700) | Calm, simple alcoves |
 | Auto-generated keyword cues support vocabulary learning | [arXiv 2305.10436](https://www.alphaxiv.org/abs/2305.10436), [arXiv 2501.17099](https://www.alphaxiv.org/abs/2501.17099) | Scene drafts |
 
 ---
@@ -520,7 +530,9 @@ Every core feature rests on published work. These are the studies' own results, 
 ## Roadmap
 
 - [x] Concept, research and design
-- [ ] **Hackathon build:** palace, co-creation, gesture signature, dimming lanterns, no-backlog sessions, streaks, voice/QR capture, `add_memories`
+- [x] **Headset core:** palace, first five minutes, co-creation (offline twist), gesture signature, dimming lanterns, graded recall, no-backlog sessions, comeback walk, streaks with freezes and repair, gaze-only mode, captions
+- [ ] Device pass on Quest 3: frame timing, hand-tracking thresholds, Quest-browser speech recognition
+- [ ] Cloud: API, sync, AI scene drafting, voice/QR capture, `add_memories`
 - [ ] Readiness score and goals
 - [ ] `get_known` / `get_gaps` read tools
 - [ ] Phone companion with mental walk
@@ -557,8 +569,8 @@ Issues and pull requests are welcome after the judging period ends. Until then t
 
 ## License and credits
 
-- **Code:** MIT. See [`LICENSE`](LICENSE).
-- **3D props:** CC0 low-poly asset packs. See [`public/assets/props/CREDITS.md`](public/assets/props/CREDITS.md).
+- **Code:** MIT *(LICENSE file to be added)*.
+- **3D props:** procedural, made in code; no third-party assets.
 - **Scheduling:** the open-source FSRS algorithm via `ts-fsrs`.
 
 ### Team
