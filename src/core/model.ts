@@ -37,3 +37,6 @@ export function recallProbability(card: Card, now: number): number {
 }
 
 export const dueAt = (card: Card) => new Date(card.due).getTime();
+
+/** One scheduling step, for forecasting (readiness) without touching the stored log. */
+export const nextCard = (card: Card, at: number, grade: Grade) => scheduler.next(card, new Date(at), RATING[grade]).card;

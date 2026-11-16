@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { encode } from 'uqr';
 
 /** Anything with userData.selectable is a gaze/pointer target. */
 export interface Selectable {
@@ -149,4 +150,26 @@ export function glowTexture(): THREE.Texture {
   glowTex = new THREE.CanvasTexture(c);
   glowTex.colorSpace = THREE.SRGBColorSpace;
   return glowTex;
+}
+
+/**
+ * Pairing panel: the code is the primary path (the wearer reads it and types it on the phone, since a
+ * phone can't scan a QR shown inside the headset); the QR works when the view is cast or on desktop.
+ */
+export function makeQrPanel(text: string, caption: string): Panel {
+  const p = new Panel(0.28, 0.34, { bg: 'rgba(24,18,12,0.95)', size: 0.022 });
+  const { data, size } = encode(text, { border: 2 });
+  const ctx = p.canvas.getContext('2d')!;
+  p.draw();
+  const W = p.canvas.width, px = Math.floor((W * 0.82) / size), off = Math.floor((W - px * size) / 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(off, off, px * size, px * size);
+  ctx.fillStyle = '#000000';
+  data.forEach((row, y) => row.forEach((on, x) => on && ctx.fillRect(off + x * px, off + y * px, px, px)));
+  ctx.fillStyle = '#ffcf7a';
+  ctx.font = `700 ${0.034 * 1400}px ${UI_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(caption.split('').join(' '), W / 2, off * 2 + px * size + 0.02 * 1400);
+  (p.material.map as THREE.Texture).needsUpdate = true;
+  return p;
 }

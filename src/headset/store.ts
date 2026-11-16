@@ -1,7 +1,7 @@
 import type { Card } from 'ts-fsrs';
 import { cardFrom, dueAt, recallProbability } from '../core/model';
-import { newStreak, type StreakState } from '../core/streak';
-import type { Memory, Review } from '../shared/types';
+import { newStreak, recordFullSession, recordRecall, type StreakState } from '../core/streak';
+import type { Goal, Memory, Review } from '../shared/types';
 
 export interface Settings {
   /** Dwell-to-select, no gestures required. */
@@ -15,6 +15,16 @@ export interface Settings {
   clockOffset: number;
 }
 
+interface CloudState {
+  /** Device token from the Atrium API; absent until first contact (the app works offline without it). */
+  token?: string;
+  cursor: number;
+  dirtyMemories: string[];
+  pendingReviews: string[];
+  streakEvents: { type: 'recall' | 'session'; day: string }[];
+  goals: Goal[];
+}
+
 interface SaveData {
   v: 1;
   memories: Memory[];
@@ -22,6 +32,7 @@ interface SaveData {
   streak: StreakState;
   onboarded: boolean;
   settings: Settings;
+  cloud: CloudState;
 }
 
 const KEY = 'atrium:v1';
@@ -33,11 +44,30 @@ const fresh = (): SaveData => ({
   streak: newStreak(),
   onboarded: false,
   settings: { gazeOnly: false, narration: true, answerLang: 'ja-JP', twistLang: 'en-US', clockOffset: 0 },
+  cloud: { cursor: 0, dirtyMemories: [], pendingReviews: [], streakEvents: [], goals: [] },
 });
+
+/** Older saves predate review ids, per-memory questions and the cloud block. */
+function migrate(d: SaveData, hadCloud: boolean): SaveData {
+  d.cloud = { ...fresh().cloud, ...d.cloud };
+  // A save from before sync existed: everything in it still needs uploading once.
+  if (!hadCloud) d.cloud.dirtyMemories = d.memories.map((m) => m.id);
+  for (const r of d.reviews) {
+    if (!r.id) {
+      r.id = crypto.randomUUID();
+      d.cloud.pendingReviews.push(r.id);
+    }
+  }
+  for (const m of d.memories) {
+    m.question ??= `What is "${m.cue}" in Japanese?`;
+    m.lang ??= 'ja-JP';
+  }
+  return d;
+}
 
 /**
  * Local, offline-first store. Reviews are append-only and FSRS cards are derived from them,
- * so the future sync layer only has to upload new reviews.
+ * so sync only uploads new reviews and dirty memories.
  * ponytail: localStorage JSON. Fine for hundreds of memories; move to IndexedDB past a few MB.
  */
 export class Store {
@@ -50,7 +80,7 @@ export class Store {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as SaveData;
-        if (parsed.v === 1) this.data = { ...fresh(), ...parsed, settings: { ...fresh().settings, ...parsed.settings } };
+        if (parsed.v === 1) this.data = migrate({ ...fresh(), ...parsed, settings: { ...fresh().settings, ...parsed.settings } }, !!parsed.cloud);
       }
     } catch {
       // Private mode or corrupt data: start fresh rather than crash.
@@ -65,6 +95,7 @@ export class Store {
     }
   }
 
+  /** Full local wipe, including the device token: the next contact creates a fresh account. */
   reset() {
     this.data = fresh();
     this.cards.clear();
@@ -92,12 +123,52 @@ export class Store {
 
   addMemory(m: Memory) {
     this.data.memories.push(m);
+    this.data.cloud.dirtyMemories.push(m.id);
     this.save();
   }
 
-  addReview(r: Review) {
-    this.data.reviews.push(r);
+  addReview(r: Omit<Review, 'id'>): Review {
+    const review = { ...r, id: crypto.randomUUID() };
+    this.data.reviews.push(review);
+    this.data.cloud.pendingReviews.push(review.id);
     this.cards.delete(r.memoryId);
+    this.save();
+    return review;
+  }
+
+  /** Streak changes apply locally at once and are replayed on the server at the next sync. */
+  streakRecall(day: string) {
+    this.data.streak = recordRecall(this.data.streak, day);
+    this.data.cloud.streakEvents.push({ type: 'recall', day });
+    this.save();
+  }
+
+  streakSession(day: string) {
+    this.data.streak = recordFullSession(this.data.streak, day);
+    this.data.cloud.streakEvents.push({ type: 'session', day });
+    this.save();
+  }
+
+  /** Merge a sync response: add what's new from other devices, adopt the server's streak. */
+  merge(res: { memories: Memory[]; reviews: Review[]; cursor: number; streak: StreakState }, sent: { memories: string[]; reviews: string[]; events: number }) {
+    const c = this.data.cloud;
+    c.dirtyMemories = c.dirtyMemories.filter((id) => !sent.memories.includes(id));
+    c.pendingReviews = c.pendingReviews.filter((id) => !sent.reviews.includes(id));
+    c.streakEvents = c.streakEvents.slice(sent.events);
+    const haveM = new Set(this.data.memories.map((m) => m.id));
+    for (const m of res.memories) if (!haveM.has(m.id)) this.data.memories.push(m);
+    const haveR = new Set(this.data.reviews.map((r) => r.id));
+    for (const r of res.reviews) {
+      if (!haveR.has(r.id)) {
+        this.data.reviews.push(r);
+        this.cards.delete(r.memoryId);
+      }
+    }
+    c.cursor = res.cursor;
+    // Server streak already includes our events (or adopted ours); replay any queued since on top of it.
+    let streak = res.streak;
+    for (const e of c.streakEvents) streak = e.type === 'session' ? recordFullSession(streak, e.day) : recordRecall(streak, e.day);
+    this.data.streak = streak;
     this.save();
   }
 

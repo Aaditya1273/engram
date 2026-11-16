@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#120d09" />
+    <title>Atrium Companion</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2710%27 fill=%27%23ffcf7a%27/%3E%3C/svg%3E" />
+    <style>
+      :root {
+        --bg: #120d09; --panel: #1f1710; --line: #3a2a1a; --fg: #f6ead6; --muted: #bfae96;
+        --accent: #ffcf7a; --accent-ink: #2a1a0a; --ok: #8fd18a; --bad: #f08a7a;
+        color-scheme: dark;
+      }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          --bg: #faf5ee; --panel: #ffffff; --line: #e6d9c6; --fg: #2a1d12; --muted: #6e5c48;
+          --accent: #b8741a; --accent-ink: #ffffff; --ok: #2f7a2a; --bad: #b0402f; color-scheme: light;
+        }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+      main { max-width: 40rem; margin: 0 auto; padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 16px; }
+      h1 { font-size: 1.25rem; letter-spacing: 0.12em; color: var(--accent); margin: 0; }
+      h2 { font-size: 1.05rem; margin: 0 0 8px; }
+      .ember { font-weight: 600; white-space: nowrap; }
+      section { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+      section[hidden] { display: none; }
+      p.muted, .muted { color: var(--muted); font-size: 0.92rem; }
+      label { display: block; font-size: 0.85rem; color: var(--muted); margin: 10px 0 4px; }
+      input, textarea, select { width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+      textarea { min-height: 9rem; resize: vertical; }
+      input:focus, textarea:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      button { font: inherit; border-radius: 999px; padding: 10px 18px; border: 1px solid var(--line); background: transparent; color: var(--fg); cursor: pointer; min-height: 44px; }
+      button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+      button.danger { color: var(--bad); border-color: currentColor; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+      .row > input { flex: 1; min-width: 8rem; }
+      ul.list { list-style: none; padding: 0; margin: 8px 0 0; }
+      ul.list li { padding: 10px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+      ul.list li:first-child { border-top: 0; }
+      .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 6px; }
+      .bar > i { display: block; height: 100%; background: var(--accent); }
+      pre { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow-x: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
+      .status { min-height: 1.5em; margin-top: 8px; font-size: 0.92rem; }
+      .ok { color: var(--ok); } .bad { color: var(--bad); }
+      nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; gap: 4px; background: var(--panel); border-top: 1px solid var(--line); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+      nav button { border: 0; border-radius: 12px; padding: 8px 12px; font-size: 0.9rem; color: var(--muted); }
+      nav button[aria-current="page"] { color: var(--accent); background: var(--bg); }
+      #map { display: block; margin: 8px auto; width: 100%; max-width: 260px; }
+      .answer-big { font-size: 1.4rem; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>ATRIUM</h1>
+        <span class="ember" id="ember" aria-live="polite"></span>
+      </header>
+
+      <section id="pair">
+        <h2>Connect to your palace</h2>
+        <p class="muted">In the headset, open <b>Settings → Connect phone</b> and scan the code, or type the 6-letter code here.</p>
+        <div class="row">
+          <input id="pair-code" inputmode="text" autocomplete="one-time-code" maxlength="8" placeholder="ABC234" aria-label="Pairing code" />
+          <button class="primary" id="pair-btn">Connect</button>
+        </div>
+        <div class="status" id="pair-status" role="status"></div>
+      </section>
+
+      <section id="tab-capture" hidden>
+        <h2>Remember this</h2>
+        <p class="muted">Paste notes or a list. Atrium drafts memory scenes; they wait in your headset inbox until you co-create them.</p>
+        <label for="cap-text">What to remember</label>
+        <textarea id="cap-text" placeholder="neko - cat&#10;inu - dog&#10;or a paragraph of notes…"></textarea>
+        <label for="cap-topic">Topic (optional)</label>
+        <input id="cap-topic" placeholder="Japanese, Cranial nerves…" />
+        <label for="cap-goal">Goal (optional)</label>
+        <select id="cap-goal"><option value="">None</option></select>
+        <div class="row"><button class="primary" id="cap-btn">Send to inbox</button></div>
+        <div class="status" id="cap-status" role="status"></div>
+      </section>
+
+      <section id="tab-walk" hidden>
+        <h2>Mental walk</h2>
+        <p class="muted">Picture each alcove, type the answer, and Atrium checks it. One minute keeps your ember streak alive.</p>
+        <div id="walk-setup">
+          <label for="walk-topic">Wing</label>
+          <select id="walk-topic"></select>
+          <div class="row"><button class="primary" id="walk-start">Start walk</button></div>
+        </div>
+        <div id="walk-run" hidden>
+          <svg id="map" viewBox="-110 -110 220 220" role="img" aria-label="Top-down map of your palace"></svg>
+          <p id="walk-q" class="answer-big"></p>
+          <div class="row">
+            <input id="walk-a" autocomplete="off" autocapitalize="off" aria-label="Your answer" />
+            <button class="primary" id="walk-check">Check</button>
+          </div>
+          <div class="status" id="walk-status" role="status"></div>
+          <p class="muted" id="walk-timer"></p>
+        </div>
+      </section>
+
+      <section id="tab-goals" hidden>
+        <h2>Goals</h2>
+        <ul class="list" id="goal-list"></ul>
+        <label for="goal-name">New goal</label>
+        <input id="goal-name" placeholder="JLPT N5" />
+        <label for="goal-date">Deadline</label>
+        <input id="goal-date" type="date" />
+        <div class="row"><button class="primary" id="goal-btn">Add goal</button></div>
+        <div class="status" id="goal-status" role="status"></div>
+      </section>
+
+      <section id="tab-agents" hidden>
+        <h2>Connected agents</h2>
+        <p class="muted">Give an AI agent its own key. It can add things to your inbox and ask what you already know. Revoke it any time.</p>
+        <ul class="list" id="agent-list"></ul>
+        <label for="agent-name">Agent name</label>
+        <input id="agent-name" placeholder="My study assistant" />
+        <label for="agent-scope">Access</label>
+        <select id="agent-scope">
+          <option value="read,write">Read and write</option>
+          <option value="write">Write only (add to inbox)</option>
+          <option value="read">Read only (what I know)</option>
+        </select>
+        <div class="row"><button class="primary" id="agent-btn">Create key</button></div>
+        <div id="agent-new" hidden>
+          <p class="ok">Copy this now. It won't be shown again.</p>
+          <pre id="agent-config"></pre>
+          <div class="row"><button id="agent-copy">Copy config</button></div>
+        </div>
+        <h2 style="margin-top:20px">Your data</h2>
+        <div class="row">
+          <button id="export-btn">Export everything</button>
+          <button class="danger" id="delete-btn">Delete account</button>
+        </div>
+        <div class="status" id="data-status" role="status"></div>
+      </section>
+    </main>
+    <nav id="nav" hidden aria-label="Sections">
+      <button data-tab="capture" aria-current="page">Capture</button>
+      <button data-tab="walk">Walk</button>
+      <button data-tab="goals">Goals</button>
+      <button data-tab="agents">Agents</button>
+    </nav>
+    <script type="module" src="/src/companion/main.ts"></script>
+  </body>
+</html>

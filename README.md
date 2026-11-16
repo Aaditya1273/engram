@@ -13,8 +13,7 @@ You co-create every memory with an AI agent, write it with your own gesture, and
 
 </div>
 
-> **Build status (Nov 2026):** the offline headset core is playable: the first five minutes, co-created scenes, gesture signatures, FSRS-driven lanterns, graded recall by voice + gesture, no-backlog daily sessions, comeback walk, ember streaks, gaze-only mode, captions. It runs in the Quest browser and on desktop.
-> **Not built yet:** cloud API, sync, MCP server, AI scene drafting, phone companion. Sections describing them are the design, marked *(planned)*.
+> **Build status (Nov 2026):** headset, cloud API, sync, AI scene drafting, MCP server and phone companion are built and tested end to end on desktop (35 unit/integration tests plus browser walkthroughs). **Not yet:** a Quest 3 device pass (frame timing, hand-tracking thresholds, Quest-browser speech), room mode, extra wings beyond 20 alcoves. Anything still unbuilt is marked *(planned)*.
 
 ---
 
@@ -91,7 +90,7 @@ AI agents now find and summarise everything for us. That multiplies what we're e
 
 ## Try it (for judges)
 
-> *(Deployment pending: until then, run it locally; see [Getting started](#getting-started-developers).)*
+> *(Deployment URL pending: until then, run it locally; see [Getting started](#getting-started-developers).)*
 
 Atrium runs in the Meta Quest browser. No install, no controllers and no account needed.
 
@@ -99,7 +98,7 @@ Atrium runs in the Meta Quest browser. No install, no controllers and no account
 2. Open the browser and go to **`<your-deployment-url>`**.
 3. Press **Enter VR**, put the controllers down and raise your hands.
 4. Follow the narrator. In about five minutes you'll learn six Japanese words and recall them.
-5. *(planned)* **To try the agent:** on a phone or laptop, open **`<your-deployment-url>/companion`** and sign in with the demo key printed on the welcome screen. Type a topic (for example *"the 12 cranial nerves"*) and watch the items arrive in the headset inbox.
+5. **To try capture and agents:** in the headset open **Settings → Connect phone**. On a phone or laptop open **`<your-deployment-url>/companion.html`** and type the 6-letter code (the QR works when the headset view is cast). Paste a list (for example *"CN I – olfactory"*, one per line) and watch **Inbox** appear in the headset within ~15 s. Under **Agents**, create a key and paste the MCP config into any MCP client.
 
 > **If hands aren't detected:** hold both hands in front of the headset for two seconds. If tracking still doesn't start, pinch once or restart the headset. This is a known Quest wake-from-sleep issue.
 
@@ -175,8 +174,8 @@ Relighting a flickering lantern with a correct recall plays a warm chime and a b
 ### 4. No-backlog sessions
 Each session has a fixed time budget (7 minutes by default). Atrium ranks due memories by how close they are to being forgotten, weighted by your goal and deadline, and fills only that budget. Overflow is spread across the coming days. After three or more missed days, a **Comeback walk** shows only the 10 most important fading memories, with no due count shown.
 
-### 5. Readiness score *(planned)*
-Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium forecasts what share of that goal you'll recall on the day, and sets the daily load needed to hit your target.
+### 5. Readiness score
+Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium gives two honest numbers from the same FSRS model: what share of the goal you'd recall on the day **if you stopped today**, and the **reviews per day** that keep every goal memory at the retention target until then (simulated forward with FSRS). Goal memories also get deadline urgency in session triage.
 
 ### 6. Habit system
 
@@ -191,20 +190,20 @@ Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium forecasts what share of 
 
 **Guardrails:** no paid streak protection, no loot boxes, at most one notification a day, and a gentle stop after 20 minutes.
 
-### 7. Phone companion *(planned)*
-Capture from anywhere, and keep the streak alive with a 60-second **mental walk**: recall one wing of your palace from a top-down map, then check your answers.
+### 7. Phone companion
+`/companion.html`, paired with the headset by a 6-letter code. Capture text into the inbox (optionally for a goal), keep the streak alive with a 60-second **mental walk** (a top-down map of one wing; type each answer and Atrium grades it against the stored answers, never self-rated), see goals with readiness, manage connected agents, and export or delete your data.
 
 ### 8. Room mode *(planned, optional)*
 Pin memories to real objects you can see from your chair (a lamp, a shelf, the window) using spatial anchors, so your real room can cue recall after the headset comes off. The virtual palace stays the default.
 
-### 9. Wind-down mode *(planned, optional)*
-A low-light walk through the day's new memories before bed.
+### 9. Wind-down mode *(optional)*
+A low-light, ungraded walk through the day's new memories before bed (**Settings → More → Wind-down walk**).
 
 ---
 
 ## Architecture
 
-*The headset half below is built. The cloud half is planned.*
+*All of this is built; the cloud is optional, and the headset never waits for it.*
 
 One web project holds the headset app, the API, the MCP server and the companion page, deployed to a single URL.
 
@@ -253,10 +252,10 @@ flowchart LR
 | Speech | Web Speech API (recognition in `ja-JP`, narration via speech synthesis) | Spoken answers and twists; pinchable fallback when missing |
 | Audio | Web Audio, synthesised | No audio files to download |
 | 3D assets | Procedural low-poly prop kit (three.js primitives) | Zero downloads, so the first five minutes work offline. Swap in a CC0 glTF kit later; the scene JSON doesn't change. |
-| AI pipeline *(planned)* | Any LLM with structured JSON output | Providers can be swapped |
-| Hosting *(planned)* | Vercel (static app + API routes + MCP endpoint) | One deploy, one URL |
-| Database *(planned)* | Postgres (e.g. Neon) | Memories, review logs, gesture signatures |
-| MCP *(planned)* | MCP TypeScript SDK over remote HTTP | Any MCP client can connect |
+| AI pipeline | Claude (`claude-opus-5-5`) with structured outputs (Zod schema) + server-side refusal fallback | One call drafts every item and its three scenes; output is clamped to the prop kit. Without a key, an offline line-based drafter takes over. |
+| Hosting | Vercel: static app + one function for `/api/*` (Web-standard `fetch` handler) | One deploy, one URL |
+| Database | Postgres: Neon in production, PGlite (Postgres in WASM) locally and in tests | Same SQL everywhere; no ORM |
+| MCP | MCP TypeScript SDK, stateless Streamable HTTP | Any MCP client connects with a per-agent key |
 
 ---
 
@@ -280,20 +279,36 @@ atrium/
 │   │   ├── palace.ts           # room, 20 alcoves, lanterns, snap-and-fade turning
 │   │   ├── input.ts            # gaze + pinch, flick, dwell, hand-joint gesture features
 │   │   ├── stage.ts            # captions, buttons, scene cards, pause: awaitable steps
-│   │   ├── flows.ts            # first five minutes, graded recall, daily session
+│   │   ├── flows.ts            # first five minutes, recall, daily session, inbox, capture, pairing, wind-down
+│   │   ├── cloud.ts            # API client; fails soft to offline
+│   │   ├── layout.ts           # palace layout constants (shared with the companion map)
 │   │   ├── scene-builder.ts    # scene JSON → 3D group, desaturation
-│   │   ├── store.ts            # offline store (review log is the source of truth)
+│   │   ├── store.ts            # offline store + sync queue (review log is the source of truth)
 │   │   ├── speech.ts           # recognition + narration, with fallbacks
 │   │   ├── audio.ts            # synthesised chimes
 │   │   └── ui.ts               # canvas-text panels and buttons
+│   ├── companion/main.ts       # phone page: pair, capture, mental walk, goals, agents, data
 │   └── shared/
-│       ├── types.ts            # Memory, Review, SceneSpec, GestureSignature
-│       ├── props.ts            # procedural prop kit
+│       ├── types.ts            # Memory, Review, SceneSpec, InboxItem, Goal
+│       ├── props.ts            # procedural prop kit (three.js)
+│       ├── props-catalog.ts    # prop ids only (server-safe)
 │       └── deck-ja.ts          # preset 6-word Japanese deck (ships offline)
-└── tests/core.test.ts          # gesture, grading, FSRS, triage, streak, answers, deck schema
+├── companion.html              # phone companion page
+├── server/
+│   ├── routes.ts               # the whole REST API as one fetch handler
+│   ├── mcp.ts                  # MCP server: 6 tools, per-agent keys and scopes
+│   ├── pipeline.ts             # Claude drafting (structured outputs) + offline drafter
+│   ├── knowledge.ts            # due / known / gaps / readiness from the review log
+│   ├── ops.ts                  # data operations shared by REST and MCP
+│   ├── auth.ts                 # hashed tokens, scopes, rate limits
+│   └── db.ts                   # schema; Neon in prod, PGlite locally and in tests
+├── api/index.ts                # Vercel function entry (all /api/* rewrite here)
+├── vite.config.ts              # mounts the API in the dev server; builds both pages
+├── vercel.json
+└── tests/
+    ├── core.test.ts            # gesture, grading, FSRS, triage, streak, answers, deck schema
+    └── server.test.ts          # pairing, capture, sync, isolation, MCP over HTTP, privacy
 ```
-
-Planned: `api/` (memories, sync, goals, MCP), `api/pipeline/` (extract, draft scenes), `db/schema.sql`, `src/companion/`.
 
 ---
 
@@ -311,10 +326,11 @@ git clone https://github.com/<your-org>/atrium.git
 cd atrium
 npm install
 
-npm run dev                   # Vite dev server on your LAN
+cp .env.example .env          # optional: ANTHROPIC_API_KEY for AI drafting, DATABASE_URL for Neon
+npm run dev                   # headset app + companion + API + MCP on one dev server
 ```
 
-Open the printed URL and press **Try on desktop**. Useful URL flags:
+Open the printed URL and press **Try on desktop**; the companion is at `/companion.html`. With no `.env`, the API stores data in embedded Postgres under `.data/` and drafts with the offline line-based drafter. Useful URL flags:
 
 | Flag | Effect |
 | --- | --- |
@@ -326,8 +342,15 @@ Open the printed URL and press **Try on desktop**. Useful URL flags:
 
 The Quest browser needs **HTTPS** to enter VR. Either:
 
-- deploy a preview build (`npm run deploy:preview`) and open its URL in the headset, or
-- tunnel your local server over HTTPS and open the tunnel URL in the Quest browser.
+- deploy a preview (`npx vercel`) and open its URL in the headset, or
+- run `npm run dev -- --host`, tunnel it over HTTPS, and open the tunnel URL in the Quest browser.
+
+### Deploy (Vercel + Neon)
+
+1. Create a Neon Postgres database and copy its connection string.
+2. Import the repo in Vercel (framework preset: *Other*; `vercel.json` sets the build and the `/api` rewrite).
+3. Set `DATABASE_URL` and `ANTHROPIC_API_KEY` (and optionally `PUBLIC_BASE_URL`). Tables are created on the first request.
+4. Deploy. The headset app is `/`, the companion `/companion.html`, the MCP endpoint `/api/mcp`.
 
 ### Useful scripts
 
@@ -336,28 +359,27 @@ The Quest browser needs **HTTPS** to enter VR. Either:
 | `npm run dev` | Local dev server with hot reload |
 | `npm run build` | Type-check + production build |
 | `npm run preview` | Serve the production build |
-| `npm run test` | Unit tests (gesture matcher, grading, FSRS, triage, streak, answers, deck schema) |
+| `npm run test` | Unit + integration tests (core logic; API, sync and MCP against an in-memory Postgres) |
 | `npm run lint` | Type-check |
 
 ---
 
 ## Environment variables
 
-None needed for the headset core. Planned for the cloud half:
+All optional locally (see `.env.example`).
 
-| Variable | Required | Description |
+| Variable | Needed in production | Description |
 | --- | :---: | --- |
-| `DATABASE_URL` | ✅ | Postgres connection string |
-| `LLM_API_KEY` | ✅ | Key for the scene-drafting model |
-| `LLM_MODEL` | ✅ | Model identifier used by the pipeline |
-| `SESSION_SECRET` | ✅ | Secret for signing sessions and API keys |
-| `ATRIUM_DEMO_API_KEY` | ✅ | Key for the pre-connected judge demo account |
-| `STT_API_KEY` | ⬜ | Cloud speech-to-text fallback, if Web Speech isn't available |
-| `PUBLIC_BASE_URL` | ⬜ | Base URL for QR pairing links |
+| `DATABASE_URL` | ✅ | Postgres connection string (e.g. Neon). Unset → embedded PGlite in `.data/` |
+| `ANTHROPIC_API_KEY` | ✅ | Claude for scene drafting and free-form twists. Unset → offline drafter |
+| `PUBLIC_BASE_URL` | ⬜ | Origin used in pairing links and MCP URLs when behind a proxy |
+| `PGLITE_DIR` | ⬜ | Where the local embedded database lives (default `.data/pglite`) |
+
+No signing secret is needed: device and agent tokens are random 192-bit values stored only as SHA-256 hashes.
 
 ---
 
-## MCP server for AI agents *(planned)*
+## MCP server for AI agents
 
 Atrium exposes a remote **Model Context Protocol** server, so any MCP-compatible agent can **write** things you need to remember and **read** what you already know.
 
@@ -374,24 +396,24 @@ Atrium exposes a remote **Model Context Protocol** server, so any MCP-compatible
 }
 ```
 
-Generate a key in the companion page under **Settings → Connected agents**. Each key has its own scopes and can be revoked at any time.
+Create a key in the companion under **Agents** (read + write, write-only, or read-only); it shows the config above, filled in, once. Keys are revocable at any time, and writes are rate-limited (30 per hour per key).
 
 ### Tools
 
 | Tool | Scope | Description |
 | --- | --- | --- |
 | `add_memories` | write | Send text or facts, with an optional topic and goal. Items wait in your inbox until you co-create them. |
-| `create_goal` | write | Create a goal with a deadline; it gets its own wing. |
+| `create_goal` | write | Create a goal with a deadline. |
 | `list_due` | read | What's fading today and how long the session will take. |
 | `get_known` | read | Facts in a topic you reliably recall (> 90% predicted). |
 | `get_gaps` | read | Facts in a goal you're most likely to forget, ranked. |
-| `get_readiness` | read | Forecast recall for a goal on its deadline. |
+| `get_readiness` | read | Recall on the deadline if the user stops today, and the reviews/day that keep them on track. |
 
 ### Example
 
 ```text
 You → agent:  "Add the 12 cranial nerves to my Atrium for my anatomy exam."
-Agent → add_memories({ topic: "Cranial nerves", goal: "Anatomy block", items: [...] })
+Agent → add_memories({ topic: "Cranial nerves", goal: "Anatomy block", facts: ["CN I – olfactory", …] })
 Atrium → 12 items appear in your headset inbox, ready to co-create.
 ```
 
@@ -401,36 +423,17 @@ Atrium → 12 items appear in your headset inbox, ready to co-create.
 
 ## Data model
 
-Built today: the same shapes in `src/shared/types.ts`, stored locally. FSRS state isn't stored; it is replayed from the append-only review log, so syncing will just merge new reviews. Planned Postgres schema:
+FSRS state is never stored: it is replayed from the append-only review log on every device, so sync is a merge of new reviews (idempotent by client-generated id) plus upserted memories. Full schema in `server/db.ts`; simplified:
 
 ```sql
--- simplified
-memories (
-  id            uuid primary key,
-  user_id       uuid,
-  fact          text,          -- what to remember
-  answer        text,          -- what recall is checked against
-  mnemonic      text,          -- one-line hook
-  scene         jsonb,         -- chosen props, positions, colours
-  twist         text,          -- the user's personal detail
-  gesture       jsonb,         -- recorded joint paths (2 enrolments)
-  topic         text,
-  goal_id       uuid,
-  created_at    timestamptz
-)
-
-reviews (
-  id            uuid primary key,
-  memory_id     uuid,
-  reviewed_at   timestamptz,
-  result        text,          -- again | hard | good | easy (derived)
-  answer_ok     boolean,       -- spoken answer matched
-  gesture_score real,          -- DTW similarity, 0–1
-  latency_ms    integer
-)
-
-goals (id uuid, user_id uuid, name text, deadline date, target real)
-agents (id uuid, user_id uuid, name text, scopes text[], key_hash text, revoked boolean)
+users       (id, streak jsonb)
+tokens      (id, user_id, kind device|agent, name, scopes text[], hash, revoked, last_used_at)
+pairings    (code, user_id, expires_at)                  -- one-time, 10 minutes
+goals       (id, user_id, name, deadline date, target)
+inbox       (id, user_id, source voice|phone|agent, status new|placed|discarded, goal_id, item jsonb)
+memories    (user_id, id, topic, goal_id, data jsonb)    -- question, answers, scene, twist, gesture paths, slot
+reviews     (user_id, id, memory_id, at, data jsonb, seq) -- grade, answer_ok, gesture_score, latency, source
+rate_limits (token_id, window_start, count)
 ```
 
 ---
@@ -502,11 +505,14 @@ Brightness follows the live recall probability on the FSRS-6 forgetting curve, c
 
 What you know is personal data, and Atrium treats it that way.
 
-- **Per-agent keys and scopes** (write-only, one goal, or everything), revocable from the headset or phone.
-- **Nothing enters your palace without you:** every import waits in the inbox until you co-create it.
-- **Rate limits** on all write tools.
+- **Per-agent keys and scopes** (read + write, write-only, read-only), revocable from the phone; tokens are stored only as SHA-256 hashes and shown once.
+- **Nothing enters your palace without you:** every import waits in the inbox until you co-create it in the headset.
+- **Prompt-injection hygiene:** captured text is passed to the model as data, never as instructions, and model output is validated: unknown props dropped, every number clamped, exactly three scenes.
+- **Rate limits** on writes (30/hour per agent key), input size limits, schema validation on every request body.
+- **Every query is scoped to the caller's user**; tests check that one account can't see another's.
 - **Gesture recordings** are stored only as normalised joint paths, never as video.
-- **Export and delete:** download all your data or delete your account at any time.
+- **Export and delete:** download everything as JSON or delete your account (cascades to all data and tokens) from the phone, or erase from the headset.
+- **Works offline:** the headset never needs the cloud to review.
 
 ---
 
@@ -530,14 +536,16 @@ Every core feature rests on published work. These are the studies' own results, 
 ## Roadmap
 
 - [x] Concept, research and design
-- [x] **Headset core:** palace, first five minutes, co-creation (offline twist), gesture signature, dimming lanterns, graded recall, no-backlog sessions, comeback walk, streaks with freezes and repair, gaze-only mode, captions
+- [x] **Headset core:** palace, first five minutes, co-creation, gesture signature, dimming lanterns, graded recall, no-backlog sessions, comeback walk, streaks with freezes and repair, gaze-only mode, captions
+- [x] **Cloud:** API, offline-first sync, AI scene drafting (Claude, with an offline fallback), voice capture, inbox co-creation, pairing
+- [x] **MCP server:** `add_memories`, `create_goal`, `list_due`, `get_known`, `get_gaps`, `get_readiness`
+- [x] Readiness score and goals
+- [x] Phone companion with graded mental walk
+- [x] Wind-down mode
 - [ ] Device pass on Quest 3: frame timing, hand-tracking thresholds, Quest-browser speech recognition
-- [ ] Cloud: API, sync, AI scene drafting, voice/QR capture, `add_memories`
-- [ ] Readiness score and goals
-- [ ] `get_known` / `get_gaps` read tools
-- [ ] Phone companion with mental walk
+- [ ] Deploy (Vercel + Neon) and record the demo video
+- [ ] Wings beyond 20 alcoves
 - [ ] Room mode (spatial anchors)
-- [ ] Wind-down mode
 - [ ] Creator palaces and revenue share
 - [ ] Launch alongside **Meta VR Glasses (spring 2027)**
 

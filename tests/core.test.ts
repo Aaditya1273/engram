@@ -80,8 +80,8 @@ describe('grading', () => {
 describe('FSRS model', () => {
   const t0 = Date.UTC(2026, 0, 1);
   const card = cardFrom([
-    { memoryId: 'm', at: t0, grade: 'good', answerOk: true, gestureScore: null, latencyMs: 0 },
-    { memoryId: 'm', at: t0 + 180_000, grade: 'good', answerOk: true, gestureScore: 1, latencyMs: 1500 },
+    { id: 'a', memoryId: 'm', at: t0, grade: 'good', answerOk: true, gestureScore: null, latencyMs: 0 },
+    { id: 'b', memoryId: 'm', at: t0 + 180_000, grade: 'good', answerOk: true, gestureScore: 1, latencyMs: 1500 },
   ], t0);
 
   it('decays smoothly within a day and passes the retention target at the due date', () => {
@@ -171,6 +171,12 @@ describe('answer matching', () => {
     expect(answerMatches(['ネコです'], JA_STARTER[0].answers)).toBe(true);
     expect(answerMatches(['Necko'], JA_STARTER[0].answers)).toBe(true);
     expect(answerMatches(['hon.'], JA_STARTER[4].answers)).toBe(true);
+  });
+
+  it('finds multi-word answers inside a sentence', () => {
+    expect(answerMatches(["it's the vagus nerve"], ['vagus nerve'])).toBe(true);
+    expect(answerMatches(['olfactori'], ['olfactory'])).toBe(true);
+    expect(answerMatches(['optic nerve'], ['vagus nerve'])).toBe(false);
   });
 
   it('rejects wrong answers and slips on short words', () => {

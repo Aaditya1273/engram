@@ -2,12 +2,14 @@ import { answerMatches } from '../core/answer';
 import { enrol, match } from '../core/gesture';
 import { gradeRecall } from '../core/grade';
 import { DESIRED_RETENTION } from '../core/model';
-import { canRepair, dayKey, daysBetween, recordFullSession, recordRecall, rollover } from '../core/streak';
+import { canRepair, dayKey, daysBetween, rollover } from '../core/streak';
 import { planSession } from '../core/triage';
 import { applyTwist, isEmptyTwist, parseTwist } from '../core/twist';
 import { JA_STARTER } from '../shared/deck-ja';
-import type { DeckItem, GestureSignature, Memory, SceneSpec } from '../shared/types';
+import type { DeckItem, GestureSignature, InboxItem, Memory, SceneSpec } from '../shared/types';
 import { play } from './audio';
+import type { Cloud } from './cloud';
+import { SLOT_COUNT } from './palace';
 import type { Input } from './input';
 import type { Palace } from './palace';
 import { listen, speechAvailable } from './speech';
@@ -19,6 +21,7 @@ export interface Ctx {
   palace: Palace;
   input: Input;
   store: Store;
+  cloud: Cloud;
 }
 
 const DAY = 86_400_000;
@@ -48,22 +51,32 @@ async function enrolGesture({ stage, input }: Ctx, hint: string): Promise<Gestur
       return r.signature;
     }
     const why = r.reason === 'still' ? "I didn't see much movement." : 'Those two takes were quite different.';
-    const again = await stage.ask([{ label: 'Try again', value: true }, { label: 'Skip gesture', value: false }]);
     stage.show('Your gesture', why);
+    const again = await stage.ask([{ label: 'Try again', value: true }, { label: 'Skip gesture', value: false }]);
     if (!again) return undefined;
   }
   return undefined;
 }
 
-/** One voice twist, mapped onto the prop kit. Falls back to pinchable twists without speech. */
-async function addTwist({ stage, store }: Ctx, scene: SceneSpec): Promise<{ scene: SceneSpec; twist?: string }> {
-  await stage.say('Make it yours. Say one personal detail, like "give it my red hat" or "add glasses".', 'Add a twist');
+let twistSkips = 0;
+
+/**
+ * One personal twist, mapped onto the prop kit (keyword parser offline, Claude when online).
+ * Guardrail: never let the AI finish the memory alone. After three skips in a row, ask one
+ * personal question instead.
+ */
+async function addTwist({ stage, store, cloud }: Ctx, scene: SceneSpec): Promise<{ scene: SceneSpec; twist?: string }> {
+  const personal = twistSkips >= 3;
+  const prompt = personal
+    ? 'Quick question instead: who or what does this remind you of? Say a colour or a thing they would wear.'
+    : 'Make it yours. Say one personal detail, like "give it my red hat" or "add glasses".';
+  await stage.say(prompt, personal ? 'Make it personal' : 'Add a twist');
   let text = '';
   if (speechAvailable()) {
     stage.show('Add a twist', 'Listening…');
     text = (await listen(store.data.settings.twistLang, 6000).result)[0] ?? '';
   }
-  let twist = parseTwist(text);
+  let twist = text ? await cloud.twist(text, parseTwist(text)) : parseTwist('');
   if (isEmptyTwist(twist)) {
     if (text) stage.show('Add a twist', `I heard "${text}". Pick one instead:`);
     text = await stage.ask([
@@ -74,17 +87,25 @@ async function addTwist({ stage, store }: Ctx, scene: SceneSpec): Promise<{ scen
     ]);
     twist = parseTwist(text);
   }
-  if (isEmptyTwist(twist)) return { scene };
+  if (isEmptyTwist(twist)) {
+    twistSkips++;
+    return { scene };
+  }
+  twistSkips = 0;
   play('light');
   return { scene: applyTwist(scene, twist), twist: text };
 }
 
-function placeMemory(ctx: Ctx, item: DeckItem, scene: SceneSpec, slot: number, gesture?: GestureSignature, twist?: string): Memory {
+function placeMemory(
+  ctx: Ctx, item: DeckItem, scene: SceneSpec, slot: number, gesture?: GestureSignature, twist?: string,
+  where: { topic: string; goalId?: string } = { topic: 'Japanese starter' },
+): Memory {
   const { store, palace } = ctx;
   const now = store.now();
   const m: Memory = {
-    id: item.id, cue: item.cue, answers: item.answers, display: item.display, mnemonic: scene.mnemonic, scene,
-    twist, gesture, topic: 'Japanese starter', goalWeight: 1, slot, createdAt: now,
+    id: item.id, cue: item.cue, question: item.question, lang: item.lang, answers: item.answers, display: item.display,
+    mnemonic: scene.mnemonic, scene, twist, gesture, topic: where.topic, goalId: where.goalId,
+    goalWeight: where.goalId ? 1.5 : 1, slot, createdAt: now,
   };
   store.addMemory(m);
   // Encoding counts as the first successful study; FSRS then schedules the learning steps.
@@ -115,7 +136,7 @@ export async function recallOne(ctx: Ctx, m: Memory, others: Memory[]): Promise<
   const alcove = palace.alcoves[m.slot];
   alcove.setVeiled(true);
   const doGesture = !!m.gesture && input.canGesture && m.gesture.modality === input.modality;
-  const prompt = `What is "${m.cue}" in Japanese?`;
+  const prompt = m.question;
   let t0 = performance.now();
   let answerOk = false, revealed = false, heard: string[] = [];
   // Held in an object: it's assigned inside a promise callback, which TS narrowing can't see.
@@ -127,7 +148,7 @@ export async function recallOne(ctx: Ctx, m: Memory, others: Memory[]): Promise<
     for (let tries = 0; tries < 2 && !revealed && !answerOk; tries++) {
       const watching = input.modality === 'hands' ? 'watching your hands' : 'watching your gesture';
       stage.show(prompt, doGesture ? `Listening… and ${watching}.` : 'Listening…');
-      const l = listen(store.data.settings.answerLang, 6000);
+      const l = listen(m.lang ?? store.data.settings.answerLang, 6000);
       stage.offer([{ label: 'Show me', onSelect: () => { revealed = true; l.stop(); } }]);
       const capture = doGesture && tries === 0 ? input.captureGesture(RECALL_GESTURE_MS) : null;
       [heard] = await Promise.all([l.result, capture?.then((r) => (g.result = match(m.gesture!, r.frames, r.modality)))]);
@@ -236,10 +257,10 @@ export async function firstFive(ctx: Ctx) {
 
   // 4:15 – the payoff and the daily promise.
   await palace.focus(2.5);
-  const today = dayKey(store.now());
-  store.data.streak = recordFullSession(store.data.streak, today);
+  store.streakSession(dayKey(store.now()));
   store.data.onboarded = true;
   store.save();
+  void ctx.cloud.sync();
   await stage.say(
     `${score >= 5 ? 'Brilliant. ' : ''}You remembered ${score} of ${placed.length}. Tomorrow I'll check you again, for just a few minutes.`,
     `${score} of ${placed.length}`,
@@ -266,7 +287,10 @@ export function arrive(store: Store): Arrival {
 
 export function dueSummary(store: Store, missedDays: number) {
   const now = store.now();
-  const items = store.data.memories.map((m) => ({ id: m.id, r: store.recall(m, now), due: store.due(m), goalWeight: m.goalWeight }));
+  const deadlines = new Map(store.data.cloud.goals.map((g) => [g.id, new Date(`${g.deadline}T12:00:00`).getTime()]));
+  const items = store.data.memories.map((m) => ({
+    id: m.id, r: store.recall(m, now), due: store.due(m), goalWeight: m.goalWeight, deadline: m.goalId ? deadlines.get(m.goalId) : undefined,
+  }));
   return planSession(items, now, { missedDays });
 }
 
@@ -300,14 +324,13 @@ export async function dailySession(ctx: Ctx, missedDays: number, practiceAnyway 
       repaired.add(m.id);
       queue.splice(Math.min(2, queue.length), 0, m);
     }
-    store.data.streak = recordRecall(store.data.streak, dayKey(store.now()));
-    store.save();
+    store.streakRecall(dayKey(store.now()));
   }
 
   const today = dayKey(store.now());
   const wasBroken = !!store.data.streak.broken;
-  if (queue.length === 0) store.data.streak = recordFullSession(store.data.streak, today);
-  store.save();
+  if (queue.length === 0) store.streakSession(today);
+  void ctx.cloud.sync();
   const s = store.data.streak;
   const tomorrow = store.now() + DAY;
   const dimming = all.filter((m) => store.recall(m, tomorrow) < DESIRED_RETENTION).length;
@@ -333,4 +356,142 @@ export function arrivalMessage(store: Store, missedDays: number): { title: strin
   }
   const min = Math.max(1, Math.round(plan.estimatedSec / 60));
   return { title: `${n} fading`, body: `About ${min} ${min === 1 ? 'minute' : 'minutes'} to relight them.`, due: n };
+}
+
+// ---------------------------------------------------------------- inbox: co-create captured items
+
+/** Up to three new memories per round, each co-created: pick a scene, add a twist, invent a gesture. */
+export async function inboxFlow(ctx: Ctx, items: InboxItem[]) {
+  try {
+    await coCreate(ctx, items);
+  } finally {
+    // Whatever path ended the round (done, "Later", palace full), new memories go up now.
+    void ctx.cloud.sync();
+  }
+}
+
+async function coCreate(ctx: Ctx, items: InboxItem[]) {
+  const { stage, palace, store, cloud } = ctx;
+  for (const entry of items.slice(0, 3)) {
+    const slot = store.nextFreeSlot();
+    if (slot >= SLOT_COUNT) {
+      await stage.say('Your palace is full for now. New wings arrive in a later version.', 'Palace full');
+      return;
+    }
+    const it = entry.item;
+    await palace.focus(slot);
+    const from = entry.source === 'agent' ? 'An agent sent this' : entry.source === 'voice' ? 'You captured this' : 'From your phone';
+    stage.show(`${entry.topic} · ${from}`, `${it.question}\n${it.display}`);
+    const action = await stage.ask([
+      { label: 'Make it a memory', value: 'make' as const },
+      { label: 'Discard', value: 'discard' as const },
+      { label: 'Later', value: 'later' as const },
+    ]);
+    if (action === 'later') return;
+    if (action === 'discard') {
+      await cloud.discard(entry.id);
+      continue;
+    }
+    await stage.say(`${it.question} ${it.display}. Pick the scene that sticks for you.`, it.cue);
+    let scene = it.scenes[await stage.chooseScene(it)];
+    palace.alcoves[slot].setScene(scene);
+    await stage.say(scene.mnemonic, it.cue);
+    let twist: string | undefined;
+    ({ scene, twist } = await addTwist(ctx, scene));
+    palace.alcoves[slot].setScene(scene);
+    const gesture = await enrolGesture(ctx, it.gestureHint);
+    placeMemory(ctx, it, scene, slot, gesture, twist, { topic: entry.topic, goalId: entry.goalId });
+    await cloud.markPlaced(entry.id);
+  }
+}
+
+// ---------------------------------------------------------------- capture: "remember this"
+
+export async function captureFlow(ctx: Ctx) {
+  const { stage, store, cloud } = ctx;
+  if (!speechAvailable()) {
+    await stage.say('Voice capture needs speech recognition. Connect your phone in Settings and type it there instead.', 'Remember this');
+    return;
+  }
+  for (;;) {
+    await stage.say('What do you need to remember? Say it now: a word list, a fact, anything.', 'Remember this');
+    stage.show('Remember this', 'Listening…');
+    const heard = (await listen(store.data.settings.twistLang, 15_000).result)[0]?.trim() ?? '';
+    if (!heard) {
+      const retry = await stage.ask([{ label: 'Try again', value: true }, { label: 'Cancel', value: false }]);
+      if (!retry) return;
+      continue;
+    }
+    stage.show('I heard', `"${heard}"`);
+    const pick = await stage.ask([
+      { label: 'Send', value: 'send' as const },
+      { label: 'Try again', value: 'again' as const },
+      { label: 'Cancel', value: 'cancel' as const },
+    ]);
+    if (pick === 'cancel') return;
+    if (pick === 'again') continue;
+    stage.show('Remember this', cloud.ai ? 'Drafting scenes…' : 'Sending…');
+    try {
+      const r = await cloud.capture(heard);
+      play('light');
+      await stage.say(
+        r.count ? `${r.count} ${r.count === 1 ? 'item is' : 'items are'} waiting in your inbox.` : "I couldn't find a fact in that. Try \"word, dash, meaning\".",
+        'Captured',
+      );
+    } catch {
+      await stage.say("I can't reach the Atrium cloud right now. Nothing was lost: try again when you're online.", 'Offline');
+    }
+    return;
+  }
+}
+
+// ---------------------------------------------------------------- pair the phone companion
+
+export async function pairFlow(ctx: Ctx, showQr: (url: string, code: string) => () => void) {
+  const { stage, cloud } = ctx;
+  if (!(await cloud.connect())) {
+    await stage.say("I can't reach the Atrium cloud, so pairing isn't possible right now.", 'Connect phone');
+    return;
+  }
+  try {
+    const { url, code } = await cloud.pair();
+    const hide = showQr(url, code);
+    stage.show(`Code: ${code}`, `On your phone, open ${new URL(url).host}/companion.html and enter the code. Valid for 10 minutes.`);
+    await stage.ask([{ label: 'Done', value: true }]);
+    hide();
+  } catch {
+    await stage.say('Pairing failed. Please try again.', 'Connect phone');
+  }
+}
+
+/** One line per goal for the home screen: the honest forecast, from the same FSRS model. */
+export function readinessLines(store: Store): string[] {
+  const now = store.now();
+  return store.data.cloud.goals.map((g) => {
+    const mine = store.data.memories.filter((m) => m.goalId === g.id);
+    if (!mine.length) return `${g.name}: no memories yet`;
+    const at = Math.max(now, new Date(`${g.deadline}T12:00:00`).getTime());
+    const r = mine.reduce((s, m) => s + store.recall(m, at), 0) / mine.length;
+    return `${g.name}: ${Math.round(r * 100)}% on ${g.deadline} if you stop today`;
+  });
+}
+
+// ---------------------------------------------------------------- wind-down
+
+/** Low light, slow narration, no grading: walk through today's new memories before bed. */
+export async function windDown(ctx: Ctx) {
+  const { stage, palace, store } = ctx;
+  const today = dayKey(store.now());
+  const fresh = store.data.memories.filter((m) => dayKey(m.createdAt) === today);
+  const walk = fresh.length ? fresh : [...store.data.memories].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
+  if (!walk.length) return;
+  palace.setWarmth(0.25, 2500);
+  await stage.say(fresh.length ? "A quiet walk through today's new memories." : 'A quiet walk through your newest memories.', 'Wind-down');
+  for (const m of walk) {
+    await palace.focus(m.slot);
+    await stage.say(`${m.question} ${m.display}. ${m.mnemonic}`, `${m.display} · ${m.cue}`);
+    await stage.sleep(1200);
+  }
+  await stage.say('Sleep helps memories settle. Good night.', 'Wind-down');
+  palace.setWarmth(1, 2500);
 }

@@ -5,6 +5,8 @@ export const JA_STARTER: DeckItem[] = [
   {
     id: 'ja-neko',
     cue: 'cat',
+    question: 'What is "cat" in Japanese?',
+    lang: 'ja-JP',
     display: 'neko',
     answers: ['neko', 'ねこ', 'ネコ', '猫'],
     gestureHint: 'Stroke a cat along its back',
@@ -28,6 +30,8 @@ export const JA_STARTER: DeckItem[] = [
   {
     id: 'ja-inu',
     cue: 'dog',
+    question: 'What is "dog" in Japanese?',
+    lang: 'ja-JP',
     display: 'inu',
     answers: ['inu', 'いぬ', 'イヌ', '犬'],
     gestureHint: 'Pat a dog on the head',
@@ -50,6 +54,8 @@ export const JA_STARTER: DeckItem[] = [
   {
     id: 'ja-mizu',
     cue: 'water',
+    question: 'What is "water" in Japanese?',
+    lang: 'ja-JP',
     display: 'mizu',
     answers: ['mizu', 'みず', 'ミズ', '水'],
     gestureHint: 'Let rain fall: wiggle your fingers downward',
@@ -76,6 +82,8 @@ export const JA_STARTER: DeckItem[] = [
   {
     id: 'ja-yama',
     cue: 'mountain',
+    question: 'What is "mountain" in Japanese?',
+    lang: 'ja-JP',
     display: 'yama',
     answers: ['yama', 'やま', 'ヤマ', '山'],
     gestureHint: 'Trace a mountain peak in the air',
@@ -99,6 +107,8 @@ export const JA_STARTER: DeckItem[] = [
   {
     id: 'ja-hon',
     cue: 'book',
+    question: 'What is "book" in Japanese?',
+    lang: 'ja-JP',
     display: 'hon',
     answers: ['hon', 'ほん', 'ホン', '本'],
     gestureHint: 'Open a book in front of your chest',
@@ -120,6 +130,8 @@ export const JA_STARTER: DeckItem[] = [
   {
     id: 'ja-kasa',
     cue: 'umbrella',
+    question: 'What is "umbrella" in Japanese?',
+    lang: 'ja-JP',
     display: 'kasa',
     answers: ['kasa', 'かさ', 'カサ', '傘'],
     gestureHint: 'Lift an umbrella and push it open',

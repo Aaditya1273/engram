@@ -33,11 +33,14 @@ export function answerMatches(transcripts: string[], answers: string[]): boolean
     if (!t) return false;
     return accepted.some((a) => {
       if (!isLatin(a)) return t.includes(a);
-      // Romaji: allow one slip on longer words ("necko" for "neko"), exact for short ones ("hon").
-      const words = raw.normalize('NFKC').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-      const candidates = [t, ...words];
-      const slack = a.length >= 4 ? 1 : 0;
-      return candidates.some((c) => c === a || (isLatin(c) && levenshtein(c, a) <= slack));
+      // Latin script: one slip on longer answers ("necko" for "neko"), two on long ones, exact on short ones ("hon").
+      // Multi-word answers may sit inside a longer sentence ("it's the vagus nerve").
+      const words = raw.normalize('NFKC').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+      const n = Math.max(1, Math.round(a.length / 5));
+      const windows = words.flatMap((_, i) => [1, 2, 3, 4].map((k) => words.slice(i, i + k).join('')));
+      const slack = a.length >= 9 ? 2 : a.length >= 4 ? 1 : 0;
+      if (a.length >= 6 && t.includes(a)) return true;
+      return [t, ...windows].some((c) => c === a || (isLatin(c) && Math.abs(c.length - a.length) <= n && levenshtein(c, a) <= slack));
     });
   });
 }

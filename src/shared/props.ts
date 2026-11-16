@@ -8,10 +8,7 @@ import type { PropId } from './types';
  * scene JSON (prop id + pos/scale/colour) does not change.
  */
 
-export const PROP_IDS: PropId[] = [
-  'cat', 'dog', 'bird', 'book', 'umbrella', 'house', 'mountain', 'tree', 'drop', 'cloud',
-  'fountain', 'glasses', 'hat', 'ball', 'star', 'shoe', 'sun', 'person',
-];
+export { PROP_IDS } from './props-catalog';
 
 const geo = new Map<string, THREE.BufferGeometry>();
 const g = <T extends THREE.BufferGeometry>(key: string, make: () => T): T => {
