@@ -42,13 +42,16 @@ export const DECOR = {
   emblemTint: '#FFFFFF',
   banner: '#1F4A3A',
   bannerDark: '#122C22',
-  nicheTint: '#7D9286',
-  floorTint: '#9AA89E',
   leafDark: '#2F5A2A',
   leafLight: '#8DB850',
   sunCore: '#FFFBE8',
   sunMid: '#F6DC8E',
-  sunEdge: '#7F9C58',
+  stone: '#B8A684',
+  floor: '#6E6C55',
+  floorLight: '#A29C7E',
+  forestSky: '#E9E7B4',
+  forestMid: '#8DB062',
+  forestDeep: '#2C4A24',
 } as const;
 
 /** The lantern: Atrium's signature. Unlit charcoal → muted gold → warm ivory-gold at full. */

@@ -6,7 +6,7 @@ import { buildDecor } from './decor';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { glowTexture, Panel, type Selectable } from './ui';
 
-import { EYE_Y, RADIUS, SCENE_Y, SLOT_COUNT, SLOT_DEG, SNAP_SLOTS } from './layout';
+import { EYE_Y, LANTERN_HOOP_Y, RADIUS, SCENE_Y, SLOT_COUNT, SLOT_DEG, SNAP_SLOTS } from './layout';
 
 export { EYE_Y, SLOT_COUNT } from './layout';
 const SCENE_SCALE = 1.7;
@@ -22,11 +22,11 @@ const MAT = {
   veil: new THREE.MeshLambertMaterial({ color: SCENE.veil, emissive: SCENE.veilSheen, emissiveIntensity: 0.35, side: THREE.DoubleSide, flatShading: true }),
 };
 const GEO = {
-  chain: new THREE.CylinderGeometry(0.003, 0.003, 0.2, 4),
+  chain: new THREE.CylinderGeometry(0.003, 0.003, LANTERN_HOOP_Y - LANTERN_Y - 0.07, 4),
   lantern: new THREE.PlaneGeometry(0.067, 0.14),
   veil: new THREE.CylinderGeometry(0.24, 0.26, 0.5, 10, 1, true),
   hit: new THREE.BoxGeometry(0.55, 1.2, 0.35),
-  wash: new THREE.PlaneGeometry(0.5, 0.8),
+  wash: new THREE.PlaneGeometry(0.95, 0.95).rotateX(-Math.PI / 2),
 };
 // The painted lantern is multiplied by these: a dark bronze silhouette when unlit, warm gold-ivory when lit.
 const UNLIT = new THREE.Color(LANTERN.unlitArt), LIT = new THREE.Color(LANTERN.lit);
@@ -43,7 +43,7 @@ export class Alcove {
   private sceneHolder = new THREE.Group();
   private core: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private glow: THREE.Sprite;
-  /** The lantern's light spilling onto its niche wall: a fading memory darkens its whole alcove. */
+  /** The lantern's light pooling on the floor round its pedestal: a fading memory darkens its patch of floor. */
   private wash: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private veil: THREE.Mesh;
   private label: Panel;
@@ -67,7 +67,7 @@ export class Alcove {
       this.group.add(mesh);
       return mesh;
     };
-    add(GEO.chain, MAT.chain, 0, LANTERN_Y + 0.165, 0.04); // from the arch's crown to the painted ring on the lantern
+    add(GEO.chain, MAT.chain, 0, (LANTERN_HOOP_Y + LANTERN_Y + 0.07) / 2, 0.04); // from the gold hoop to the painted ring on the lantern
 
     this.sceneHolder.position.set(0, SCENE_Y, 0);
     this.sceneHolder.scale.setScalar(SCENE_SCALE);
@@ -78,7 +78,7 @@ export class Alcove {
     this.glow.position.set(0, LANTERN_Y, 0.05);
     this.glow.scale.setScalar(0.3);
     this.group.add(this.glow);
-    this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 1.28, -0.215) as typeof this.wash;
+    this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 0.006, 0.05) as typeof this.wash;
 
     this.veil = add(GEO.veil, MAT.veil, 0, SCENE_Y + 0.24, 0);
     this.veil.visible = false;
