@@ -9,9 +9,8 @@ import { JA_STARTER } from '../shared/deck-ja';
 import type { DeckItem, GestureSignature, InboxItem, Memory, SceneSpec } from '../shared/types';
 import { play } from './audio';
 import type { Cloud } from './cloud';
-import { SLOT_COUNT } from './palace';
+import { Palace } from './palace';
 import type { Input } from './input';
-import type { Palace } from './palace';
 import { listen, speechAvailable } from './speech';
 import type { Stage } from './stage';
 import type { Store } from './store';
@@ -110,7 +109,7 @@ function placeMemory(
   store.addMemory(m);
   // Encoding counts as the first successful study; FSRS then schedules the learning steps.
   store.addReview({ memoryId: m.id, at: now, grade: 'good', answerOk: true, gestureScore: null, latencyMs: 0 });
-  const a = palace.alcoves[slot];
+  const a = palace.alcove(slot);
   a.setScene(scene);
   a.setLabel(`${m.display} · ${m.cue}`);
   a.setRecall(store.recall(m));
@@ -120,7 +119,8 @@ function placeMemory(
 }
 
 export function showMemory(ctx: Ctx, m: Memory) {
-  const a = ctx.palace.alcoves[m.slot];
+  if (Palace.wingOf(m.slot) !== ctx.palace.wing) return;
+  const a = ctx.palace.alcove(m.slot);
   a.setScene(m.scene);
   a.setLabel(`${m.display} · ${m.cue}`);
   a.setRecall(ctx.store.recall(m), true);
@@ -133,7 +133,7 @@ export function showMemory(ctx: Ctx, m: Memory) {
 export async function recallOne(ctx: Ctx, m: Memory, others: Memory[]): Promise<boolean> {
   const { stage, palace, input, store } = ctx;
   await stage.whilePaused();
-  const alcove = palace.alcoves[m.slot];
+  const alcove = palace.alcove(m.slot);
   alcove.setVeiled(true);
   const doGesture = !!m.gesture && input.canGesture && m.gesture.modality === input.modality;
   const prompt = m.question;
@@ -199,7 +199,7 @@ export async function firstFive(ctx: Ctx) {
   const { stage, palace, store, input } = ctx;
   const pinch = pinchWord(input);
   palace.setWarmth(0, 1);
-  palace.alcoves[0].setRecall(1, true);
+  palace.alcove(0).setRecall(1, true);
 
   // 0:00 – one lantern, one pinch.
   stage.show('Atrium', `${pinch} the glowing lantern to light it.`);
@@ -207,7 +207,7 @@ export async function firstFive(ctx: Ctx) {
   await stage.waitAlcove(0);
   play('light');
   palace.setWarmth(1, 1600);
-  palace.alcoves[0].setRecall(null);
+  palace.alcove(0).setRecall(null);
   await stage.say('Light means memory. Each alcove will hold one thing you know.', 'Atrium');
 
   // 0:20 – moving without standing.
@@ -226,12 +226,12 @@ export async function firstFive(ctx: Ctx) {
     await palace.focus(i);
     await stage.say(`${item.display} means ${item.cue}. Pick the scene that sticks for you.`, `${item.display} · ${item.cue}`);
     let scene = item.scenes[await stage.chooseScene(item)];
-    palace.alcoves[i].setScene(scene);
+    palace.alcove(i).setScene(scene);
     await stage.say(scene.mnemonic, `${item.display} · ${item.cue}`);
     let twist: string | undefined;
     if (i === 1) {
       ({ scene, twist } = await addTwist(ctx, scene));
-      palace.alcoves[i].setScene(scene);
+      palace.alcove(i).setScene(scene);
     }
     const gesture = await enrolGesture(ctx, item.gestureHint);
     placed.push(placeMemory(ctx, item, scene, i, gesture, twist));
@@ -242,7 +242,7 @@ export async function firstFive(ctx: Ctx) {
   await stage.say('This is what forgetting looks like.', 'Three weeks, without practice');
   const now = store.now();
   for (let s = 0; s <= 1; s += 1 / 45) {
-    for (const m of placed) palace.alcoves[m.slot].setRecall(store.recall(m, now + s * s * 21 * DAY), true);
+    for (const m of placed) palace.alcove(m.slot).setRecall(store.recall(m, now + s * s * 21 * DAY), true);
     await stage.sleep(60);
   }
   await stage.say("Your lanterns dim as memories fade. Let's beat it.", 'Three weeks, without practice');
@@ -253,7 +253,7 @@ export async function firstFive(ctx: Ctx) {
     await palace.focus(m.slot);
     if (await recallOne(ctx, m, placed)) score++;
   }
-  for (const m of placed) palace.alcoves[m.slot].setRecall(store.recall(m));
+  for (const m of placed) palace.alcove(m.slot).setRecall(store.recall(m));
 
   // 4:15 – the payoff and the daily promise.
   await palace.focus(2.5);
@@ -339,7 +339,7 @@ export async function dailySession(ctx: Ctx, missedDays: number, practiceAnyway 
     `Relit ${relit.size} of ${seen.size}. Ember streak: ${s.count} ${s.count === 1 ? 'day' : 'days'}, ${s.freezes} of 3 freezes banked.${repairNote} ${dimming ? `${dimming} ${dimming === 1 ? 'lantern' : 'lanterns'} will dim overnight.` : 'All lanterns hold overnight.'}`,
     'Session complete',
   );
-  for (const m of all) palace.alcoves[m.slot].setRecall(store.recall(m));
+  for (const m of all) if (Palace.wingOf(m.slot) === palace.wing) palace.alcove(m.slot).setRecall(store.recall(m));
 }
 
 export function arrivalMessage(store: Store, missedDays: number): { title: string; body: string; due: number } {
@@ -374,12 +374,13 @@ async function coCreate(ctx: Ctx, items: InboxItem[]) {
   const { stage, palace, store, cloud } = ctx;
   for (const entry of items.slice(0, 3)) {
     const slot = store.nextFreeSlot();
-    if (slot >= SLOT_COUNT) {
-      await stage.say('Your palace is full for now. New wings arrive in a later version.', 'Palace full');
-      return;
-    }
     const it = entry.item;
+    const opensWing = Palace.wingOf(slot) > 0 && !store.data.memories.some((m) => Palace.wingOf(m.slot) === Palace.wingOf(slot));
     await palace.focus(slot);
+    if (opensWing) {
+      play('relight');
+      await stage.say(`A new wing opens: wing ${Palace.wingOf(slot) + 1}. Your palace grows with you.`, 'New wing');
+    }
     const from = entry.source === 'agent' ? 'An agent sent this' : entry.source === 'voice' ? 'You captured this' : 'From your phone';
     stage.show(`${entry.topic} · ${from}`, `${it.question}\n${it.display}`);
     const action = await stage.ask([
@@ -394,11 +395,11 @@ async function coCreate(ctx: Ctx, items: InboxItem[]) {
     }
     await stage.say(`${it.question} ${it.display}. Pick the scene that sticks for you.`, it.cue);
     let scene = it.scenes[await stage.chooseScene(it)];
-    palace.alcoves[slot].setScene(scene);
+    palace.alcove(slot).setScene(scene);
     await stage.say(scene.mnemonic, it.cue);
     let twist: string | undefined;
     ({ scene, twist } = await addTwist(ctx, scene));
-    palace.alcoves[slot].setScene(scene);
+    palace.alcove(slot).setScene(scene);
     const gesture = await enrolGesture(ctx, it.gestureHint);
     placeMemory(ctx, it, scene, slot, gesture, twist, { topic: entry.topic, goalId: entry.goalId });
     await cloud.markPlaced(entry.id);

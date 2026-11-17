@@ -6,7 +6,7 @@ import {
   arrivalMessage, arrive, captureFlow, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
 } from './headset/flows';
 import { Input } from './headset/input';
-import { EYE_Y, Palace } from './headset/palace';
+import { EYE_Y, Palace, SLOT_COUNT } from './headset/palace';
 import { setNarration } from './headset/speech';
 import { Stage } from './headset/stage';
 import { Store } from './headset/store';
@@ -46,7 +46,12 @@ for (const i of [0, 1]) {
   scene.add(hand);
 }
 
-for (const m of store.data.memories) showMemory(ctx, m);
+/** Alcoves show one wing at a time; switching wings (inside the snap fade) re-fills them. */
+palace.onWing = () => {
+  for (const a of palace.alcoves) a.clear();
+  for (const m of store.data.memories) showMemory(ctx, m);
+};
+palace.onWing(0);
 
 // ---------------------------------------------------------------- pause, hands lost, system menu
 
@@ -104,7 +109,12 @@ addEventListener('resize', () => {
 async function run() {
   // Cloud is optional: register/sync in the background; the palace never waits for the network.
   void cloud.connect().then(() => Promise.all([cloud.sync(), cloud.refreshGoals()])).then(() => {
-    for (const m of store.data.memories) showMemory(ctx, m);
+    /** Alcoves show one wing at a time; switching wings (inside the snap fade) re-fills them. */
+palace.onWing = () => {
+  for (const a of palace.alcoves) a.clear();
+  for (const m of store.data.memories) showMemory(ctx, m);
+};
+palace.onWing(0);
   });
   const { missedDays } = arrive(store);
   if (!store.data.onboarded) await firstFive(ctx);
@@ -128,7 +138,8 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'inbox' | 'capture' | 'settings' | 'refresh';
+    type Action = 'start' | 'practise' | 'inbox' | 'capture' | 'settings' | 'refresh' | 'wing';
+    const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
     const inboxChanged = new Promise<Action>((res) => {
@@ -146,6 +157,7 @@ async function home(missedDays: number) {
       stage.ask<Action>([
         msg.due ? { label: 'Start', value: 'start' } : { label: 'Practise anyway', value: 'practise' },
         ...(inbox.length ? [{ label: `Inbox (${inbox.length})`, value: 'inbox' as const }] : []),
+        ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
         { label: 'Remember this', value: 'capture' },
         { label: 'Settings', value: 'settings' },
       ]),
@@ -158,7 +170,8 @@ async function home(missedDays: number) {
       stage.clearRow();
       continue;
     }
-    if (action === 'settings') await settings();
+    if (action === 'wing') await palace.focus(((palace.wing + 1) % wings) * SLOT_COUNT);
+    else if (action === 'settings') await settings();
     else if (action === 'inbox') await inboxFlow(ctx, inbox);
     else if (action === 'capture') await captureFlow(ctx);
     else {

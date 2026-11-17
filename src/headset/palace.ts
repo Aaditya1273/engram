@@ -72,6 +72,13 @@ export class Alcove {
     hit.userData.label = `alcove:${slot}`;
   }
 
+  clear() {
+    this.setScene(null);
+    this.setLabel(null);
+    this.setRecall(null, true);
+    this.setVeiled(false);
+  }
+
   get filled() {
     return this.target !== null;
   }
@@ -152,15 +159,20 @@ export class Palace {
   private hemi = new THREE.HemisphereLight('#ffd9a8', '#2a1d14', 0.15);
   private warmth = { from: 0.15, to: 0.15, t: 1, ms: 1 };
   private fadeMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
+  /** Slot within the current wing (0..SLOT_COUNT-1; fractional to centre between two). */
   focusSlot = 0;
+  /** Each wing is another SLOT_COUNT alcoves; one wing is shown at a time. Memory slot = wing × SLOT_COUNT + alcove. */
+  wing = 0;
   onAlcoveSelect: (slot: number) => void = () => {};
+  /** Called inside the fade when the palace switches wing, to re-fill the alcoves. */
+  onWing: (wing: number) => void = () => {};
 
   constructor(scene: THREE.Scene, camera: THREE.Camera) {
     scene.add(this.root);
     this.root.add(this.hemi, this.ring);
     this.buildRoom();
     for (let i = 0; i < SLOT_COUNT; i++) {
-      const a = new Alcove(i, (slot) => this.onAlcoveSelect(slot));
+      const a = new Alcove(i, (local) => this.onAlcoveSelect(this.wing * SLOT_COUNT + local));
       this.alcoves.push(a);
       this.ring.add(a.group);
     }
@@ -214,18 +226,34 @@ export class Palace {
     });
   }
 
-  /** Bring a slot to the centre with a snap-and-fade. */
+  /** The alcove that shows a (global) memory slot. Only meaningful while that slot's wing is shown. */
+  alcove(slot: number): Alcove {
+    return this.alcoves[((Math.floor(slot) % SLOT_COUNT) + SLOT_COUNT) % SLOT_COUNT];
+  }
+
+  static wingOf(slot: number) {
+    return Math.floor(slot / SLOT_COUNT);
+  }
+
+  /** Bring a (global) slot to the centre with a snap-and-fade, stepping into its wing if needed. */
   async focus(slot: number) {
-    const s = ((slot % SLOT_COUNT) + SLOT_COUNT) % SLOT_COUNT;
-    if (s === this.focusSlot) return;
+    const wing = Palace.wingOf(Math.max(0, slot));
+    const local = slot - wing * SLOT_COUNT;
+    if (wing === this.wing && local === this.focusSlot) return;
     await this.fadeTo(1);
-    this.focusSlot = s;
-    this.ring.rotation.y = THREE.MathUtils.degToRad(s * SLOT_DEG);
+    if (wing !== this.wing) {
+      this.wing = wing;
+      this.onWing(wing);
+    }
+    this.focusSlot = local;
+    this.ring.rotation.y = THREE.MathUtils.degToRad(local * SLOT_DEG);
     await this.fadeTo(0);
   }
 
+  /** Turning wraps around within the current wing. */
   snap(dir: 1 | -1) {
-    return this.focus(this.focusSlot + dir * SNAP_SLOTS);
+    const local = (((this.focusSlot + dir * SNAP_SLOTS) % SLOT_COUNT) + SLOT_COUNT) % SLOT_COUNT;
+    return this.focus(this.wing * SLOT_COUNT + local);
   }
 
   /** Re-centre content on the user's head at XR start, so seated height and position don't matter. */

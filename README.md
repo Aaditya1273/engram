@@ -13,7 +13,7 @@ You co-create every memory with an AI agent, write it with your own gesture, and
 
 </div>
 
-> **Build status (Nov 2026):** headset, cloud API, sync, AI scene drafting, MCP server and phone companion are built and tested end to end on desktop (35 unit/integration tests plus browser walkthroughs). **Not yet:** a Quest 3 device pass (frame timing, hand-tracking thresholds, Quest-browser speech), room mode, extra wings beyond 20 alcoves. Anything still unbuilt is marked *(planned)*.
+> **Build status (Nov 2026):** headset, cloud API, sync, AI scene drafting, MCP server and phone companion are built and tested end to end on desktop (35 unit/integration tests plus browser walkthroughs). **Not yet:** a Quest 3 device pass (frame timing, hand-tracking thresholds, Quest-browser speech), room mode. Anything still unbuilt is marked *(planned)*.
 
 ---
 
@@ -186,7 +186,7 @@ Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium gives two honest numbers
 | **Repair** | Restore a broken streak within 48 hours by completing a double session |
 | **Weekly mode** | Optional: 5 of 7 days counts as a streak week |
 | **Milestones** | 7 / 30 / 100 / 365 days unlock new wings and palace themes |
-| **Wings** | New arcs of alcoves at 25 / 100 / 500 mastered memories |
+| **Wings** | Every 20 memories open a new wing of 20 alcoves; step between wings from the home menu (the room re-fills inside the snap fade) |
 
 **Guardrails:** no paid streak protection, no loot boxes, at most one notification a day, and a gentle stop after 20 minutes.
 
@@ -554,7 +554,7 @@ Every core feature rests on published work. These are the studies' own results, 
 - [ ] Device pass on Quest 3: frame timing, hand-tracking thresholds, Quest-browser speech recognition
 - [x] Deploy to Cloudflare Pages (https://atrium-b0r.pages.dev)
 - [ ] Attach the database (Neon) and record the demo video
-- [ ] Wings beyond 20 alcoves
+- [x] Wings (20 alcoves each, unlimited)
 - [ ] Room mode (spatial anchors)
 - [ ] Creator palaces and revenue share
 - [ ] Launch alongside **Meta VR Glasses (spring 2027)**
