@@ -1,4 +1,5 @@
 <div align="center">
+<img width="2170" height="725" alt="Golden Atrium" src="https://github.com/user-attachments/assets/0ca0af95-4438-4bca-b4f1-8d3501103cdd" />
 
 # Atrium
 
