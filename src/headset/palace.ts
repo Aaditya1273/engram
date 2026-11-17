@@ -32,6 +32,13 @@ const GEO = {
 const UNLIT = new THREE.Color(LANTERN.unlitArt), LIT = new THREE.Color(LANTERN.lit);
 const lanternTex = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}art/props/lantern.webp`);
 lanternTex.colorSpace = THREE.SRGBColorSpace;
+/** An empty pedestal holds a dim golden lotus: the place a memory will go. One shared material for all of them. */
+const lotusTex = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}art/site/lotus.webp`);
+lotusTex.colorSpace = THREE.SRGBColorSpace;
+const LOTUS = {
+  geo: new THREE.PlaneGeometry(0.15, 0.15 * (475 / 560)).translate(0, 0.0635, 0),
+  mat: new THREE.MeshBasicMaterial({ map: lotusTex, alphaTest: 0.35, color: '#9c8f6a' }),
+};
 
 /** Golden motes rising from a relit lantern: the reward made visible. */
 const MOTES = 14, MOTE_S = 1.6;
@@ -41,6 +48,7 @@ export class Alcove {
   readonly group = new THREE.Group();
   private scene: BuiltScene | null = null;
   private sceneHolder = new THREE.Group();
+  private lotus = new THREE.Mesh(LOTUS.geo, LOTUS.mat);
   private core: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private glow: THREE.Sprite;
   /** The lantern's light pooling on the floor round its pedestal: a fading memory darkens its patch of floor. */
@@ -72,6 +80,8 @@ export class Alcove {
     this.sceneHolder.position.set(0, SCENE_Y, 0);
     this.sceneHolder.scale.setScalar(SCENE_SCALE);
     this.group.add(this.sceneHolder);
+    this.lotus.position.set(0, SCENE_Y + 0.004, 0.02);
+    this.group.add(this.lotus);
 
     this.core = add(GEO.lantern, new THREE.MeshBasicMaterial({ map: lanternTex, color: UNLIT, alphaTest: 0.35, alphaToCoverage: true }), 0, LANTERN_Y, 0.04) as typeof this.core;
     this.glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
@@ -115,6 +125,7 @@ export class Alcove {
       this.scene = buildScene(spec);
       this.sceneHolder.add(this.scene.group);
     }
+    this.lotus.visible = !spec;
   }
 
   setLabel(text: string | null) {

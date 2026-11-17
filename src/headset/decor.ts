@@ -352,17 +352,15 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
   const canopy = new THREE.Mesh(new THREE.CircleGeometry(A.r + 0.6, 64), new THREE.MeshBasicMaterial({ map: canopyTexture(), fog: false, color: DECOR.canopyShade }));
   canopy.rotation.x = Math.PI / 2;
   canopy.position.y = A.height + 1.35;
-  // 6 m away, each bay's slice is 3.8 m wide; 5 m tall keeps the painting's 3:4 shape.
-  const forest = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 5, 64, 1, true), new THREE.MeshBasicMaterial({ map: forestMap(1, 0), side: THREE.BackSide, fog: false }));
-  forest.position.y = 2.1;
-  const forestFloor = new THREE.Mesh(new THREE.RingGeometry(A.r, 6, 64), new THREE.MeshBasicMaterial({ color: DECOR.forestDeep, fog: false }));
-  forestFloor.rotation.x = -Math.PI / 2;
-  forestFloor.position.y = 0.001;
+  // 5 m away, each bay's slice is 3.1 m wide; 4.6 m tall stays close to the painting's 3:4 shape. It reaches
+  // below the floor so every sightline through an arch, high or low, lands on the painting (no flat ground band).
+  const forest = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 4.6, 64, 1, true), new THREE.MeshBasicMaterial({ map: forestMap(1, 0), side: THREE.BackSide, fog: false }));
+  forest.position.y = 1.1;
   // The lanterns hang on chains from a gold hoop under the canopy.
   const hoop = new THREE.Mesh(new THREE.TorusGeometry(RADIUS - 0.04, 0.012, 6, 160), M.gold); // lanterns hang 4 cm in front of centre
   hoop.rotation.x = Math.PI / 2;
   hoop.position.y = LANTERN_HOOP_Y;
-  room.add(floor, ...glowRings, steps, cornice, ...corniceGold, canopyWall, canopy, forest, forestFloor, hoop, sunRays());
+  room.add(floor, ...glowRings, steps, cornice, ...corniceGold, canopyWall, canopy, forest, hoop, sunRays());
 }
 
 /** Soft sunbeams falling from the canopy. Fixed to the room (not the turning ring), ahead of you. */

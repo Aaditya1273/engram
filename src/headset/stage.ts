@@ -36,7 +36,10 @@ export class Stage {
 
   constructor(private palace: Palace, private input: Input) {
     palace.root.add(this.hud);
-    this.caption.position.set(0, 0.88, -1.0);
+    // Below the pedestal tops (about 10° down) so it never hides a scene. Tilted halfway toward the eye: a full
+    // tilt keystones the text on a flat desktop view (the left half of a line leans like italics).
+    this.caption.position.set(0, 0.72, -0.95);
+    this.caption.lookAt(0, 0.96, 0);
     this.caption.visible = false;
     this.topRow.position.set(0, 1.53, -1.1);
     this.cards.position.set(0, 1.12, -0.82);
