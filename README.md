@@ -14,7 +14,7 @@ You co-create every memory with an AI agent, write it with your own gesture, and
 
 </div>
 
-> **Build status (Nov 2026):** headset, cloud API, sync, AI scene drafting, MCP server and phone companion are built and tested end to end on desktop (35 unit/integration tests plus browser walkthroughs). **Not yet:** a Quest 3 device pass (frame timing, hand-tracking thresholds, Quest-browser speech), room mode. Anything still unbuilt is marked *(planned)*.
+> **Build status (Nov 2026):** headset, real 3D prop library (Aholo Lux3D), twist-to-3D, server speech for the Quest browser, cloud API, sync, AI scene drafting, the built-in study agent, MCP server and phone companion are built and tested end to end on desktop (48 unit/integration tests plus browser walkthroughs). **Not yet:** a Quest 3 device pass (frame timing with 3D props, hand-tracking thresholds), the production database, room mode. Anything still unbuilt is marked *(planned)*.
 
 ---
 
@@ -91,7 +91,7 @@ AI agents now find and summarise everything for us. That multiplies what we're e
 
 ## Try it (for judges)
 
-> **Live:** https://atrium-b0r.pages.dev (Cloudflare Pages). The headset experience runs fully; cloud features (capture, inbox, companion, MCP) switch on once a database is attached; see [Deploy](#deploy-cloudflare-pages--neon).
+> **Live:** https://atrium-b0r.pages.dev (Cloudflare Pages). The palace, the 3D prop library and the first five minutes run fully, on a computer or a headset; cloud features (twist-to-3D, server speech, the study agent, capture, inbox, companion, MCP) switch on once a database is attached; see [Deploy](#deploy-cloudflare-pages--neon).
 
 Atrium runs in the Meta Quest browser. No install, no controllers and no account needed.
 
@@ -143,8 +143,8 @@ From then on the lantern dims along the memory's forgetting curve. A daily **7-m
 | Reveal | Pinch "Show me" | Dwell "Show me" | |
 | Pause | Leaving the headset view pauses; hands lost > 2 s pauses | | |
 
-**Desktop:** the mouse points, click selects, arrow keys turn the room, Esc pauses, and gestures are mouse paths.
-**No speech recogniser?** Recall switches to three pinchable answers, still graded and never self-rated.
+**Desktop:** the mouse points (a gem cursor, and a pointing hand over anything you can press), click selects, arrow keys turn the room, Esc pauses, and gestures are mouse paths. **Type my own** lets you type a twist instead of saying it. Lanterns lean toward a nearby cursor like a magnet and swing home when you move away.
+**No speech recogniser?** On the Quest browser your answer is recorded and transcribed by the server. With no recogniser and no server (or no microphone), recall switches to three pinchable answers, still graded and never self-rated.
 
 No action ever needs a controller, standing up, or turning your body. *(Planned: pull-to-inspect, open-palm pause, voice commands.)*
 
@@ -341,7 +341,7 @@ git clone https://github.com/<your-org>/atrium.git
 cd atrium
 npm install
 
-cp .env.example .env          # optional: GEMINI_API_KEY or NVIDIA_API_KEY for AI drafting, DATABASE_URL for Neon
+cp .env.example .env.local    # optional: an AI key (Gemini/Groq/NVIDIA), AHOLO_API_KEY for 3D, DATABASE_URL for Neon
 npm run dev                   # headset app + companion + API + MCP on one dev server
 ```
 
@@ -384,8 +384,11 @@ Tables are created on the first request. Without `DATABASE_URL` the API answers 
 | `npm run dev` | Local dev server with hot reload |
 | `npm run build` | Type-check + production build |
 | `npm run preview` | Serve the production build |
-| `npm run test` | Unit + integration tests (core logic; API, sync and MCP against an in-memory Postgres) |
+| `npm run test` | Unit + integration tests (core logic, save migration; API, sync, MCP and twist-to-3D against an in-memory Postgres) |
 | `npm run lint` | Type-check |
+| `scripts/art.sh` | Rebuild the 2D art from `design/art`: prop cut-outs, site art, cursors (ImageMagick + rembg) |
+| `node scripts/lux3d.mjs [names…]` | Generate missing 3D props with Aholo Lux3D and optimise them (needs `AHOLO_API_KEY`) |
+| `scripts/secrets.sh` | Copy the keys in `.env.local` into the Cloudflare Pages project as secrets |
 
 ---
 
@@ -507,7 +510,9 @@ One design system across the headset, the landing page and the companion. Tokens
 
 - **Type:** Fraunces (titles, editorial) and Source Sans 3 (body, VR-legible), bundled locally so the first five minutes stay offline.
 - **The lantern is the signature:** muted gold, it washes its own niche wall, so a fading memory visibly darkens its alcove. A successful recall makes it bloom and releases rising gold motes.
-- **Painted props:** every prop is a cut-out painting on a soft contact shadow. It turns only about the vertical axis to face you, so it never tilts and never shows its edge. A colour close to a painted variant (orange, black or white cat; water or honey drop) uses that painting; any other colour tints it, and a fading memory greys it in the shader.
+- **3D props from paintings:** every prop is a real 3D model, generated from our own painting with Aholo Lux3D, lit by its own soft image-based light (so it shades without relighting the palace) and turning gently so it reads as solid. The painting shows first and stays if a model can't load. A colour close to a painted variant (orange, black or white cat; water or honey drop) uses that model; any other colour tints it, and a fading memory greys it in the shader.
+- **Living lanterns:** each lantern hangs from its hoop as a pendulum. On a computer a nearby cursor tugs it close; let go and a damped spring swings it home in a few fading sways (about 2.5 s).
+- **Interface:** gold-rimmed pill buttons sized to their label (text shrinks rather than wraps), gold plaques on each pedestal, an ornate caption card that always sits below the pedestals, and the three scene choices framed on one panel so the room behind never cuts in. Cursors are cut from the same art (`public/art/ui`).
 - **Motion:** panels ease in when their content changes and buttons ease on hover (180 ms); the doorway fades into the palace; `prefers-reduced-motion` is respected on the pages.
 
 ---
@@ -541,9 +546,10 @@ One design system across the headset, the landing page and the companion. Tokens
 | --- | --- |
 | Frame rate | Steady 72 fps (≤ 13.9 ms per frame); Quest 3's lowest refresh rate is 72 Hz, requested via `updateTargetFrameRate` |
 | Visible scenes | ≤ 12 alcoves at once |
-| Lighting | 1 hemisphere light, no shadows; lanterns are emissive + additive sprites |
+| Lighting | 1 hemisphere light, no shadows; lanterns are emissive + additive sprites; 3D props add one small shared environment map (IBL) |
+| 3D props | About 10k triangles each, meshopt geometry, 1024 px WebP textures; ~300 KB a model, 7.5 MB for all 26 |
 | Cold start to first pinch | < 10 s |
-| Scene creation after choosing | Instant (assembled from the prop kit, no mesh generation) |
+| Scene creation after choosing | Instant (assembled from the prop kit); a twist-to-3D object arrives in ~2.5–3 min, a placeholder holds its spot |
 | First five minutes | Fully offline |
 
 ---
@@ -574,7 +580,7 @@ Every core feature rests on published work. These are the studies' own results, 
 | Writing your own mnemonic story for Chinese characters scored **18.8 percentage points higher** on written recall immediately (descriptive pilot, n = 8), but took 1.69× as long to study | [arXiv 2611.01973](https://www.alphaxiv.org/abs/2611.01973) | Co-creation (keep it quick) |
 | Unrestricted AI help raised task scores but **not knowledge gained** | [arXiv 2412.09315](https://www.alphaxiv.org/abs/2412.09315) | AI drafts, you decide |
 | Flip-and-self-rate is an impoverished review; effortful recall works better | [Memdora, arXiv 2607.25096](https://www.alphaxiv.org/abs/2607.25096) | Graded recall |
-| Personalised mnemonics as AI-generated 3D models in AR (slow to generate; timings in the paper) | [VocabulARy 2.0, arXiv 2611.07798](https://www.alphaxiv.org/abs/2611.07798) | Prop-kit scenes instead of mesh generation |
+| Personalised mnemonics as AI-generated 3D models in AR (slow to generate; timings in the paper) | [VocabulARy 2.0, arXiv 2611.07798](https://www.alphaxiv.org/abs/2611.07798) | A pre-generated 3D prop kit for instant scenes; live generation only for the learner's own twist, with a placeholder meanwhile |
 | Adjusting a VR memory palace's spatial layout to a person's cognitive load raised EEG focus markers (n = 10) | [arXiv 2506.02700](https://www.alphaxiv.org/abs/2506.02700) | Calm, simple alcoves |
 | Auto-generated keyword cues support vocabulary learning | [arXiv 2305.10436](https://www.alphaxiv.org/abs/2305.10436), [arXiv 2501.17099](https://www.alphaxiv.org/abs/2501.17099) | Scene drafts |
 
@@ -584,12 +590,15 @@ Every core feature rests on published work. These are the studies' own results, 
 
 - [x] Concept, research and design
 - [x] **Headset core:** palace, first five minutes, co-creation, gesture signature, dimming lanterns, graded recall, no-backlog sessions, comeback walk, streaks with freezes and repair, gaze-only mode, captions
-- [x] **Cloud:** API, offline-first sync, AI scene drafting (Gemini or NVIDIA, with an offline fallback), voice capture, inbox co-creation, pairing
+- [x] **Cloud:** API, offline-first sync, AI scene drafting (Gemini, Groq or NVIDIA, with an offline fallback), voice capture, inbox co-creation, pairing
+- [x] **Real 3D:** 26-prop Lux3D library, twist-to-3D, leech objects, 3D-print keepsakes (STL)
+- [x] **Quest speech:** recorded answers transcribed on the server (Whisper on Groq, Gemini fallback)
+- [x] **Ask an agent:** a built-in study agent files five facts through the MCP path, on one device
 - [x] **MCP server:** `add_memories`, `create_goal`, `list_due`, `get_known`, `get_gaps`, `get_readiness`
 - [x] Readiness score and goals
 - [x] Phone companion with graded mental walk
 - [x] Wind-down mode
-- [ ] Device pass on Quest 3: frame timing, hand-tracking thresholds, Quest-browser speech recognition
+- [ ] Device pass on Quest 3: frame timing with 3D props, hand-tracking thresholds, microphone prompt
 - [x] Deploy to Cloudflare Pages (https://atrium-b0r.pages.dev)
 - [ ] Attach the database (Neon) and record the demo video
 - [x] Wings (20 alcoves each, unlimited)
@@ -626,7 +635,9 @@ Issues and pull requests are welcome after the judging period ends. Until then t
 ## License and credits
 
 - **Code:** MIT *(LICENSE file to be added)*.
-- **Art:** the painted props, palace and site art are the team's own renders, cut out with [rembg](https://github.com/danielgatis/rembg) by `scripts/art.sh`. The primitive fallbacks are made in code.
+- **Art:** the painted props, palace, site art and cursors are the team's own renders, cut out with [rembg](https://github.com/danielgatis/rembg) by `scripts/art.sh`. The primitive fallbacks are made in code.
+- **3D models:** generated from those paintings with [Aholo Lux3D](https://labs.aholo3d.com) (Manycore) by `scripts/lux3d.mjs`, then optimised with [glTF-Transform](https://gltf-transform.dev).
+- **Speech:** Whisper (`whisper-large-v3-turbo`) on [Groq](https://groq.com).
 - **Scheduling:** the open-source FSRS algorithm via `ts-fsrs`.
 
 ### Team
