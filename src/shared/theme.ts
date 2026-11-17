@@ -46,12 +46,14 @@ export const DECOR = {
   leafLight: '#8DB850',
   sunCore: '#FFFBE8',
   sunMid: '#F6DC8E',
-  stone: '#B8A684',
-  floor: '#6E6C55',
-  floorLight: '#A29C7E',
+  floor: '#122A1F',
+  floorLight: '#24493A',
   forestSky: '#E9E7B4',
   forestMid: '#8DB062',
   forestDeep: '#2C4A24',
+  /** Multipliers that dim the painted forest and canopy to a dusk under the dark green arcade. */
+  forestShade: '#6F8466',
+  canopyShade: '#B9C2A0',
 } as const;
 
 /** The lantern: Atrium's signature. Unlit charcoal → muted gold → warm ivory-gold at full. */

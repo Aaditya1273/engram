@@ -6,7 +6,7 @@ import { glowTexture } from './ui';
 
 /**
  * The rotunda's static architecture, after the garden-ruins mockup: a ring of free-standing marble pedestals
- * (gold rims, leaf emblem) inside a wide, warm stone arcade that opens onto a sunlit forest; vines and white
+ * (gold rims, leaf emblem) inside a wide, dark green marble arcade that opens onto a dusk forest; vines and white
  * flowers trail from the cornice, a polished floor carries gold rings, and the lanterns hang from a gold hoop.
  * Ten wide arches rather than a pillar per pedestal keep the room open. Everything that repeats is merged into
  * one mesh per material (about twenty draw calls for the whole room), which keeps Quest at frame rate.
@@ -156,33 +156,6 @@ function rng(seed: number) {
   return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 }
 
-/** Warm limestone: sandy base, mottling and faint hairline cracks. Tiles seamlessly enough at arcade scale. */
-function stoneTexture() {
-  const t = canvasTexture(256, 256, (ctx) => {
-    const r = rng(7);
-    ctx.fillStyle = DECOR.stone;
-    ctx.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 1600; i++) {
-      const v = r();
-      ctx.fillStyle = v > 0.5 ? `rgba(255, 244, 214, ${0.02 + r() * 0.04})` : `rgba(60, 50, 32, ${0.02 + r() * 0.035})`;
-      ctx.beginPath();
-      ctx.arc(r() * 256, r() * 256, 1 + r() * 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.strokeStyle = 'rgba(70, 58, 38, 0.18)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 6; i++) {
-      let x = r() * 256, y = r() * 256;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      for (let k = 0; k < 5; k++) ctx.lineTo((x += (r() - 0.5) * 40), (y += r() * 30));
-      ctx.stroke();
-    }
-  });
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
-}
-
 /**
  * The floor, drawn top-down: polished stone flags in rings and spokes, gold inlay rings, and a gold
  * four-petal rosette at the centre where you sit.
@@ -196,10 +169,10 @@ function floorTexture(radius: number) {
     g.addColorStop(1, DECOR.floor);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, N, N);
-    for (let i = 0; i < 1400; i++) {
-      ctx.fillStyle = `rgba(${r() > 0.5 ? '255, 245, 220' : '20, 24, 16'}, ${0.03 + r() * 0.04})`;
+    for (let i = 0; i < 2400; i++) {
+      ctx.fillStyle = `rgba(${r() > 0.5 ? '200, 230, 200' : '5, 14, 9'}, ${0.015 + r() * 0.025})`;
       ctx.beginPath();
-      ctx.arc(r() * N, r() * N, 1 + r() * 6, 0, Math.PI * 2);
+      ctx.arc(r() * N, r() * N, 0.5 + r() * 2, 0, Math.PI * 2);
       ctx.fill();
     }
     // Flagstone joints: rings, and spokes that double outward.
@@ -340,13 +313,13 @@ function canopyTexture() {
 const ARCADE = { r: 2.75, bays: 10, depth: 0.32, height: 2.9, archHalf: 0.6, spring: 1.8 };
 
 export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
-  const stoneMap = stoneTexture();
-  stoneMap.repeat.set(1.6, 1.6);
   const glowing = (map: THREE.Texture, color = '#ffffff', glow = 0.45) =>
     new THREE.MeshLambertMaterial({ map, color, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: glow });
   const marble = texture('palace/marble.webp', [3, 1]);
   const M = {
-    stone: glowing(stoneMap, '#ffffff', 0.5),
+    // Dark green marble for the whole arcade, as in the marble palace; the gold trim and lamps carry the light.
+    stone: glowing(texture('palace/marble.webp', [1.2, 1.2]), '#ffffff', 0.55),
+    cornice: glowing(texture('palace/marble.webp', [36, 0.3]), '#ffffff', 0.55),
     pedestal: glowing(marble, '#ffffff', 0.75),
     plinth: glowing(texture('palace/marble.webp', [2, 0.3]), '#ffffff', 0.6),
     gold: gold(),
@@ -438,10 +411,10 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
   const steps = new THREE.Mesh(
     new THREE.LatheGeometry([floorR, 0, floorR, 0.08, floorR + 0.22, 0.08, floorR + 0.22, 0.16, A.r + 0.4, 0.16].reduce<THREE.Vector2[]>(
       (pts, v, i, a) => (i % 2 ? pts : [...pts, new THREE.Vector2(v, a[i + 1])]), []), 96),
-    glowing(stoneMap, '#d9ccb0', 0.4),
+    glowing(texture('palace/marble.webp', [40, 1]), '#ffffff', 0.5),
   );
   (steps.material as THREE.Material).side = THREE.DoubleSide; // lathe winding faces inward
-  const cornice = new THREE.Mesh(new THREE.CylinderGeometry(A.r + 0.05, A.r + 0.05, 0.22, 96, 1, true), M.stone);
+  const cornice = new THREE.Mesh(new THREE.CylinderGeometry(A.r + 0.05, A.r + 0.05, 0.22, 96, 1, true), M.cornice);
   cornice.position.y = A.height + 0.11;
   (cornice.material as THREE.Material).side = THREE.DoubleSide;
   const corniceGold = [A.height + 0.01, A.height + 0.21].map((y) => {
@@ -451,12 +424,12 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
     return m;
   });
   const canopyWall = new THREE.Mesh(new THREE.CylinderGeometry(A.r + 0.6, A.r + 0.6, 1.2, 64, 1, true),
-    new THREE.MeshBasicMaterial({ map: forestTexture(), side: THREE.BackSide, fog: false, color: '#c9d6a8' }));
+    new THREE.MeshBasicMaterial({ map: forestTexture(), side: THREE.BackSide, fog: false, color: DECOR.forestShade }));
   canopyWall.position.y = A.height + 0.75;
-  const canopy = new THREE.Mesh(new THREE.CircleGeometry(A.r + 0.6, 64), new THREE.MeshBasicMaterial({ map: canopyTexture(), fog: false }));
+  const canopy = new THREE.Mesh(new THREE.CircleGeometry(A.r + 0.6, 64), new THREE.MeshBasicMaterial({ map: canopyTexture(), fog: false, color: DECOR.canopyShade }));
   canopy.rotation.x = Math.PI / 2;
   canopy.position.y = A.height + 1.35;
-  const forest = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 7, 64, 1, true), new THREE.MeshBasicMaterial({ map: forestTexture(), side: THREE.BackSide, fog: false }));
+  const forest = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 7, 64, 1, true), new THREE.MeshBasicMaterial({ map: forestTexture(), side: THREE.BackSide, fog: false, color: DECOR.forestShade }));
   forest.position.y = 2.6;
   const forestFloor = new THREE.Mesh(new THREE.RingGeometry(A.r, 6, 64), new THREE.MeshBasicMaterial({ color: DECOR.forestDeep, fog: false }));
   forestFloor.rotation.x = -Math.PI / 2;
