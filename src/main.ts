@@ -246,9 +246,10 @@ function applyUrlParams(s: Store) {
 
 // Landing overlay: one tap unlocks audio and speech, then either enter VR or stay on desktop.
 const overlay = document.getElementById('overlay')!;
-// The page has a pair of doorway buttons in the hero and again at the close; every pair works the same.
-const vrButtons = document.querySelectorAll<HTMLButtonElement>('[data-vr]');
-const desktopButtons = document.querySelectorAll<HTMLButtonElement>('[data-desktop]');
+// The doorway: "Enter Atrium" goes into VR when the device can, otherwise onto the desktop; the two
+// explicit choices beneath it do exactly what they say. The hero and the closing section both have a set.
+let xrSupported = false;
+void navigator.xr?.isSessionSupported('immersive-vr').then((ok) => (xrSupported = ok), () => {});
 let started = false;
 const start = () => {
   if (started) return;
@@ -258,22 +259,25 @@ const start = () => {
   setTimeout(() => (overlay.hidden = true), 450);
   void run();
 };
-for (const b of desktopButtons)
+const enterDesktop = () => {
+  unlockAudio();
+  start();
+};
+const enterVr = async () => {
+  unlockAudio();
+  const session = await navigator.xr!.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
+  await renderer.xr.setSession(session);
+  start();
+};
+const each = (sel: string, f: (b: HTMLButtonElement) => void) => document.querySelectorAll<HTMLButtonElement>(sel).forEach(f);
+each('[data-desktop]', (b) => (b.onclick = enterDesktop));
+each('[data-enter]', (b) => (b.onclick = () => (xrSupported ? void enterVr() : enterDesktop())));
+each('[data-vr]', (b) => {
   b.onclick = () => {
-    unlockAudio();
-    start();
+    if (xrSupported) return void enterVr();
+    const note = b.closest('section')?.querySelector<HTMLElement>('.vr-note');
+    if (note) note.hidden = false;
   };
-void navigator.xr?.isSessionSupported('immersive-vr').then((ok) => {
-  if (!ok) return;
-  for (const b of vrButtons) {
-    b.hidden = false;
-    b.onclick = async () => {
-      unlockAudio();
-      const session = await navigator.xr!.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
-      await renderer.xr.setSession(session);
-      start();
-    };
-  }
 });
 
 // Dev-only handle for automated walkthroughs (stripped from production builds).

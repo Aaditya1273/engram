@@ -61,4 +61,5 @@ site_cut cards   'Enchanted Fantasy UI Asset Sheet.png' 1000x 1120x530+208+395
 site_cut boy-cat 'Chibi Boy with Shoulder-Hugging Cat.png' 640x
 site_cut lotus   'Glowing Golden Recall Lotus.png' 560x
 site_cut lantern 'Enchanted Golden Lantern with Glowing Ribbons.png' 480x
+site_cut fern    'Fern Bush with White Flowers and Mossy Rocks.png' 720x
 du -sh "$OUT"/*

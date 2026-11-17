@@ -1,5 +1,6 @@
 /* The Living Garden: shared tokens for every HTML surface. Mirrors src/shared/theme.ts. */
 @import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/fraunces/wght-italic.css';
 @import '@fontsource-variable/source-sans-3';
 
 :root {
