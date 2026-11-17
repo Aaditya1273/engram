@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PANEL, SCENE } from '../shared/theme';
+import { DECOR, PANEL } from '../shared/theme';
 import type { DeckItem } from '../shared/types';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { makeButton, Panel, type Selectable } from './ui';
@@ -9,7 +9,7 @@ import type { Palace } from './palace';
 import type { Input } from './input';
 
 const CARD_BASE = new THREE.CylinderGeometry(0.1, 0.105, 0.012, 16);
-const CARD_MAT = new THREE.MeshLambertMaterial({ color: SCENE.cardBase, flatShading: true });
+const CARD_MAT = new THREE.MeshLambertMaterial({ color: DECOR.capTop, emissive: DECOR.goldEmissive, emissiveIntensity: 0.4 });
 const CARD_HIT = new THREE.BoxGeometry(0.23, 0.34, 0.2);
 const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
@@ -30,6 +30,7 @@ export class Stage {
   private alcoveWaiter: { slot: number; res: () => void } | null = null;
   private resumeWaiters: (() => void)[] = [];
   private builtCards: BuiltScene[] = [];
+  private backdrop = new Panel(0.84, 0.4, { frame: 'ornate' });
   paused = false;
   browsing = false;
   onBrowseSelect: (slot: number) => void = () => {};
@@ -43,6 +44,10 @@ export class Stage {
     this.caption.visible = false;
     this.topRow.position.set(0, 1.53, -1.1);
     this.cards.position.set(0, 1.12, -0.82);
+    // A framed backdrop behind the three choices, so the alcoves behind them don't show through and clutter the pick.
+    this.backdrop.position.set(0, 0.09, -0.08);
+    this.backdrop.visible = false;
+    this.cards.add(this.backdrop);
     this.hud.add(this.caption, this.topRow, this.cards, this.arrows, this.pauseLayer);
 
     for (const dir of [-1, 1] as const) {
@@ -179,6 +184,7 @@ export class Stage {
     await this.whilePaused();
     return new Promise((res) => {
       this.clearCards();
+      this.backdrop.visible = true;
       const spacing = 0.25;
       item.scenes.forEach((spec, i) => {
         const card = new THREE.Group();
@@ -214,7 +220,9 @@ export class Stage {
   }
 
   private clearCards() {
+    this.backdrop.visible = false;
     for (const c of [...this.cards.children]) {
+      if (c === this.backdrop) continue;
       this.cards.remove(c);
       // Prop geometry is shared across the kit, so only panels and per-scene materials are freed.
       c.traverse((o) => o instanceof Panel && o.dispose());

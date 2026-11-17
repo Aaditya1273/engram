@@ -202,6 +202,12 @@ describe('twist + deck schema', () => {
     expect(scene.props.length).toBe(out.props.length - 1); // original untouched
   });
 
+  it('puts a plain hat on a dog by using the straw-hatted dog painting', () => {
+    const scene = JA_STARTER[1].scenes[0];
+    expect(applyTwist(scene, { add: ['hat'] }).props.map((p) => p.prop)).toEqual(['dog-hat']);
+    expect(applyTwist(scene, { color: '#d94848', add: ['hat'] }).props.map((p) => p.prop)).toEqual(['dog', 'hat']);
+  });
+
   it('every preset scene uses known props and a valid focus', () => {
     expect(JA_STARTER).toHaveLength(6);
     for (const item of JA_STARTER) {

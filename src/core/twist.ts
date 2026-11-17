@@ -43,6 +43,11 @@ export function applyTwist(scene: SceneSpec, twist: Twist): SceneSpec {
   const mainTop = main ? PROP_HEIGHT[main.prop] * 0.92 : 0;
   if (twist.color && main) main.color = twist.color;
   twist.add.forEach((prop, i) => {
+    // The dog has its own painting in a straw hat; use it rather than balancing a separate hat on its head.
+    if (prop === 'hat' && main?.prop === 'dog' && !twist.color) {
+      main.prop = 'dog-hat';
+      return;
+    }
     if (WEARABLE.includes(prop) && main) {
       const s = main.scale ?? 1;
       props.push({ prop, pos: [main.pos[0] + 0.035 * s, main.pos[1] + mainTop * s, main.pos[2]], scale: 0.6 * s, rot: main.rot });

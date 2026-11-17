@@ -42,7 +42,7 @@ const DEFAULT_COLOR: Record<PropId, string> = {
   cat: '#e8873a', dog: '#b07a3e', bird: '#f0f0f0', book: '#3a7fbf', umbrella: '#d94848', house: '#c9a36b',
   mountain: '#6f8a6b', tree: '#3f8a4f', drop: '#5aa8e6', cloud: '#f4f6f8', fountain: '#9fb4c4', glasses: '#222222',
   hat: '#2b2b2b', ball: '#d94848', star: '#ffd24a', shoe: '#2f6fd1', sun: '#ffc93a', person: '#efc9a4',
-  'cat-hug': '#e8873a', summit: '#6f8a6b', 'cat-books': '#333333', 'cat-ball': '#f2f2f2',
+  'cat-hug': '#e8873a', summit: '#6f8a6b', 'cat-books': '#333333', 'cat-ball': '#f2f2f2', 'dog-hat': '#c9955a', coins: '#e0a628',
 };
 
 type Builder = (root: THREE.Group, c: THREE.Material, color: string) => void;
@@ -199,6 +199,17 @@ const BUILDERS: Record<PropId, Builder> = {
     ball.position.x = 0.06;
     r.add(ball);
   },
+  'dog-hat'(r, c) {
+    BUILDERS.dog(r, c, '');
+    const hat = new THREE.Group();
+    BUILDERS.hat(hat, mat(DEFAULT_COLOR.hat), DEFAULT_COLOR.hat);
+    hat.position.set(0.035, 0.1, 0);
+    hat.scale.setScalar(0.6);
+    r.add(hat);
+  },
+  coins(r, c) {
+    BUILDERS.star(r, c, '');
+  },
 };
 
 /** Self-lit props (sun, star) stay visible even in the dimmed palace. */
@@ -230,6 +241,8 @@ const ART: Partial<Record<PropId, { variants: [file: string, color: string][] }>
   summit: { variants: [['summit', '#6f8a6b']] },
   'cat-books': { variants: [['cat-books', '#333333']] },
   'cat-ball': { variants: [['cat-ball', '#f2f2f2']] },
+  'dog-hat': { variants: [['dog-hat', '#c9955a']] },
+  coins: { variants: [['coins', '#e0a628']] },
 };
 /** Colours closer than this (RGB distance, 0..√3) count as the painted colour. */
 const VARIANT_NEAR = 0.3;

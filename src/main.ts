@@ -30,7 +30,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(SCENE.sky);
 // Subtle atmosphere: the far walls soften into the dusk; everything active is well inside the fog start.
 scene.fog = new THREE.Fog(SCENE.sky, 2.4, 8);
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 30);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 30);
 camera.position.set(0, EYE_Y, 0);
 scene.add(camera);
 

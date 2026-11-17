@@ -45,8 +45,7 @@ export const JA_STARTER: DeckItem[] = [
         { prop: 'shoe', pos: [0.055, 0, 0.05], scale: 0.5 },
       ] },
       { mnemonic: 'A dog wearing a hat, howling "iii-nuuu".', props: [
-        { prop: 'dog', pos: [-0.01, 0, 0] },
-        { prop: 'hat', pos: [0.025, 0.095, 0], scale: 0.55 },
+        { prop: 'dog-hat', pos: [0, 0, 0] },
       ] },
     ],
   },
@@ -68,7 +67,7 @@ export const JA_STARTER: DeckItem[] = [
         { prop: 'cloud', pos: [0, 0.165, 0], scale: 0.6 },
         { prop: 'drop', pos: [0, 0.1, 0.01], scale: 0.3 },
         { prop: 'dog', pos: [-0.032, 0, 0.02], scale: 0.5 },
-        { prop: 'cat', pos: [0.032, 0, 0.02], scale: 0.5, color: '#e8873a' },
+        { prop: 'cat', pos: [0.032, 0, 0.02], scale: 0.5, color: '#f2f2f2' },
       ] },
       { mnemonic: 'You MISS the umbrella and water soaks you.', props: [
         { prop: 'umbrella', pos: [-0.025, 0, 0], scale: 0.55 },
@@ -137,9 +136,8 @@ export const JA_STARTER: DeckItem[] = [
         { prop: 'drop', pos: [0.08, 0.19, 0], scale: 0.3 },
       ] },
       { mnemonic: 'A CASH-filled umbrella spills coins.', props: [
-        { prop: 'umbrella', pos: [0, 0, 0], scale: 0.75, color: '#e0a628' },
-        { prop: 'star', pos: [0.06, 0, 0.05], scale: 0.25 },
-        { prop: 'star', pos: [-0.06, 0, 0.05], scale: 0.25 },
+        { prop: 'umbrella', pos: [0, 0, 0], scale: 0.75 },
+        { prop: 'coins', pos: [0.02, 0, 0.05], scale: 0.9 },
       ] },
       { mnemonic: 'A cat hides under an umbrella: "Ka-sa, it\'s raining!"', props: [
         { prop: 'umbrella', pos: [0, 0, 0], scale: 0.75 },
