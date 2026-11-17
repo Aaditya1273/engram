@@ -62,6 +62,18 @@ create table if not exists reviews (
   primary key (user_id, id)
 );
 create index if not exists reviews_user_seq on reviews (user_id, seq);
+create table if not exists models (
+  id             text primary key,
+  user_id        text not null references users(id) on delete cascade,
+  prompt         text not null,
+  status         text not null check (status in ('generating', 'optimising', 'ready', 'failed')),
+  task_id        text not null,
+  glb            text,
+  export_task    text,
+  export_format  text,
+  created_at     timestamptz not null default now()
+);
+create index if not exists models_user on models (user_id, created_at);
 create table if not exists rate_limits (
   token_id      text not null,
   window_start  bigint not null,

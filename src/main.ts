@@ -2,14 +2,16 @@ import * as THREE from 'three';
 import './shared/theme.css';
 import { SCENE } from './shared/theme';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { setModelEnvironment } from './shared/props';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
-  arrivalMessage, arrive, captureFlow, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
+  arrivalMessage, arrive, captureFlow, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
 } from './headset/flows';
 import { Input } from './headset/input';
 import { EYE_Y, Palace, SLOT_COUNT } from './headset/palace';
-import { setNarration } from './headset/speech';
+import { setNarration, setTranscriber, warmMicrophone } from './headset/speech';
 import { Stage } from './headset/stage';
 import { Store } from './headset/store';
 import { makeQrPanel, setTextScale } from './headset/ui';
@@ -27,6 +29,8 @@ renderer.xr.setFoveation(1);
 document.getElementById('app')!.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
+// Soft studio light baked into a small cube map: only the generated 3D props use it (see props.ts).
+setModelEnvironment(new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture);
 scene.background = new THREE.Color(SCENE.sky);
 // Subtle atmosphere: the far walls soften into the dusk; everything active is well inside the fog start.
 scene.fog = new THREE.Fog(SCENE.sky, 2.4, 8);
@@ -113,8 +117,15 @@ addEventListener('resize', () => {
 async function run() {
   // Cloud is optional: register/sync in the background; the palace never waits for the network.
   // After a sync, show anything new from other devices. Never clear here: a flow may be mid-scene.
-  void cloud.connect().then(() => Promise.all([cloud.sync(), cloud.refreshGoals()])).then(() => {
-    for (const m of store.data.memories) showMemory(ctx, m);
+  void cloud.connect().then(() => {
+    // No browser recogniser (Quest): answers are recorded and transcribed by the server instead.
+    if (cloud.stt) setTranscriber((audio, lang) => cloud.transcribe(audio, lang));
+    return Promise.all([cloud.sync(), cloud.refreshGoals()]);
+  }).then(() => {
+    for (const m of store.data.memories) {
+      showMemory(ctx, m);
+      watchModels(ctx, m);
+    }
   });
   const { missedDays } = arrive(store);
   if (!store.data.onboarded) await firstFive(ctx);
@@ -138,7 +149,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'inbox' | 'capture' | 'settings' | 'refresh' | 'wing';
+    type Action = 'start' | 'practise' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -159,6 +170,8 @@ async function home(missedDays: number) {
         ...(inbox.length ? [{ label: `Inbox (${inbox.length})`, value: 'inbox' as const }] : []),
         ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
         { label: 'Remember this', value: 'capture' },
+        ...(cloud.online && cloud.ai ? [{ label: 'Ask an agent', value: 'agent' as const }] : []),
+        ...(!input.xr && keepsakes().length ? [{ label: 'Print a keepsake', value: 'print' as const }] : []),
         { label: 'Settings', value: 'settings' },
       ]),
       inboxChanged,
@@ -174,12 +187,59 @@ async function home(missedDays: number) {
     else if (action === 'settings') await settings();
     else if (action === 'inbox') await inboxFlow(ctx, inbox);
     else if (action === 'capture') await captureFlow(ctx);
+    else if (action === 'agent') await agentFlow();
+    else if (action === 'print') await printFlow();
     else {
       await dailySession(ctx, missedDays, action === 'practise');
       missedDays = 0;
     }
     inbox = await cloud.inbox();
   }
+}
+
+/**
+ * The agent loop on one device: a study agent writes five facts on a topic and files them in the inbox,
+ * the same path Claude or any MCP agent uses. The learner still co-creates every scene.
+ */
+async function agentFlow() {
+  const title = 'Ask an agent';
+  stage.show(title, 'Pick a topic. A study agent will write five facts and send them to your inbox, just as any connected agent can.');
+  let topic = await stage.ask([
+    { label: 'Planets', value: 'The planets of the solar system' },
+    { label: 'Cranial nerves', value: 'The cranial nerves' },
+    { label: 'Spanish food', value: 'Spanish words for food' },
+    ...(input.xr ? [] : [{ label: 'Type a topic', value: '' }]),
+    { label: 'Back', value: 'back' },
+  ]);
+  if (topic === 'back') return;
+  if (!topic) {
+    stage.show(title, 'Type any topic, then press Enter.');
+    topic = await stage.typeText('e.g. Capitals of Europe');
+    if (!topic) return;
+  }
+  stage.show(title, 'The agent is writing…');
+  try {
+    const r = await cloud.agentFacts(topic);
+    play('light');
+    await stage.say(`The agent sent ${r.count} facts about ${r.topic} to your inbox. Open the inbox to make each one yours.`, title);
+  } catch (e) {
+    await stage.say(`The agent couldn't reach you just now. ${(e as Error).message}`, title);
+  }
+}
+
+/** Memories with an object the learner had generated, newest first. */
+const keepsakes = () => store.data.memories.filter((m) => m.scene.props.some((p) => p.model?.ready)).reverse();
+
+/** A keepsake: the learner's own generated object as a file for a 3D printer, a physical cue for the desk. */
+async function printFlow() {
+  const title = 'Print a keepsake';
+  stage.show(title, 'Your own 3D objects can be printed. Pick one; you get an STL file for any 3D printer or print service.');
+  const m = await stage.ask([...keepsakes().slice(0, 4).map((k) => ({ label: k.display, value: k })), { label: 'Back', value: null }]);
+  if (!m) return;
+  stage.show(title, 'Preparing the printable file…');
+  const url = await cloud.printable(m.scene.props.find((p) => p.model?.ready)!.model!.id);
+  if (url) window.open(url, '_blank', 'noopener');
+  await stage.say(url ? 'Your keepsake is downloading. Print it and keep it where you study.' : 'The printable file could not be made just now. Try again later.', title);
 }
 
 /** Show a pairing QR in front of the user; returns a function that removes it. */
@@ -212,11 +272,20 @@ async function settings() {
       const more = await stage.ask([
         { label: 'Wind-down walk', value: 'wind' },
         { label: 'Larger text', value: 'text' },
+        { label: 'About', value: 'about' },
         { label: 'Erase everything', value: 'reset' },
         { label: 'Back', value: 'back' },
       ]);
       if (more === 'wind') return void (await windDown(ctx));
       if (more === 'text') setTextScale(1.2);
+      if (more === 'about') {
+        stage.show('About Atrium', [
+          'A memory palace that keeps what you learn, with spaced recall (FSRS), your own gestures, and scenes you co-create.',
+          'The 3D objects are generated by Aholo Lux3D (Manycore): every painted prop, and anything you name in a twist.',
+          'Speech by Whisper on Groq. Built with three.js and WebXR.',
+        ].join('\n'));
+        await stage.ask([{ label: 'Back', value: 'back' }]);
+      }
       if (more === 'reset') {
         stage.show('Erase everything?', 'This deletes your palace here and your account in the cloud. It cannot be undone.');
         const sure = await stage.ask([{ label: 'Erase', value: true }, { label: 'Cancel', value: false }]);
@@ -265,6 +334,7 @@ const enterDesktop = () => {
 };
 const enterVr = async () => {
   unlockAudio();
+  warmMicrophone();
   const session = await navigator.xr!.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
   await renderer.xr.setSession(session);
   start();

@@ -5,7 +5,7 @@ import { LANGS, type DeckItem, type Lang, type PropId, type SceneSpec } from '..
 
 /**
  * Text → memory items, each with three scene drafts built only from the prop kit.
- * One JSON call to an OpenAI-compatible chat API: Gemini (GEMINI_API_KEY) or NVIDIA (NVIDIA_API_KEY).
+ * One JSON call to an OpenAI-compatible chat API: Gemini (GEMINI_API_KEY), Groq (GROQ_API_KEY) or NVIDIA (NVIDIA_API_KEY).
  * Without a key, or on any failure, a plain line-based drafter keeps capture working, so the
  * product never depends on the AI.
  */
@@ -14,7 +14,7 @@ export const MAX_INPUT_CHARS = 20_000;
 export const MAX_ITEMS = 30;
 
 interface Provider {
-  name: 'gemini' | 'nvidia';
+  name: 'gemini' | 'groq' | 'nvidia';
   baseUrl: string;
   key: string;
   model: string;
@@ -25,6 +25,8 @@ export function provider(): Provider | null {
   const env = process.env;
   if (env.GEMINI_API_KEY)
     return { name: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', key: env.GEMINI_API_KEY, model: env.LLM_MODEL || 'gemini-3.8-flash' };
+  const groq = env.GROQ_API_KEY || env.GORQ_API_KEY;
+  if (groq) return { name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', key: groq, model: env.LLM_MODEL || 'openai/gpt-oss-120b' };
   if (env.NVIDIA_API_KEY)
     return { name: 'nvidia', baseUrl: 'https://integrate.api.nvidia.com/v1', key: env.NVIDIA_API_KEY, model: env.LLM_MODEL || 'meta/llama-3.3-70b-instruct' };
   return null;
@@ -145,7 +147,7 @@ function toItem(raw: z.infer<typeof Item>): DeckItem | null {
 export interface DraftResult {
   topic: string;
   items: DeckItem[];
-  drafter: 'gemini' | 'nvidia' | 'offline';
+  drafter: 'gemini' | 'groq' | 'nvidia' | 'offline';
 }
 
 export async function draft(text: string, topicHint?: string): Promise<DraftResult> {

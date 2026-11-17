@@ -10,6 +10,7 @@ import { lanternLook } from '../src/core/lantern';
 import { JA_STARTER } from '../src/shared/deck-ja';
 import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
+import { migrate } from '../src/headset/store';
 import { sceneFit } from '../src/headset/scene-builder';
 
 // Deterministic noise so tests never flake.
@@ -244,5 +245,26 @@ describe('scene fit', () => {
     expect(size(big, big.props[0])).toBeCloseTo(size(small, small.props[0]), 4);
     expect(sceneFit(small).scale).toBeGreaterThan(2); // a tiny prop grows to fill
     expect(sceneFit(small).dx).toBeCloseTo(-0.05, 5); // and is re-centred
+  });
+});
+
+describe('save migration', () => {
+  const save = (scene: unknown) => ({
+    v: 1, memories: [{ id: 'ja-neko', cue: 'cat', question: 'q', lang: 'ja-JP', answers: ['neko'], display: 'neko', mnemonic: 'x', scene, slot: 0, createdAt: 0, topic: 't', goalWeight: 1 }],
+    reviews: [], cloud: { cursor: 0, dirtyMemories: [], pendingReviews: [], streakEvents: [], goals: [] },
+  }) as never as Parameters<typeof migrate>[0];
+
+  it('rebuilds an outdated starter scene from the deck', () => {
+    const old = { ...JA_STARTER[0].scenes[1], props: [{ prop: 'book', pos: [0, 0, 0] }, { prop: 'cat', pos: [0, 0.09, 0] }] };
+    const d = migrate(save(old), true);
+    expect(d.memories[0].scene.props.map((p) => p.prop)).toEqual(['cat-books']);
+    expect(d.cloud.dirtyMemories).toEqual(['ja-neko']);
+  });
+
+  it('never touches a scene holding an object the learner generated', () => {
+    const mine = { ...JA_STARTER[0].scenes[1], props: [...JA_STARTER[0].scenes[1].props, { prop: 'star', pos: [0.1, 0, 0.06], model: { id: 'm1', ready: true } }] };
+    const d = migrate(save(mine), true);
+    expect(d.memories[0].scene.props.at(-1)!.model).toEqual({ id: 'm1', ready: true });
+    expect(d.cloud.dirtyMemories).toEqual([]);
   });
 });

@@ -1,8 +1,8 @@
 /**
- * Speech in and out, both optional. If recognition is missing or fails once, the flows switch to
- * pinchable choices for the rest of the session. Narration is always captioned.
- * ponytail: browser Web Speech only. Add a cloud speech-to-text fallback (STT_API_KEY) if the
- * Quest browser's recogniser proves unreliable on device.
+ * Speech in and out, both optional. Recognition uses the browser's recogniser where there is one, and
+ * otherwise records the answer and has the server transcribe it (the Quest browser has no recogniser).
+ * If both are missing or fail, the flows switch to pinchable choices for the rest of the session.
+ * Narration is always captioned.
  */
 
 interface RecognitionLike {
@@ -22,11 +22,22 @@ const Ctor = (globalThis as unknown as { SpeechRecognition?: new () => Recogniti
   .SpeechRecognition ?? (globalThis as unknown as { webkitSpeechRecognition?: new () => RecognitionLike }).webkitSpeechRecognition;
 
 let broken = !Ctor;
+
+/** Server transcription, installed by the app once the cloud is reachable. */
+type Transcriber = (audio: Blob, lang: string) => Promise<string[]>;
+let transcriber: Transcriber | null = null;
+let cloudBroken = false;
+export const setTranscriber = (t: Transcriber | null) => (transcriber = t);
+const canRecord = () => !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
+const cloudAvailable = () => !!transcriber && !cloudBroken && canRecord();
 /** Errors that mean "this device can't do speech", as opposed to "the user said nothing". */
 const FATAL = new Set(['not-allowed', 'service-not-allowed', 'network', 'audio-capture', 'language-not-supported']);
 
-export const speechAvailable = () => !broken;
-export const disableSpeech = () => (broken = true);
+export const speechAvailable = () => !broken || cloudAvailable();
+export const disableSpeech = () => {
+  broken = true;
+  cloudBroken = true;
+};
 
 export interface Listening {
   /** Resolves with recogniser alternatives (possibly empty). */
@@ -35,7 +46,7 @@ export interface Listening {
 }
 
 export function listen(lang: string, timeoutMs = 6000): Listening {
-  if (broken || !Ctor) return { result: Promise.resolve([]), stop() {} };
+  if (broken || !Ctor) return cloudAvailable() ? record(lang, timeoutMs) : { result: Promise.resolve([]), stop() {} };
   const rec = new Ctor();
   rec.lang = lang;
   rec.maxAlternatives = 5;
@@ -64,6 +75,76 @@ export function listen(lang: string, timeoutMs = 6000): Listening {
     }
   });
   return { result, stop: () => rec.stop() };
+}
+
+let mic: Promise<MediaStream> | null = null;
+/** Ask for the microphone now (inside the Enter click) if the browser can't recognise speech itself. */
+export const warmMicrophone = () => {
+  if (!Ctor && canRecord()) void microphone().catch(() => {});
+};
+/** One microphone stream for the session: asking again for every answer would re-prompt and add latency. */
+function microphone() {
+  mic ??= navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  mic.catch(() => (mic = null));
+  return mic;
+}
+
+/** Loudness (RMS, 0..1) above which the clip counts as speech, and the quiet after it that ends the answer. */
+const VOICE_RMS = 0.035, END_SILENCE_MS = 900, MIN_SPEECH_MS = 150;
+const MIC_WAIT_MS = 8000;
+
+/**
+ * Records until the speaker stops (or the timeout), then sends the clip to the server. Silence never
+ * leaves the device: if nobody spoke, nothing is uploaded and the result is empty.
+ */
+function record(lang: string, timeoutMs: number): Listening {
+  let stopRec = () => {};
+  const result = (async (): Promise<string[]> => {
+    let stream: MediaStream;
+    try {
+      // An unanswered permission prompt would wait forever; give it a few seconds, then fall back to choices.
+      stream = await Promise.race([microphone(), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('no answer')), MIC_WAIT_MS))]);
+    } catch {
+      cloudBroken = true; // permission denied, ignored, or no microphone: stop offering voice
+      return [];
+    }
+    const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t));
+    const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    const ac = new AudioContext();
+    const analyser = ac.createAnalyser();
+    analyser.fftSize = 1024;
+    ac.createMediaStreamSource(stream).connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+    let spokeMs = 0, lastVoice = 0, last = performance.now();
+    const done = new Promise<void>((res) => (rec.onstop = () => res()));
+    stopRec = () => rec.state === 'recording' && rec.stop();
+    rec.start(250);
+    const started = performance.now();
+    const tick = window.setInterval(() => {
+      const now = performance.now();
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += v * v;
+      if (Math.sqrt(sum / buf.length) > VOICE_RMS) {
+        spokeMs += now - last;
+        lastVoice = now;
+      }
+      last = now;
+      if (now - started > timeoutMs || (spokeMs > MIN_SPEECH_MS && now - lastVoice > END_SILENCE_MS)) stopRec();
+    }, 50);
+    await done;
+    clearInterval(tick);
+    void ac.close();
+    if (spokeMs <= MIN_SPEECH_MS) return [];
+    try {
+      return await transcriber!(new Blob(chunks, { type: rec.mimeType || type || 'audio/webm' }), lang);
+    } catch {
+      return [];
+    }
+  })();
+  return { result, stop: () => stopRec() };
 }
 
 let narrationOn = true;

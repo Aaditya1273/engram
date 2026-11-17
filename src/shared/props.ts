@@ -2,13 +2,17 @@ import * as THREE from 'three';
 import type { PropId } from './types';
 
 /**
- * The prop kit: base at y = 0, about 10 cm tall at scale 1. Each prop is a painted cut-out (public/art/props)
- * that turns to face the viewer; the procedural primitives below are the fallback for a prop with no art
- * (person, for now) or art that fails to load. The scene JSON (prop id + pos/scale/colour) is the same for both.
- * ponytail: flat cut-outs, not meshes. A glTF can replace one prop's art later without touching scenes.
+ * The prop kit: base at y = 0, about 10 cm tall at scale 1. Three tiers, each the fallback for the next:
+ *   1. a real 3D model generated from the painting by Aholo Lux3D (public/art/models, see scripts/lux3d.mjs),
+ *   2. the painted cut-out itself (public/art/props), shown at once and kept if the model can't load,
+ *   3. procedural primitives, for a prop with no art (person) or art that fails to load.
+ * The scene JSON (prop id + pos/scale/colour) is the same for all three.
  */
 
 import { PROP_HEIGHT } from './props-catalog';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import MODELS from './models.json';
 
 export { PROP_IDS } from './props-catalog';
 
@@ -297,7 +301,10 @@ function faceViewer(this: THREE.Mesh, renderer: THREE.WebGLRenderer, _scene: THR
 const LUMA = 'vec3(0.3, 0.59, 0.11)';
 /** Unlit art material with two knobs: a colour tint (twists) and saturation (fading memories). */
 function artMaterial(tex: THREE.Texture, tint: THREE.Color | null, sat: { value: number }) {
-  const m = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.35, alphaToCoverage: true, side: THREE.DoubleSide });
+  return withKnobs(new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.35, alphaToCoverage: true, side: THREE.DoubleSide }), tint, sat);
+}
+
+function withKnobs<M extends THREE.Material>(m: M, tint: THREE.Color | null, sat: { value: number }): M {
   const u = { uSat: sat, uTint: { value: tint ?? new THREE.Color(1, 1, 1) }, uTintAmt: { value: tint ? 0.72 : 0 } };
   m.userData.art = u;
   m.onBeforeCompile = (shader) => {
@@ -310,6 +317,77 @@ function artMaterial(tex: THREE.Texture, tint: THREE.Color | null, sat: { value:
         diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, ${LUMA})), diffuseColor.rgb, uSat);`);
   };
   return m;
+}
+
+/** Image-based light for the 3D models only (set once by the app), so they shade without relighting the palace. */
+let envMap: THREE.Texture | null = null;
+export function setModelEnvironment(tex: THREE.Texture) {
+  envMap = tex;
+}
+
+/** Prop paintings that have a generated 3D model. */
+const HAS_MODEL = new Set(Object.keys(MODELS));
+export const modelUrl = (file: string) => `${import.meta.env.BASE_URL}art/models/${file}.glb`;
+
+interface ModelTemplate {
+  parts: { geo: THREE.BufferGeometry; mat: THREE.MeshStandardMaterial }[];
+  /** Width ÷ height, from the model's bounds. */
+  aspect: number;
+}
+const models = new Map<string, Promise<ModelTemplate>>();
+const gltf = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+
+/**
+ * Loads a GLB once and bakes it to unit height, base at y = 0, centred: every use shares the geometry.
+ * Lux3D models face +z with the painting's view, so they line up with the cut-out they replace.
+ */
+export function loadModel(url: string): Promise<ModelTemplate> {
+  if (!models.has(url)) {
+    const p = gltf.loadAsync(url).then(({ scene }) => {
+      scene.updateMatrixWorld(true);
+      const parts: ModelTemplate['parts'] = [];
+      scene.traverse((o) => {
+        if (!(o instanceof THREE.Mesh)) return;
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        const mat = mats[0] instanceof THREE.MeshStandardMaterial ? mats[0] : new THREE.MeshStandardMaterial({ map: (mats[0] as THREE.MeshBasicMaterial).map ?? null });
+        parts.push({ geo: o.geometry.clone().applyMatrix4(o.matrixWorld), mat });
+      });
+      if (!parts.length) throw new Error(`no mesh in ${url}`);
+      const box = new THREE.Box3();
+      for (const p of parts) box.union(new THREE.Box3().setFromBufferAttribute(p.geo.getAttribute('position') as THREE.BufferAttribute));
+      const size = box.getSize(new THREE.Vector3()), k = 1 / size.y;
+      const centre = box.getCenter(new THREE.Vector3());
+      for (const p of parts) p.geo.translate(-centre.x, -box.min.y, -centre.z).scale(k, k, k);
+      return { parts, aspect: size.x / size.y };
+    });
+    p.catch(() => models.delete(url)); // retry on a later scene
+    models.set(url, p);
+  }
+  return models.get(url)!;
+}
+
+const SWAY = 0.35, SWAY_SPEED = 0.55;
+/** Faces the viewer like the cut-outs, plus a slow sway so the model reads as solid. */
+function faceViewerSway(this: THREE.Mesh, renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
+  const holder = this.parent!;
+  faceViewer.call(holder as THREE.Mesh, renderer, scene, camera);
+  holder.quaternion.multiply(_q.setFromAxisAngle(UP, Math.sin(performance.now() / 1000 * SWAY_SPEED + holder.id) * SWAY));
+  holder.updateMatrixWorld(true);
+}
+
+/** A model instance at height h; materials are per instance (they carry the scene's tint and saturation). */
+export function modelInstance(t: ModelTemplate, h: number, tint: THREE.Color | null, sat: { value: number }) {
+  const holder = new THREE.Group();
+  holder.scale.setScalar(h);
+  t.parts.forEach((p, i) => {
+    const mat = withKnobs(p.mat.clone(), tint, sat);
+    mat.envMap = envMap;
+    mat.envMapIntensity = 1.1;
+    const mesh = new THREE.Mesh(p.geo, mat);
+    if (i === 0) mesh.onBeforeRender = faceViewerSway as THREE.Object3D['onBeforeRender'];
+    holder.add(mesh);
+  });
+  return holder;
 }
 
 /** Which painting to show for a requested colour, and the tint to apply (null = as painted). */
@@ -337,6 +415,8 @@ export interface PropOptions {
   grounded?: boolean;
   /** Shared saturation uniform: 1 = full colour, 0 = grey. Lets a whole scene fade, even art that loads late. */
   sat?: { value: number };
+  /** A model made for this memory (twist-to-3D): replaces the prop's own art once it loads. */
+  model?: string;
 }
 
 export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): THREE.Group {
@@ -352,16 +432,33 @@ export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): T
   const shadow = new THREE.Mesh(g('shadow', () => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)),
     new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false }));
   shadow.position.y = 0.001;
-  // Painted on art loading; until then (and if it never loads) the scene just has an empty spot.
+  const tint = pick.tint ? new THREE.Color(pick.tint) : null;
+  let art: THREE.Object3D | null = null, modelled = false;
+  // The painting shows first (small, quick); the 3D model replaces it when it arrives. Either can fail alone.
   artTexture(pick.file).then((tex) => {
+    if (modelled) return;
     const img = tex.image as { width: number; height: number };
     const w = (h * img.width) / img.height;
-    const art = new THREE.Mesh(quad(), artMaterial(tex, pick.tint ? new THREE.Color(pick.tint) : null, sat));
+    art = new THREE.Mesh(quad(), artMaterial(tex, tint, sat));
     art.scale.set(w, h, 1);
     art.onBeforeRender = faceViewer as THREE.Object3D['onBeforeRender'];
     shadow.scale.set(w * 0.8, 1, w * 0.45);
     root.add(art);
     if (opts.grounded !== false) root.add(shadow);
-  }, () => buildPrimitive(root, id, color));
+  }, () => !modelled && buildPrimitive(root, id, color));
+  const url = opts.model ?? (HAS_MODEL.has(pick.file) ? modelUrl(pick.file) : null);
+  if (url) {
+    loadModel(url).then((t) => {
+      modelled = true;
+      if (art) {
+        root.remove(art);
+        (art as THREE.Mesh).material instanceof THREE.Material && ((art as THREE.Mesh).material as THREE.Material).dispose();
+      }
+      const w = h * t.aspect;
+      root.add(modelInstance(t, h, tint, sat));
+      shadow.scale.set(w * 0.8, 1, w * 0.6);
+      if (opts.grounded !== false && !shadow.parent) root.add(shadow);
+    }, () => {}); // keep the painting
+  }
   return root;
 }

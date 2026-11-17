@@ -4,10 +4,12 @@ import { AGENT_WRITES_PER_HOUR, handleMcp } from './mcp';
 import { gaps, listDue, readiness } from './knowledge';
 import { aiEnabled, mapTwist, MAX_INPUT_CHARS } from './pipeline';
 import {
-  capture, claimPairing, createGoal, createPairing, createUser, deleteAccount, exportAll, GoalInput, getStreak,
+  agentFacts, capture, claimPairing, createGoal, createPairing, createUser, deleteAccount, exportAll, GoalInput, getStreak,
   listAgents, listGoals, listInbox, loadKnowledge, revokeToken, setInboxStatus, sync, SyncInput,
 } from './ops';
 import { db } from './db';
+import { MAX_AUDIO_BYTES, sttEnabled, transcribe } from './speech';
+import { advanceModel, createModel, exportModel, lux3dEnabled, MODEL_PROMPT_MAX, modelFile } from './lux3d';
 
 /** The whole API as one fetch handler: deployed as a single Vercel function, mounted in Vite for dev. */
 
@@ -73,7 +75,7 @@ export async function handle(req: Request): Promise<Response> {
       return res;
     }
 
-    if (path === '/api/health' && m === 'GET') return json({ ok: true, ai: aiEnabled(), db: process.env.DATABASE_URL ? 'postgres' : 'pglite' });
+    if (path === '/api/health' && m === 'GET') return json({ ok: true, ai: aiEnabled(), stt: sttEnabled(), lux3d: lux3dEnabled(), db: process.env.DATABASE_URL ? 'postgres' : 'pglite' });
 
     // ---- devices & pairing
     if (path === '/api/device' && m === 'POST') {
@@ -132,10 +134,59 @@ export async function handle(req: Request): Promise<Response> {
       const r = await capture(who.userId, input.source, input.text, input.topic, input.goal);
       return json({ topic: r.topic, drafter: r.drafter, count: r.items.length, items: r.items.map((i) => ({ question: i.question, answer: i.display })) }, 201);
     }
+    if (path === '/api/agent/facts' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      if (!aiEnabled()) throw new HttpError(503, 'The study agent needs an AI key on the server');
+      if (!(await rateLimit(who.tokenId, AGENT_WRITES_PER_HOUR))) throw new HttpError(429, 'The agent has sent enough for this hour');
+      const { topic } = await body(req, z.object({ topic: z.string().trim().min(2).max(60) }));
+      const r = await agentFacts(who.userId, topic);
+      if (!r) throw new HttpError(502, 'The agent could not write facts just now');
+      return json({ topic: r.topic, count: r.items.length }, 201);
+    }
     if (path === '/api/twist' && m === 'POST') {
       await need(req, 'device');
       const { text } = await body(req, z.object({ text: z.string().max(300) }));
       return json(await mapTwist(text));
+    }
+    // ---- twist-to-3D (Aholo Lux3D)
+    if (path === '/api/models' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      if (!lux3dEnabled()) throw new HttpError(503, '3D generation is not configured');
+      const { text } = await body(req, z.object({ text: z.string().trim().min(2).max(MODEL_PROMPT_MAX) }));
+      const r = await createModel(who.userId, text);
+      return 'error' in r ? json(r, 429) : json(r, 201);
+    }
+    const modelGlb = path.match(/^\/api\/models\/([\w-]+)\.glb$/);
+    if (modelGlb && m === 'GET') {
+      const bytes = await modelFile(modelGlb[1]);
+      if (!bytes) return json({ error: 'Not found' }, 404);
+      return new Response(bytes, { headers: { 'content-type': 'model/gltf-binary', 'cache-control': 'public, max-age=31536000, immutable', 'access-control-allow-origin': '*' } });
+    }
+    const modelExport = path.match(/^\/api\/models\/([\w-]+)\/export$/);
+    if (modelExport && m === 'POST') {
+      await need(req, 'device');
+      if (!lux3dEnabled()) throw new HttpError(503, '3D export is not configured');
+      const format = url.searchParams.get('format') === '3mf' ? '3mf' : 'stl';
+      const base = process.env.PUBLIC_BASE_URL || url.origin;
+      return json(await exportModel(modelExport[1], `${base}/api/models/${modelExport[1]}.glb`, format));
+    }
+    const modelStatus = path.match(/^\/api\/models\/([\w-]+)$/);
+    if (modelStatus && m === 'GET') {
+      const who = await need(req, 'device');
+      const r = await advanceModel(who.userId, modelStatus[1]);
+      return r ? json(r) : json({ error: 'Not found' }, 404);
+    }
+
+    if (path === '/api/transcribe' && m === 'POST') {
+      const who = await need(req, 'device');
+      if (!sttEnabled()) throw new HttpError(503, 'Speech-to-text is not configured');
+      if (!(await rateLimit(who.tokenId, 600))) throw new HttpError(429, 'Too many recordings this hour');
+      const audio = await req.arrayBuffer();
+      if (audio.byteLength > MAX_AUDIO_BYTES) throw new HttpError(413, 'Recording too long');
+      const lang = (url.searchParams.get('lang') ?? 'en-US').slice(0, 12);
+      const alternatives = await transcribe(audio, req.headers.get('content-type') ?? 'audio/webm', lang);
+      if (!alternatives) throw new HttpError(502, 'Transcription failed');
+      return json({ alternatives });
     }
 
     // ---- goals

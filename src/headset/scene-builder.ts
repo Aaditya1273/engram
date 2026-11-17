@@ -47,7 +47,8 @@ export function buildScene(spec: SceneSpec): BuiltScene {
   inner.position.x = fit.dx;
   const sat = { value: 1 };
   for (const p of spec.props) {
-    const prop = buildProp(p.prop, p.color, { grounded: p.pos[1] < GROUND_Y, sat });
+    const model = p.model?.ready ? `/api/models/${p.model.id}.glb` : undefined;
+    const prop = buildProp(p.prop, p.color, { grounded: p.pos[1] < GROUND_Y, sat, model });
     prop.position.set(...p.pos);
     prop.scale.setScalar(p.scale ?? 1);
     prop.rotation.y = p.rot ?? 0;

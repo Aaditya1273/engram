@@ -55,7 +55,7 @@ const RENAMED: Record<string, string> = {
   'A HONest person swears on a book.': 'HONest truth: a gold star shines over a book.',
 };
 
-function migrate(d: SaveData, hadCloud: boolean): SaveData {
+export function migrate(d: SaveData, hadCloud: boolean): SaveData {
   d.cloud = { ...fresh().cloud, ...d.cloud };
   // A save from before sync existed: everything in it still needs uploading once.
   if (!hadCloud) d.cloud.dirtyMemories = d.memories.map((m) => m.id);
@@ -71,7 +71,8 @@ function migrate(d: SaveData, hadCloud: boolean): SaveData {
     // Starter scenes follow the shipped deck (its colours were retuned for the painted props); the twist is re-applied.
     const mnemonic = RENAMED[m.scene.mnemonic] ?? m.scene.mnemonic;
     const fresh = JA_STARTER.find((i) => i.id === m.id)?.scenes.find((sc) => sc.mnemonic === mnemonic);
-    if (fresh) {
+    // Never rebuild a scene holding an object the learner generated (twist-to-3D, leech): it isn't in the deck.
+    if (fresh && !m.scene.props.some((p) => p.model)) {
       const scene = applyTwist(fresh, parseTwist(m.twist ?? ''));
       if (JSON.stringify(scene) !== JSON.stringify(m.scene)) {
         m.scene = scene;
@@ -137,6 +138,12 @@ export class Store {
 
   due(m: Memory) {
     return dueAt(this.card(m));
+  }
+
+  /** After changing a memory in place: save it and send it on the next sync. */
+  touch(m: Memory) {
+    if (!this.data.cloud.dirtyMemories.includes(m.id)) this.data.cloud.dirtyMemories.push(m.id);
+    this.save();
   }
 
   addMemory(m: Memory) {

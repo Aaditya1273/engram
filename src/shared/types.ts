@@ -12,6 +12,8 @@ export interface PropPlacement {
   color?: string;
   /** Yaw in radians. */
   rot?: number;
+  /** A one-off 3D object generated for this memory from the learner's own words (twist-to-3D). */
+  model?: { id: string; ready?: boolean };
 }
 
 export interface SceneSpec {

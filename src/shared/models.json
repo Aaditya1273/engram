@@ -1,0 +1,158 @@
+{
+  "ball": {
+    "taskId": 8254045,
+    "seconds": 86,
+    "rawBytes": 9321192,
+    "bytes": 241468
+  },
+  "bird": {
+    "taskId": 8254078,
+    "seconds": 94,
+    "rawBytes": 8558896,
+    "bytes": 500048
+  },
+  "cat-ball": {
+    "taskId": 8254072,
+    "seconds": 101,
+    "rawBytes": 9156544,
+    "bytes": 326044
+  },
+  "book": {
+    "taskId": 8254081,
+    "seconds": 110,
+    "rawBytes": 8798908,
+    "bytes": 246464
+  },
+  "cat-black": {
+    "taskId": 8254074,
+    "seconds": 120,
+    "rawBytes": 9367900,
+    "bytes": 285364
+  },
+  "cat-books": {
+    "taskId": 8254105,
+    "seconds": 76,
+    "rawBytes": 8849136,
+    "bytes": 266948
+  },
+  "cat-white": {
+    "taskId": 8254119,
+    "seconds": 88,
+    "rawBytes": 7614936,
+    "bytes": 280488
+  },
+  "cat-hug": {
+    "taskId": 8254110,
+    "seconds": 131,
+    "rawBytes": 7950824,
+    "bytes": 333224
+  },
+  "cat-orange": {
+    "taskId": 8254115,
+    "seconds": 146,
+    "rawBytes": 9103724,
+    "bytes": 280692
+  },
+  "cloud": {
+    "taskId": 8254138,
+    "seconds": 108,
+    "rawBytes": 8178896,
+    "bytes": 320104
+  },
+  "coins": {
+    "taskId": 8254170,
+    "seconds": 129,
+    "rawBytes": 8783560,
+    "bytes": 263232
+  },
+  "dog-hat": {
+    "taskId": 8254183,
+    "seconds": 249,
+    "rawBytes": 9051696,
+    "bytes": 295396
+  },
+  "dog": {
+    "taskId": 8254195,
+    "seconds": 249,
+    "rawBytes": 9252396,
+    "bytes": 264672
+  },
+  "drop-honey": {
+    "taskId": 8254209,
+    "seconds": 277,
+    "rawBytes": 8589484,
+    "bytes": 285084
+  },
+  "drop": {
+    "taskId": 8254235,
+    "seconds": 249,
+    "rawBytes": 8504328,
+    "bytes": 554932
+  },
+  "fountain": {
+    "taskId": 8254302,
+    "seconds": 150,
+    "rawBytes": 9153976,
+    "bytes": 417900
+  },
+  "hat": {
+    "taskId": 8254339,
+    "seconds": 165,
+    "rawBytes": 7927420,
+    "bytes": 245268
+  },
+  "glasses": {
+    "taskId": 8254320,
+    "seconds": 223,
+    "rawBytes": 7862940,
+    "bytes": 237240
+  },
+  "house": {
+    "taskId": 8254345,
+    "seconds": 155,
+    "rawBytes": 8881532,
+    "bytes": 446012
+  },
+  "mountain": {
+    "taskId": 8254376,
+    "seconds": 123,
+    "rawBytes": 9493292,
+    "bytes": 426312
+  },
+  "star": {
+    "taskId": 8254406,
+    "seconds": 126,
+    "rawBytes": 7553192,
+    "bytes": 325780
+  },
+  "shoe": {
+    "taskId": 8254403,
+    "seconds": 171,
+    "rawBytes": 9732780,
+    "bytes": 340048
+  },
+  "summit": {
+    "taskId": 8254414,
+    "seconds": 156,
+    "rawBytes": 7989396,
+    "bytes": 352684
+  },
+  "sun": {
+    "taskId": 8254421,
+    "seconds": 146,
+    "rawBytes": 9074072,
+    "bytes": 250036
+  },
+  "umbrella": {
+    "taskId": 8254494,
+    "seconds": 138,
+    "rawBytes": 11026180,
+    "bytes": 471464
+  },
+  "tree": {
+    "taskId": 8254487,
+    "seconds": 193,
+    "rawBytes": 9469108,
+    "bytes": 542724
+  }
+}

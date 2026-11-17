@@ -124,7 +124,7 @@ flowchart LR
 **A memory is born in about 20 seconds:**
 
 1. **Capture.** Say *"remember this…"* in the headset, scan a QR code to send text from your phone, or let an agent send it.
-2. **Draft.** Atrium's agent extracts the facts and proposes **three vivid scenes** built from the painted prop kit, each with a one-line mnemonic.
+2. **Draft.** Atrium's agent extracts the facts and proposes **three vivid scenes** built from the prop kit, each with a one-line mnemonic.
 3. **Co-create.** Pinch the scene you like and add one personal detail by voice (*"make the cat wear my grandmother's glasses"*).
 4. **Encode.** A ghost hand suggests a gesture that matches the meaning. You perform your own version twice, and Atrium records it as that memory's **gesture signature**.
 5. **Place.** The scene settles into the next free alcove and its lantern lights at full brightness.
@@ -200,6 +200,16 @@ Pin memories to real objects you can see from your chair (a lamp, a shelf, the w
 ### 9. Wind-down mode *(optional)*
 A low-light, ungraded walk through the day's new memories before bed (**Settings → More → Wind-down walk**).
 
+### 10. Real 3D objects, including your own
+Every prop on a pedestal is a real 3D model, generated from its painting with **Aholo Lux3D** (image-to-3D) and shrunk for a standalone headset (about 10k triangles, meshopt geometry, 1024 px WebP textures: 8 MB → about 300 KB). The painting shows first and stays if a model can't load, so nothing ever depends on the network.
+
+- **Twist-to-3D.** Say (or, on a computer, type) a personal detail like *"my grandmother's round glasses"*, and it becomes a one-off 3D object on the pedestal: Lux3D text-to-3D, then Lux3D mesh retopology with a baked 512 px texture (~0.5 MB), stored once on our server so it outlives the API. A painted prop or a gold star holds its place for the two or three minutes it takes.
+- **Leeches get stranger objects.** After three misses, Atrium asks *you* for something strange that belongs with the memory and builds it beside the scene. Effort goes where memory actually fails, and the idea stays yours.
+- **Keepsakes.** On a computer, any object you generated can be exported as an STL through Lux3D's multi-format export, for a 3D printer: a physical cue for your desk.
+
+### 11. Speech everywhere, and an agent on one device
+The Quest browser has no speech recogniser, so there the headset records your answer (stopping when you go quiet, uploading nothing if you said nothing) and the server transcribes it with Whisper on Groq (Gemini as a fallback). **Ask an agent** in the home menu has a study agent write five facts on a topic and file them in your inbox through the same path an outside MCP agent uses, so the agent loop can be tried without a second device.
+
 ---
 
 ## Architecture
@@ -223,7 +233,7 @@ flowchart LR
     end
 
     subgraph Headset["Headset app · IWSDK"]
-        REN[Palace renderer<br/>painted prop kit · 60 fps]
+        REN[Palace renderer<br/>Lux3D prop kit · 72 fps]
         GM[Gesture matcher<br/>DTW on hand-joint paths]
         FS[FSRS scheduler<br/>drives lantern brightness]
     end
@@ -252,8 +262,8 @@ flowchart LR
 | Gesture matching | Custom recogniser (DTW) | Grades your gesture against your own recording |
 | Speech | Web Speech API (recognition in `ja-JP`, narration via speech synthesis) | Spoken answers and twists; pinchable fallback when missing |
 | Audio | Web Audio, synthesised | No audio files to download |
-| 3D assets | Painted cut-out props (WebP, about 45 KB each) that turn to face the viewer, with three.js primitives as the fallback | Seated in the centre, you always see an alcove from the front, so a cut-out reads as a storybook diorama at a fraction of a mesh's size. A glTF can replace any prop later; the scene JSON doesn't change. |
-| AI pipeline | Gemini (`gemini-3.8-flash`) or NVIDIA (`meta/llama-3.3-70b-instruct`) through their OpenAI-compatible chat APIs, JSON-schema output, no SDK | One call drafts every item and its three scenes; output is validated with Zod and clamped to the prop kit. Without a key, an offline line-based drafter takes over. |
+| 3D assets | Aholo Lux3D models generated from our own paintings (`scripts/lux3d.mjs`: image-to-3D, then meshopt + WebP via glTF-Transform), with the painted cut-outs and three.js primitives as fallbacks | Real depth in stereo, at about 300 KB a model. Each tier falls back to the next, so a slow network or a missing model just shows the painting. The scene JSON is the same for all three. |
+| AI pipeline | Gemini (`gemini-3.8-flash`), Groq (`openai/gpt-oss-120b`) or NVIDIA (`meta/llama-3.3-70b-instruct`) through their OpenAI-compatible chat APIs, JSON-schema output, no SDK; Whisper on Groq for speech | One call drafts every item and its three scenes; output is validated with Zod and clamped to the prop kit. Without a key, an offline line-based drafter takes over. |
 | Hosting | Cloudflare Pages: static app + one Pages Function for `/api/*` (Web-standard `fetch` handler) | One deploy, one URL, edge-served |
 | Database | Postgres: Neon in production, PGlite (Postgres in WASM) locally and in tests | Same SQL everywhere; no ORM |
 | MCP | MCP TypeScript SDK, stateless Streamable HTTP | Any MCP client connects with a per-agent key |
@@ -265,7 +275,7 @@ flowchart LR
 ```
 atrium/
 ├── index.html                  # the website (hero, how it works, the cast, companion); fades into the palace
-├── public/art/                 # shipped WebP art: props/ (cut-outs) and site/ (page art)
+├── public/art/                 # shipped art: models/ (Lux3D GLBs), props/ (painted cut-outs), site/ (page art)
 ├── scripts/art.sh              # regenerates public/art from the source renders in design/ (gitignored)
 ├── src/
 │   ├── main.ts                 # renderer, XR session, loop, home screen, settings
@@ -293,14 +303,16 @@ atrium/
 │   ├── companion/main.ts       # phone page: pair, capture, mental walk, goals, agents, data
 │   └── shared/
 │       ├── types.ts            # Memory, Review, SceneSpec, InboxItem, Goal
-│       ├── props.ts            # painted prop kit: colour variants, tint, billboarding, primitive fallback
+│       ├── props.ts            # prop kit: Lux3D model → painting → primitive, colour variants, tint, fading
 │       ├── props-catalog.ts    # prop ids only (server-safe)
 │       └── deck-ja.ts          # preset 6-word Japanese deck (ships offline)
 ├── companion.html              # phone companion page
 ├── server/
 │   ├── routes.ts               # the whole REST API as one fetch handler
 │   ├── mcp.ts                  # MCP server: 6 tools, per-agent keys and scopes
-│   ├── pipeline.ts             # Gemini/NVIDIA drafting (JSON schema) + offline drafter
+│   ├── pipeline.ts             # Gemini/Groq/NVIDIA drafting (JSON schema) + offline drafter
+│   ├── lux3d.ts                # twist-to-3D: Lux3D text-to-3D → retopology → stored GLB; STL export
+│   ├── speech.ts               # speech-to-text for the Quest browser (Whisper on Groq, Gemini fallback)
 │   ├── knowledge.ts            # due / known / gaps / readiness from the review log
 │   ├── ops.ts                  # data operations shared by REST and MCP
 │   ├── auth.ts                 # hashed tokens, scopes, rate limits
@@ -355,12 +367,13 @@ npm run build
 npx wrangler pages deploy dist --project-name atrium --branch main
 ```
 
-Cloud features need a Postgres database (e.g. a free Neon project). Set the secrets once, then redeploy:
+Cloud features need a Postgres database (e.g. a free Neon project). Put the keys in `.env.local`, copy them into Cloudflare in one go, then redeploy:
 
 ```bash
-npx wrangler pages secret put DATABASE_URL --project-name atrium       # Neon connection string
-npx wrangler pages secret put GEMINI_API_KEY --project-name atrium     # optional: AI scene drafting (or NVIDIA_API_KEY)
+scripts/secrets.sh      # DATABASE_URL, AHOLO_API_KEY, GROQ_API_KEY, GEMINI_API_KEY, … whichever are set
 ```
+
+To rebuild the 3D prop library after adding or changing a painting: `node scripts/lux3d.mjs` (only props without a model are generated; pass names to redo specific ones).
 
 Tables are created on the first request. Without `DATABASE_URL` the API answers `/api/health` with `db: "none"` and the headset stays happily offline. The headset app is `/`, the companion `/companion.html`, the MCP endpoint `/api/mcp`.
 
@@ -383,8 +396,9 @@ All optional locally (see `.env.example`).
 | Variable | Needed in production | Description |
 | --- | :---: | --- |
 | `DATABASE_URL` | ✅ | Postgres connection string (e.g. Neon). Unset → embedded PGlite in `.data/` |
-| `GEMINI_API_KEY` or `NVIDIA_API_KEY` | ⬜ | AI scene drafting and free-form twists (Gemini wins if both are set). Unset → offline drafter |
-| `LLM_MODEL` | ⬜ | Override the model (default `gemini-3.8-flash` / `meta/llama-3.3-70b-instruct`) |
+| `GEMINI_API_KEY`, `GROQ_API_KEY` or `NVIDIA_API_KEY` | ⬜ | AI scene drafting, free-form twists, the study agent (preference in that order). Groq or Gemini also transcribe speech for the Quest browser. Unset → offline drafter, multiple-choice recall on Quest |
+| `AHOLO_API_KEY` | ⬜ | Aholo Lux3D (global region): twist-to-3D, leech objects, 3D-print export. Unset → painted props only |
+| `LLM_MODEL` | ⬜ | Override the model (default `gemini-3.8-flash` / `openai/gpt-oss-120b` / `meta/llama-3.3-70b-instruct`) |
 | `PUBLIC_BASE_URL` | ⬜ | Origin used in pairing links and MCP URLs when behind a proxy |
 | `PGLITE_DIR` | ⬜ | Where the local embedded database lives (default `.data/pglite`) |
 

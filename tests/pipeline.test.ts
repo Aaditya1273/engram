@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { draft, mapTwist, provider } from '../server/pipeline';
 
 // A messy but plausible model reply: fenced JSON, numbers as strings, an invented prop, only 2 scenes.
@@ -21,11 +21,13 @@ const reply = {
 };
 const ok = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
 
+// The dev config loads .env.local into process.env; these tests choose their own providers.
+const KEYS = ['GEMINI_API_KEY', 'GROQ_API_KEY', 'GORQ_API_KEY', 'NVIDIA_API_KEY', 'LLM_MODEL'];
+const clearKeys = () => KEYS.forEach((k) => delete process.env[k]);
+beforeEach(clearKeys);
 afterEach(() => {
   vi.unstubAllGlobals();
-  delete process.env.GEMINI_API_KEY;
-  delete process.env.NVIDIA_API_KEY;
-  delete process.env.LLM_MODEL;
+  clearKeys();
 });
 
 describe('AI drafting via an OpenAI-compatible provider', () => {
@@ -77,6 +79,12 @@ describe('AI drafting via an OpenAI-compatible provider', () => {
     process.env.GEMINI_API_KEY = 'g';
     process.env.LLM_MODEL = 'gemini-3.5-flash-lite';
     expect(provider()).toMatchObject({ name: 'gemini', model: 'gemini-3.5-flash-lite' });
+  });
+
+  it('uses Groq when it is the only key (either spelling)', () => {
+    process.env.GORQ_API_KEY = 'q';
+    process.env.NVIDIA_API_KEY = 'n';
+    expect(provider()).toMatchObject({ name: 'groq', baseUrl: 'https://api.groq.com/openai/v1' });
   });
 
   it('maps a free-form twist and keeps only known props', async () => {

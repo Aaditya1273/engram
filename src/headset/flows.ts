@@ -64,7 +64,7 @@ let twistSkips = 0;
  * Guardrail: never let the AI finish the memory alone. After three skips in a row, ask one
  * personal question instead.
  */
-async function addTwist({ stage, store, cloud }: Ctx, scene: SceneSpec): Promise<{ scene: SceneSpec; twist?: string }> {
+async function addTwist({ stage, store, cloud, input }: Ctx, scene: SceneSpec): Promise<{ scene: SceneSpec; twist?: string }> {
   const personal = twistSkips >= 3;
   const prompt = personal
     ? 'Quick question instead: who or what does this remind you of? Say a colour or a thing they would wear.'
@@ -75,16 +75,30 @@ async function addTwist({ stage, store, cloud }: Ctx, scene: SceneSpec): Promise
     stage.show('Add a twist', 'Listening…');
     text = (await listen(store.data.settings.twistLang, 6000).result)[0] ?? '';
   }
+  let spoken = text;
   let twist = text ? await cloud.twist(text, parseTwist(text)) : parseTwist('');
+  // Anything at all can become a 3D object, even with no matching prop: a gold star holds its place meanwhile.
+  const anyObject = (t: string) => (isEmptyTwist(twist) && t && cloud.lux3d && cloud.online ? { add: ['star' as const] } : twist);
+  twist = anyObject(spoken);
   if (isEmptyTwist(twist)) {
     if (text) stage.show('Add a twist', `I heard "${text}". Pick one instead:`);
+    const TYPE = '\u0000type';
+    // On a computer, typing your own detail is the quickest way to the personal 3D object.
+    const canType = !input.xr && cloud.lux3d;
     text = await stage.ask([
+      ...(canType ? [{ label: 'Type my own', value: TYPE }] : []),
       { label: 'Red hat', value: 'red hat' },
       { label: 'Glasses', value: 'glasses' },
       { label: 'Make it gold', value: 'gold' },
       { label: 'Skip', value: '' },
     ]);
-    twist = parseTwist(text);
+    spoken = '';
+    if (text === TYPE) {
+      stage.show('Add a twist', 'Type one personal detail, then press Enter. For example: my grandmother\'s round glasses.');
+      text = spoken = await stage.typeText('my grandmother\'s round glasses');
+      twist = text ? await cloud.twist(text, parseTwist(text)) : parseTwist('');
+      twist = anyObject(spoken);
+    } else twist = parseTwist(text);
   }
   if (isEmptyTwist(twist)) {
     twistSkips++;
@@ -92,7 +106,51 @@ async function addTwist({ stage, store, cloud }: Ctx, scene: SceneSpec): Promise
   }
   twistSkips = 0;
   play('light');
-  return { scene: applyTwist(scene, twist), twist: text };
+  let out = applyTwist(scene, twist);
+  // Words the learner chose (not a preset button) become their own 3D object; the painting stands in meanwhile.
+  if (spoken && out.props.length > scene.props.length) {
+    const id = await cloud.requestModel(spoken);
+    // The object carries the words now; a colour read from the same words would just repaint the scene.
+    if (id && twist.color) out = applyTwist(scene, { ...twist, color: undefined });
+    const added = out.props[scene.props.length];
+    if (id) {
+      added.model = { id };
+      await stage.say('Making it in 3D. It will appear on the pedestal in a few minutes; a placeholder holds its spot.', 'Add a twist');
+    }
+  }
+  return { scene: out, twist: text };
+}
+
+const MODEL_POLL_MS = 6000;
+const watching = new Set<string>();
+
+/**
+ * Polls this memory's pending twist-to-3D objects; when one is ready, it swaps in on the pedestal with a
+ * burst. Survives reloads: the pending id is saved on the prop, and the app calls this again at start.
+ */
+export function watchModels(ctx: Ctx, m: Memory) {
+  for (const p of m.scene.props) {
+    const job = p.model;
+    if (!job || job.ready || watching.has(job.id)) continue;
+    watching.add(job.id);
+    void (async () => {
+      for (let i = 0; i < 250; i++) {
+        await new Promise((r) => setTimeout(r, MODEL_POLL_MS));
+        const s = await ctx.cloud.modelStatus(job.id);
+        if (s === 'generating' || s === 'optimising' || s === 'unknown') continue;
+        if (s === 'ready') job.ready = true;
+        else delete p.model; // failed: the painting stays, for good
+        ctx.store.touch(m);
+        showMemory(ctx, m);
+        if (s === 'ready' && Palace.wingOf(m.slot) === ctx.palace.wing) {
+          ctx.palace.alcove(m.slot).burst();
+          play('light');
+        }
+        break;
+      }
+      watching.delete(job.id);
+    })();
+  }
 }
 
 function placeMemory(
@@ -107,6 +165,7 @@ function placeMemory(
     goalWeight: where.goalId ? 1.5 : 1, slot, createdAt: now,
   };
   store.addMemory(m);
+  watchModels(ctx, m);
   // Encoding counts as the first successful study; FSRS then schedules the learning steps.
   store.addReview({ memoryId: m.id, at: now, grade: 'good', answerOk: true, gestureScore: null, latencyMs: 0 });
   const a = palace.alcove(slot);
@@ -189,8 +248,47 @@ export async function recallOne(ctx: Ctx, m: Memory, others: Memory[]): Promise<
   } else {
     play('miss');
     await stage.say(`It was ${m.display}. ${m.mnemonic}`, `${m.display} · ${m.cue}`, 'attention');
+    await strengthenLeech(ctx, m);
   }
   return answerOk;
+}
+
+/** Misses after which a memory counts as a leech and earns a new, stranger object. */
+const LEECH_MISSES = 3;
+
+/**
+ * A memory missed again and again gets a bolder image, made by the learner: they name something strange
+ * that belongs with it, and it's generated in 3D beside the scene. Effort goes where memory actually fails,
+ * and the learner, not the AI, supplies the idea (self-made mnemonics stick better). Offered once per memory.
+ */
+async function strengthenLeech(ctx: Ctx, m: Memory) {
+  const { stage, store, cloud, input } = ctx;
+  if (!cloud.online || !cloud.lux3d || m.scene.props.some((p) => p.model)) return;
+  const misses = store.data.reviews.filter((r) => r.memoryId === m.id && !r.answerOk).length;
+  if (misses < LEECH_MISSES) return;
+  const title = 'Make it stranger';
+  await stage.say(`${m.display} keeps slipping away. Name something strange that belongs with it, and I'll build it in 3D.`, title);
+  let text = '';
+  if (speechAvailable()) {
+    stage.show(title, 'Listening… for example: a giant golden fish.');
+    text = (await listen(store.data.settings.twistLang, 7000).result)[0]?.trim() ?? '';
+  }
+  if (!text) {
+    const choice = await stage.ask([...(input.xr ? [] : [{ label: 'Type it', value: 'type' }]), { label: 'Not now', value: '' }]);
+    if (choice === 'type') {
+      stage.show(title, 'Type something strange that belongs with it, then press Enter.');
+      text = await stage.typeText('a giant golden fish');
+    }
+  }
+  if (!text) return;
+  const id = await cloud.requestModel(text);
+  if (!id) return;
+  m.scene = { ...m.scene, props: [...m.scene.props, { prop: 'star', pos: [0.1, 0, 0.06], scale: 0.6, model: { id } }] };
+  m.twist = m.twist ? `${m.twist}; ${text}` : text;
+  store.touch(m);
+  showMemory(ctx, m);
+  watchModels(ctx, m);
+  await stage.say('Building it now. It will appear beside the scene in a minute or two.', title);
 }
 
 // ---------------------------------------------------------------- the first five minutes

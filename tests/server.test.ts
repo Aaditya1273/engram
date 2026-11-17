@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { useMemoryDb } from '../server/db';
@@ -7,8 +7,7 @@ import { offlineDraft } from '../server/pipeline';
 import type { Memory, Review } from '../src/shared/types';
 
 // Real Postgres (PGlite, in memory), real routes, offline drafter (no AI keys in tests).
-delete process.env.GEMINI_API_KEY;
-delete process.env.NVIDIA_API_KEY;
+for (const k of ['GEMINI_API_KEY', 'GROQ_API_KEY', 'GORQ_API_KEY', 'NVIDIA_API_KEY', 'AHOLO_API_KEY']) delete process.env[k];
 useMemoryDb();
 
 const BASE = 'http://atrium.test';
@@ -172,5 +171,62 @@ describe('offline drafter', () => {
     const r = offlineDraft('1. hon – book\nrandom prose line\nかさ: umbrella');
     expect(r.items.map((i) => i.display)).toEqual(['book', 'umbrella']);
     expect(r.items[0].scenes).toHaveLength(3);
+  });
+});
+
+describe('twist-to-3D (Aholo Lux3D, mocked)', () => {
+  let headset: string;
+  beforeAll(async () => {
+    headset = (await call('POST', '/api/device', undefined, { name: 'Quest 3D' })).data.token;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.AHOLO_API_KEY;
+  });
+
+  it('generates, retopologises, stores the GLB once, and serves it without a token', async () => {
+    process.env.AHOLO_API_KEY = 'k';
+    const real = globalThis.fetch;
+    const created: string[] = [];
+    let polls = 0;
+    const lux = (d: unknown) => new Response(JSON.stringify({ c: '0', m: '', d }), { status: 200 });
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/task/create')) {
+        created.push(url.split('/lux3d/v1/')[1]);
+        expect((init!.headers as Record<string, string>).authorization).toBe('k'); // raw key, no Bearer
+        return lux(created.length === 1 ? 101 : 202);
+      }
+      if (url.includes('/task/get')) {
+        polls++;
+        const done = url.endsWith('101') ? polls > 1 : true;
+        return lux({ status: done ? 3 : 1, outputs: [{ content: url.endsWith('101') ? 'https://cdn.test/gen/tex_mesh.glb' : 'https://cdn.test/low/retopology.glb' }, { content: 'https://cdn.test/low/retopology.obj' }] });
+      }
+      if (url === 'https://cdn.test/low/retopology.glb') return new Response(new Uint8Array([103, 108, 84, 70]));
+      return real(url, init);
+    }));
+    const { status, data } = await call('POST', '/api/models', headset, { text: "my grandmother's round glasses" });
+    expect(status).toBe(201);
+    expect(created[0]).toBe('generate/text-to-3d/task/create');
+    expect((await call('GET', `/api/models/${data.id}`, headset)).data.status).toBe('generating');
+    expect((await call('GET', `/api/models/${data.id}`, headset)).data.status).toBe('optimising');
+    expect(created[1]).toBe('mesh-retopology/task/create');
+    expect((await call('GET', `/api/models/${data.id}`, headset)).data.status).toBe('ready');
+    const glb = await handle(new Request(`${BASE}/api/models/${data.id}.glb`));
+    expect(glb.headers.get('content-type')).toBe('model/gltf-binary');
+    expect(new Uint8Array(await glb.arrayBuffer())).toEqual(new Uint8Array([103, 108, 84, 70]));
+    // Another account can't see the job.
+    const other = (await call('POST', '/api/device', undefined, { name: 'Other' })).data.token;
+    expect((await call('GET', `/api/models/${data.id}`, other)).status).toBe(404);
+  });
+
+  it('is off without a key, and capped per day', async () => {
+    expect((await call('POST', '/api/models', headset, { text: 'a teapot' })).status).toBe(503);
+    process.env.AHOLO_API_KEY = 'k';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ c: '0', d: 7 }))));
+    const fresh = (await call('POST', '/api/device', undefined, { name: 'Cap' })).data.token;
+    const codes = [];
+    for (let i = 0; i < 13; i++) codes.push((await call('POST', '/api/models', fresh, { text: `thing ${i}` })).status);
+    expect(codes.slice(0, 12).every((c) => c === 201)).toBe(true);
+    expect(codes[12]).toBe(429);
   });
 });

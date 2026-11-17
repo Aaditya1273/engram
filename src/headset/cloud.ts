@@ -9,6 +9,10 @@ import type { Store } from './store';
 export class Cloud {
   online = false;
   ai = false;
+  /** The server can transcribe speech (for browsers without a recogniser). */
+  stt = false;
+  /** The server can generate 3D objects (Aholo Lux3D). */
+  lux3d = false;
   /** The deployment has no database: stay quietly offline instead of retrying calls that will 503. */
   private unconfigured = false;
   private syncing: Promise<void> | null = null;
@@ -34,8 +38,10 @@ export class Cloud {
   /** Register this headset once; afterwards just checks the server is there. */
   async connect(): Promise<boolean> {
     try {
-      const health = await this.api<{ ai: boolean; db: string }>('/health');
+      const health = await this.api<{ ai: boolean; stt?: boolean; lux3d?: boolean; db: string }>('/health');
+      this.lux3d = !!health.lux3d;
       this.ai = health.ai;
+      this.stt = !!health.stt;
       if (health.db === 'none') {
         this.unconfigured = true;
         return (this.online = false);
@@ -123,6 +129,51 @@ export class Cloud {
     } catch {
       return fallback;
     }
+  }
+
+  /** The built-in study agent files five facts on a topic into the inbox, like any MCP agent would. */
+  agentFacts(topic: string) {
+    return this.api<{ topic: string; count: number }>('/agent/facts', { method: 'POST', body: JSON.stringify({ topic }) });
+  }
+
+  /** Starts a twist-to-3D job; null if 3D generation is off, offline, or over the daily limit. */
+  async requestModel(text: string): Promise<string | null> {
+    if (!this.online || !this.lux3d) return null;
+    try {
+      return (await this.api<{ id: string }>('/models', { method: 'POST', body: JSON.stringify({ text }) })).id;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Each call also advances the job on the server; 'unknown' means try again later. */
+  async modelStatus(id: string): Promise<'generating' | 'optimising' | 'ready' | 'failed' | 'unknown'> {
+    try {
+      return (await this.api<{ status: 'generating' | 'optimising' | 'ready' | 'failed' }>(`/models/${id}`)).status;
+    } catch (e) {
+      return (e as Error).message === 'Not found' ? 'failed' : 'unknown';
+    }
+  }
+
+  /** A generated object as a 3D-printable file (Lux3D multi-format export); resolves with its download URL. */
+  async printable(id: string, format: 'stl' | '3mf' = 'stl'): Promise<string | null> {
+    for (let i = 0; i < 40; i++) {
+      const r = await this.api<{ url?: string; status?: string }>(`/models/${id}/export?format=${format}`, { method: 'POST' }).catch((): { url?: string; status?: string } => ({ status: 'failed' }));
+      if (r.url) return r.url;
+      if (r.status === 'failed') return null;
+      await new Promise((res) => setTimeout(res, 4000));
+    }
+    return null;
+  }
+
+  /** Throws on any failure; the caller falls back to pinchable choices. */
+  async transcribe(audio: Blob, lang: string): Promise<string[]> {
+    const r = await this.api<{ alternatives: string[] }>(`/transcribe?lang=${encodeURIComponent(lang)}`, {
+      method: 'POST',
+      body: audio,
+      headers: { 'content-type': audio.type || 'audio/webm' },
+    });
+    return r.alternatives;
   }
 
   async deleteAccount() {
