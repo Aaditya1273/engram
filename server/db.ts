@@ -73,11 +73,13 @@ create table if not exists rate_limits (
 export type Query = <T = Record<string, unknown>>(text: string, params?: unknown[]) => Promise<T[]>;
 
 let ready: Promise<Query> | null = null;
+const PGLITE = '@electric-sql/pglite';
+const NODE_FS = 'node:fs';
 
 /** Override for tests: an in-memory PGlite per test file. */
 export function useMemoryDb() {
   ready = (async () => {
-    const { PGlite } = await import('@electric-sql/pglite');
+    const { PGlite } = (await import(/* @vite-ignore */ PGLITE)) as typeof import('@electric-sql/pglite');
     const db = new PGlite();
     await db.exec(SCHEMA);
     return (async (text: string, params: unknown[] = []) => (await db.query(text, params)).rows) as Query;
@@ -93,9 +95,10 @@ export function db(): Promise<Query> {
       const sql = neon(url);
       q = (async (text: string, params: unknown[] = []) => (await sql.query(text, params)) as never) as Query;
     } else {
-      const { PGlite } = await import('@electric-sql/pglite');
+      // Non-literal specifiers keep PGlite (WASM + node:fs) out of the Cloudflare bundle; it's local-only.
+      const { PGlite } = (await import(/* @vite-ignore */ PGLITE)) as typeof import('@electric-sql/pglite');
       const dir = process.env.PGLITE_DIR ?? '.data/pglite';
-      (await import('node:fs')).mkdirSync(dir, { recursive: true });
+      ((await import(/* @vite-ignore */ NODE_FS)) as typeof import('node:fs')).mkdirSync(dir, { recursive: true });
       const pg = new PGlite(dir);
       q = (async (text: string, params: unknown[] = []) => (await pg.query(text, params)).rows) as Query;
     }

@@ -9,6 +9,8 @@ import type { Store } from './store';
 export class Cloud {
   online = false;
   ai = false;
+  /** The deployment has no database: stay quietly offline instead of retrying calls that will 503. */
+  private unconfigured = false;
   private syncing: Promise<void> | null = null;
 
   constructor(private store: Store) {}
@@ -32,8 +34,12 @@ export class Cloud {
   /** Register this headset once; afterwards just checks the server is there. */
   async connect(): Promise<boolean> {
     try {
-      const health = await this.api<{ ai: boolean }>('/health');
+      const health = await this.api<{ ai: boolean; db: string }>('/health');
       this.ai = health.ai;
+      if (health.db === 'none') {
+        this.unconfigured = true;
+        return (this.online = false);
+      }
       if (!this.store.data.cloud.token) {
         const { token } = await this.api<{ token: string }>('/device', { method: 'POST', body: JSON.stringify({ name: 'Headset' }) });
         this.store.data.cloud.token = token;
@@ -50,7 +56,7 @@ export class Cloud {
   sync(): Promise<void> {
     this.syncing ??= (async () => {
       try {
-        if (!this.store.data.cloud.token && !(await this.connect())) return;
+        if (this.unconfigured || (!this.store.data.cloud.token && !(await this.connect()))) return;
         const d = this.store.data, c = d.cloud;
         const memories = d.memories.filter((m) => c.dirtyMemories.includes(m.id));
         const reviews = d.reviews.filter((r) => c.pendingReviews.includes(r.id));
@@ -71,6 +77,7 @@ export class Cloud {
   }
 
   async refreshGoals(): Promise<Goal[]> {
+    if (this.unconfigured || !this.store.data.cloud.token) return this.store.data.cloud.goals;
     try {
       const goals = await this.api<Goal[]>('/goals');
       this.store.data.cloud.goals = goals;
@@ -82,7 +89,7 @@ export class Cloud {
   }
 
   async inbox(): Promise<InboxItem[]> {
-    if (!this.store.data.cloud.token) return [];
+    if (this.unconfigured || !this.store.data.cloud.token) return [];
     try {
       const items = await this.api<InboxItem[]>('/inbox');
       this.online = true;

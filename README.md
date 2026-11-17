@@ -90,15 +90,15 @@ AI agents now find and summarise everything for us. That multiplies what we're e
 
 ## Try it (for judges)
 
-> *(Deployment URL pending: until then, run it locally; see [Getting started](#getting-started-developers).)*
+> **Live:** https://atrium-b0r.pages.dev (Cloudflare Pages). The headset experience runs fully; cloud features (capture, inbox, companion, MCP) switch on once a database is attached; see [Deploy](#deploy-cloudflare-pages--neon).
 
 Atrium runs in the Meta Quest browser. No install, no controllers and no account needed.
 
 1. Put on a **Meta Quest 3 or 3S** and sit down.
-2. Open the browser and go to **`<your-deployment-url>`**.
+2. Open the browser and go to **`atrium-b0r.pages.dev`**.
 3. Press **Enter VR**, put the controllers down and raise your hands.
 4. Follow the narrator. In about five minutes you'll learn six Japanese words and recall them.
-5. **To try capture and agents:** in the headset open **Settings → Connect phone**. On a phone or laptop open **`<your-deployment-url>/companion.html`** and type the 6-letter code (the QR works when the headset view is cast). Paste a list (for example *"CN I – olfactory"*, one per line) and watch **Inbox** appear in the headset within ~15 s. Under **Agents**, create a key and paste the MCP config into any MCP client.
+5. **To try capture and agents:** in the headset open **Settings → Connect phone**. On a phone or laptop open **`atrium-b0r.pages.dev/companion.html`** and type the 6-letter code (the QR works when the headset view is cast). Paste a list (for example *"CN I – olfactory"*, one per line) and watch **Inbox** appear in the headset within ~15 s. Under **Agents**, create a key and paste the MCP config into any MCP client.
 
 > **If hands aren't detected:** hold both hands in front of the headset for two seconds. If tracking still doesn't start, pinch once or restart the headset. This is a known Quest wake-from-sleep issue.
 
@@ -253,7 +253,7 @@ flowchart LR
 | Audio | Web Audio, synthesised | No audio files to download |
 | 3D assets | Procedural low-poly prop kit (three.js primitives) | Zero downloads, so the first five minutes work offline. Swap in a CC0 glTF kit later; the scene JSON doesn't change. |
 | AI pipeline | Claude (`claude-opus-5-5`) with structured outputs (Zod schema) + server-side refusal fallback | One call drafts every item and its three scenes; output is clamped to the prop kit. Without a key, an offline line-based drafter takes over. |
-| Hosting | Vercel: static app + one function for `/api/*` (Web-standard `fetch` handler) | One deploy, one URL |
+| Hosting | Cloudflare Pages: static app + one Pages Function for `/api/*` (Web-standard `fetch` handler) | One deploy, one URL, edge-served |
 | Database | Postgres: Neon in production, PGlite (Postgres in WASM) locally and in tests | Same SQL everywhere; no ORM |
 | MCP | MCP TypeScript SDK, stateless Streamable HTTP | Any MCP client connects with a per-agent key |
 
@@ -302,9 +302,9 @@ atrium/
 │   ├── ops.ts                  # data operations shared by REST and MCP
 │   ├── auth.ts                 # hashed tokens, scopes, rate limits
 │   └── db.ts                   # schema; Neon in prod, PGlite locally and in tests
-├── api/index.ts                # Vercel function entry (all /api/* rewrite here)
+├── functions/api/[[path]].ts   # Cloudflare Pages Function: every /api/* request
 ├── vite.config.ts              # mounts the API in the dev server; builds both pages
-├── vercel.json
+├── wrangler.toml               # Cloudflare Pages config (nodejs_compat)
 └── tests/
     ├── core.test.ts            # gesture, grading, FSRS, triage, streak, answers, deck schema
     └── server.test.ts          # pairing, capture, sync, isolation, MCP over HTTP, privacy
@@ -342,15 +342,24 @@ Open the printed URL and press **Try on desktop**; the companion is at `/compani
 
 The Quest browser needs **HTTPS** to enter VR. Either:
 
-- deploy a preview (`npx vercel`) and open its URL in the headset, or
+- deploy a preview (`npx wrangler pages deploy dist --project-name atrium --branch preview`) and open its URL in the headset, or
 - run `npm run dev -- --host`, tunnel it over HTTPS, and open the tunnel URL in the Quest browser.
 
-### Deploy (Vercel + Neon)
+### Deploy (Cloudflare Pages + Neon)
 
-1. Create a Neon Postgres database and copy its connection string.
-2. Import the repo in Vercel (framework preset: *Other*; `vercel.json` sets the build and the `/api` rewrite).
-3. Set `DATABASE_URL` and `ANTHROPIC_API_KEY` (and optionally `PUBLIC_BASE_URL`). Tables are created on the first request.
-4. Deploy. The headset app is `/`, the companion `/companion.html`, the MCP endpoint `/api/mcp`.
+```bash
+npm run build
+npx wrangler pages deploy dist --project-name atrium --branch main
+```
+
+Cloud features need a Postgres database (e.g. a free Neon project). Set the secrets once, then redeploy:
+
+```bash
+npx wrangler pages secret put DATABASE_URL --project-name atrium       # Neon connection string
+npx wrangler pages secret put ANTHROPIC_API_KEY --project-name atrium  # optional: AI scene drafting
+```
+
+Tables are created on the first request. Without `DATABASE_URL` the API answers `/api/health` with `db: "none"` and the headset stays happily offline. The headset app is `/`, the companion `/companion.html`, the MCP endpoint `/api/mcp`.
 
 ### Useful scripts
 
@@ -389,7 +398,7 @@ Atrium exposes a remote **Model Context Protocol** server, so any MCP-compatible
 {
   "mcpServers": {
     "atrium": {
-      "url": "https://<your-deployment-url>/api/mcp",
+      "url": "https://atrium-b0r.pages.dev/api/mcp",
       "headers": { "Authorization": "Bearer <your-atrium-api-key>" }
     }
   }
@@ -543,7 +552,8 @@ Every core feature rests on published work. These are the studies' own results, 
 - [x] Phone companion with graded mental walk
 - [x] Wind-down mode
 - [ ] Device pass on Quest 3: frame timing, hand-tracking thresholds, Quest-browser speech recognition
-- [ ] Deploy (Vercel + Neon) and record the demo video
+- [x] Deploy to Cloudflare Pages (https://atrium-b0r.pages.dev)
+- [ ] Attach the database (Neon) and record the demo video
 - [ ] Wings beyond 20 alcoves
 - [ ] Room mode (spatial anchors)
 - [ ] Creator palaces and revenue share
