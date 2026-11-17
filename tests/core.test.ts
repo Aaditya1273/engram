@@ -10,6 +10,7 @@ import { lanternLook } from '../src/core/lantern';
 import { JA_STARTER } from '../src/shared/deck-ja';
 import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
+import { sceneFit } from '../src/headset/scene-builder';
 
 // Deterministic noise so tests never flake.
 let seed = 7;
@@ -222,5 +223,20 @@ describe('painted prop variants', () => {
     expect(pickVariant('drop', '#e0a628')).toEqual({ file: 'drop-honey', tint: null });
     expect(pickVariant('umbrella', '#2f6fd1')).toEqual({ file: 'umbrella', tint: '#2f6fd1' });
     expect(pickVariant('person')).toBeNull();
+  });
+});
+
+describe('scene fit', () => {
+  it('scales every starter scene to the same box on the pedestal', () => {
+    const big = { mnemonic: 'x', props: [{ prop: 'cat-hug' as const, pos: [0, 0, 0] as [number, number, number] }] };
+    const small = { mnemonic: 'x', props: [{ prop: 'dog' as const, pos: [0.05, 0, 0] as [number, number, number], scale: 0.4 }] };
+    // Same visual size (√(w·h)) after fitting, whatever the props' authored sizes.
+    const size = (sc: typeof big | typeof small, p: { prop: 'cat-hug' | 'dog'; scale?: number }) => {
+      const h = { 'cat-hug': 0.19, dog: 0.11 }[p.prop] * (p.scale ?? 1), a = { 'cat-hug': 0.7, dog: 1.12 }[p.prop];
+      return Math.sqrt(h * h * a) * sceneFit(sc).scale;
+    };
+    expect(size(big, big.props[0])).toBeCloseTo(size(small, small.props[0]), 4);
+    expect(sceneFit(small).scale).toBeGreaterThan(2); // a tiny prop grows to fill
+    expect(sceneFit(small).dx).toBeCloseTo(-0.05, 5); // and is re-centred
   });
 });

@@ -9,7 +9,7 @@ import { glowTexture } from './ui';
  * (gold rims, leaf emblem) inside a wide, dark green marble arcade that opens onto a dusk forest; vines and white
  * flowers trail from the cornice, a polished floor carries gold rings, and the lanterns hang from a gold hoop.
  * Ten wide arches rather than a pillar per pedestal keep the room open. Everything that repeats is merged into
- * one mesh per material (about twenty draw calls for the whole room), which keeps Quest at frame rate.
+ * one mesh per material (about twenty draw calls; the forest backdrop and the vines are paintings for the whole room), which keeps Quest at frame rate.
  */
 
 const ART = `${import.meta.env.BASE_URL}art/`;
@@ -71,28 +71,6 @@ function bannerTexture() {
   };
   img.src = ART + 'palace/emblem.webp';
   return t;
-}
-
-/** One ivy leaf: pointed, two greens, a pale vein. */
-function leafTexture() {
-  return canvasTexture(64, 64, (ctx) => {
-    ctx.translate(32, 32);
-    ctx.beginPath();
-    ctx.moveTo(0, -30);
-    ctx.bezierCurveTo(22, -14, 18, 18, 0, 30);
-    ctx.bezierCurveTo(-18, 18, -22, -14, 0, -30);
-    const g = ctx.createLinearGradient(-20, 0, 20, 0);
-    g.addColorStop(0, DECOR.leafDark);
-    g.addColorStop(1, DECOR.leafLight);
-    ctx.fillStyle = g;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(230, 240, 190, 0.55)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, -26);
-    ctx.lineTo(0, 28);
-    ctx.stroke();
-  });
 }
 
 /** A soft vertical beam of sunlight: bright at the top, gone by the floor, feathered at the sides. */
@@ -215,75 +193,6 @@ function floorTexture(radius: number) {
   });
 }
 
-/** The forest beyond the arches: bright canopy light above, layered soft foliage, sunlit haze. */
-function forestTexture() {
-  const W = 1024, H = 512;
-  const t = canvasTexture(W, H, (ctx) => {
-    const r = rng(11);
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, DECOR.forestSky);
-    sky.addColorStop(0.45, DECOR.forestMid);
-    sky.addColorStop(1, DECOR.forestDeep);
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
-    // Three layers of foliage blobs, far (pale) to near (deep), wrapping horizontally.
-    const layers: [number, number, string[]][] = [
-      [0.25, 420, ['#a9c46e', '#93b65c', '#bcd48a']],
-      [0.45, 520, ['#6d9a46', '#5d8a3c', '#7fa852']],
-      [0.68, 620, ['#3f6a2e', '#355d28', '#4a7834']],
-    ];
-    for (const [y0, n, cols] of layers) {
-      for (let i = 0; i < n; i++) {
-        const x = r() * W, y = H * (y0 + r() * 0.35), rad = 6 + r() * 20;
-        for (const dx of [0, -W, W]) {
-          const gr = ctx.createRadialGradient(x + dx, y, 0, x + dx, y, rad);
-          gr.addColorStop(0, cols[i % cols.length]);
-          gr.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = gr;
-          ctx.beginPath();
-          ctx.arc(x + dx, y, rad, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-    // Sun haze drifting through the trees.
-    for (let i = 0; i < 7; i++) {
-      const x = r() * W;
-      const h = ctx.createLinearGradient(x, 0, x + 60, H);
-      h.addColorStop(0, 'rgba(255, 240, 180, 0.22)');
-      h.addColorStop(1, 'rgba(255, 240, 180, 0)');
-      ctx.fillStyle = h;
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x + 30, 0);
-      ctx.lineTo(x + 120, H);
-      ctx.lineTo(x + 50, H);
-      ctx.fill();
-    }
-  });
-  t.wrapS = THREE.RepeatWrapping;
-  t.repeat.set(3, 1);
-  return t;
-}
-
-/** A small five-petal white flower with a gold heart, for the vines. */
-function flowerTexture() {
-  return canvasTexture(64, 64, (ctx) => {
-    ctx.translate(32, 32);
-    ctx.fillStyle = '#fbf7ec';
-    for (let k = 0; k < 5; k++) {
-      ctx.rotate((Math.PI * 2) / 5);
-      ctx.beginPath();
-      ctx.ellipse(0, -14, 9, 15, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.fillStyle = '#e8b84a';
-    ctx.beginPath();
-    ctx.arc(0, 0, 6, 0, Math.PI * 2);
-    ctx.fill();
-  });
-}
-
 /** The open sky above the cornice: sun at the centre, canopy green toward the rim. */
 function canopyTexture() {
   return canvasTexture(512, 512, (ctx) => {
@@ -376,6 +285,12 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
   const wash = new THREE.PlaneGeometry(0.26, 0.9);
   const banner = new THREE.PlaneGeometry(0.15, 0.52);
   const fern = new THREE.PlaneGeometry(0.62, 0.55).translate(0, 0.27, 0);
+  // The vine painting hangs from its top edge (303×1024 px), just under the cornice.
+  const vineH = 1.25, vine = new THREE.PlaneGeometry(vineH * (303 / 1024), vineH).translate(0, -vineH / 2, 0);
+  const vineMat = (() => {
+    const t = texture('palace/vines.webp');
+    return new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.4, side: THREE.DoubleSide, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.45 });
+  })();
   for (let k = 0; k < A.bays; k++) {
     const deg = (k * 360) / A.bays;
     b.at(ringFrame(deg, A.r));
@@ -390,12 +305,13 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
       b.add(wash, M.uplight, x, 0.5, 0.03);
     }
     if (k % 2 === 0) b.add(banner, M.banner, half - 0.02, 1.95, 0.04);
+    // Vines over every pier, alternating which way the painting faces so neighbours don't repeat.
+    b.add(vine, vineMat, -half + 0.1, A.height + 0.02, 0.05, 0, k % 2 ? Math.PI : 0);
     // Ferns on the steps, in front of each pier.
     b.at(ringFrame(deg + 180 / A.bays, A.r - 0.38));
     b.add(fern, M.fern, 0, 0.08, 0);
   }
   b.bake(ring);
-  ring.add(vines());
 
   // ---- The room: steps, polished floor with its gold rings, cornice, canopy, forest, lantern hoop. ----
   const floorR = A.r - 0.45;
@@ -423,14 +339,22 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
     m.position.y = y;
     return m;
   });
+  const forestMap = (repeatY: number, offsetY: number) => {
+    const t = texture('palace/forest.webp');
+    t.wrapS = THREE.MirroredRepeatWrapping;
+    t.repeat.set(A.bays, repeatY);
+    t.offset.y = offsetY;
+    return t;
+  };
   const canopyWall = new THREE.Mesh(new THREE.CylinderGeometry(A.r + 0.6, A.r + 0.6, 1.2, 64, 1, true),
-    new THREE.MeshBasicMaterial({ map: forestTexture(), side: THREE.BackSide, fog: false, color: DECOR.forestShade }));
+    new THREE.MeshBasicMaterial({ map: forestMap(0.25, 0.75), side: THREE.BackSide, fog: false }));
   canopyWall.position.y = A.height + 0.75;
   const canopy = new THREE.Mesh(new THREE.CircleGeometry(A.r + 0.6, 64), new THREE.MeshBasicMaterial({ map: canopyTexture(), fog: false, color: DECOR.canopyShade }));
   canopy.rotation.x = Math.PI / 2;
   canopy.position.y = A.height + 1.35;
-  const forest = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 7, 64, 1, true), new THREE.MeshBasicMaterial({ map: forestTexture(), side: THREE.BackSide, fog: false, color: DECOR.forestShade }));
-  forest.position.y = 2.6;
+  // 6 m away, each bay's slice is 3.8 m wide; 5 m tall keeps the painting's 3:4 shape.
+  const forest = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 5, 64, 1, true), new THREE.MeshBasicMaterial({ map: forestMap(1, 0), side: THREE.BackSide, fog: false }));
+  forest.position.y = 2.1;
   const forestFloor = new THREE.Mesh(new THREE.RingGeometry(A.r, 6, 64), new THREE.MeshBasicMaterial({ color: DECOR.forestDeep, fog: false }));
   forestFloor.rotation.x = -Math.PI / 2;
   forestFloor.position.y = 0.001;
@@ -439,44 +363,6 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
   hoop.rotation.x = Math.PI / 2;
   hoop.position.y = LANTERN_HOOP_Y;
   room.add(floor, ...glowRings, steps, cornice, ...corniceGold, canopyWall, canopy, forest, forestFloor, hoop, sunRays());
-}
-
-/** Vines with white flowers trailing from the cornice over the piers: two instanced draw calls. */
-function vines() {
-  const A = ARCADE, STRANDS = A.bays * 2, LEAVES = 14, FLOWERS = 4;
-  const leafMat = new THREE.MeshLambertMaterial({ map: leafTexture(), alphaTest: 0.5, side: THREE.DoubleSide, emissive: DECOR.leafLight, emissiveIntensity: 0.35 });
-  const leaves = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.1, 0.1), leafMat, STRANDS * LEAVES);
-  const flowers = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.07, 0.07), new THREE.MeshBasicMaterial({ map: flowerTexture(), alphaTest: 0.5, side: THREE.DoubleSide }), STRANDS * FLOWERS);
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
-  const light = new THREE.Color(DECOR.leafLight), r = rng(9);
-  let nl = 0, nf = 0;
-  const half = Math.atan(Math.tan(Math.PI / A.bays) * 0.82); // over the piers, either side of each bay
-  for (let s = 0; s < STRANDS; s++) {
-    const bayAngle = (Math.floor(s / 2) * Math.PI * 2) / A.bays;
-    const a = bayAngle + (s % 2 ? half : -half) + (r() - 0.5) * 0.06;
-    const len = 0.6 + r() * 0.9, rad = A.r - 0.08;
-    for (let k = 0; k < LEAVES; k++) {
-      const t = k / (LEAVES - 1);
-      const y = A.height + 0.05 - t * len, sway = Math.sin(t * 5 + s) * 0.05;
-      const pos = new THREE.Vector3(Math.sin(a) * rad + Math.cos(a) * sway, y, -Math.cos(a) * rad + Math.sin(a) * sway);
-      e.set((r() - 0.5) * 1.2, -a + (r() - 0.5) * 1.6, (r() - 0.5) * 1.4);
-      q.setFromEuler(e);
-      const sc = 0.7 + r() * 0.6;
-      m.compose(pos, q, new THREE.Vector3(sc, sc, sc));
-      leaves.setMatrixAt(nl, m);
-      leaves.setColorAt(nl++, c.set('#ffffff').lerp(light, r() * 0.5));
-      if (k % Math.ceil(LEAVES / FLOWERS) === 2 && nf < STRANDS * FLOWERS) {
-        e.set(0, -a, r() * 3);
-        q.setFromEuler(e);
-        m.compose(pos.clone().add(new THREE.Vector3(Math.sin(a), 0, -Math.cos(a)).multiplyScalar(-0.03)), q, new THREE.Vector3(1, 1, 1));
-        flowers.setMatrixAt(nf++, m);
-      }
-    }
-  }
-  flowers.count = nf;
-  const g = new THREE.Group();
-  g.add(leaves, flowers);
-  return g;
 }
 
 /** Soft sunbeams falling from the canopy. Fixed to the room (not the turning ring), ahead of you. */

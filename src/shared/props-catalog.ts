@@ -15,3 +15,10 @@ export const PROP_HEIGHT: Record<PropId, number> = {
   drop: 0.08, cloud: 0.09, fountain: 0.17, glasses: 0.03, hat: 0.05, ball: 0.07, star: 0.1, shoe: 0.07,
   sun: 0.12, person: 0.17, 'cat-hug': 0.19, summit: 0.2,
 };
+
+/** Width ÷ height of each prop's painting (person: the primitive). With PROP_HEIGHT this gives a prop's footprint. */
+export const PROP_ASPECT: Record<PropId, number> = {
+  cat: 0.95, dog: 1.12, bird: 1.5, book: 1.23, umbrella: 1.25, house: 1.23, mountain: 1.67, tree: 1.08,
+  drop: 0.78, cloud: 1.63, fountain: 1.04, glasses: 2.67, hat: 1.75, ball: 0.96, star: 1.06, shoe: 1.28,
+  sun: 1.05, person: 0.7, 'cat-hug': 0.7, summit: 1.35,
+};

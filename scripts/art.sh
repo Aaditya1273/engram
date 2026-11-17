@@ -72,4 +72,9 @@ magick "$SRC/Green Marble Pedestal with Vines.png" -crop 190x260+300+740 +repage
   \( +clone -flop \) +append \( +clone -flip \) -append -resize 512x512! -quality 80 "$OUT/palace/marble.webp"
 magick "$SRC/Stone and Green Panel Pedestal.png" -crop 170x150+430+320 +repage -alpha set \
   -channel A -fx 'clamp((u.r-u.g)*7+0.05)' +channel -trim +repage -resize 256x256 -quality 85 -define webp:alpha-quality=95 "$OUT/palace/emblem.webp"
+# The forest beyond the arches, and the flowering vines that trail from the cornice (rope cropped off,
+# the soft fringe from its earlier cut-out tightened).
+magick "$SRC/Enchanted Forest with Golden Fireflies.png" -resize 1024x -quality 80 "$OUT/palace/forest.webp"
+magick "$SRC/Cascading White Flower Vines.png" -crop 740x1780+0+290 +repage -channel A -level 55%,100% +channel \
+  -trim +repage -resize x1024 -quality 85 -define webp:alpha-quality=90 "$OUT/palace/vines.webp"
 du -sh "$OUT"/*

@@ -42,17 +42,12 @@ export const DECOR = {
   emblemTint: '#FFFFFF',
   banner: '#1F4A3A',
   bannerDark: '#122C22',
-  leafDark: '#2F5A2A',
-  leafLight: '#8DB850',
   sunCore: '#FFFBE8',
   sunMid: '#F6DC8E',
   floor: '#122A1F',
   floorLight: '#24493A',
-  forestSky: '#E9E7B4',
   forestMid: '#8DB062',
   forestDeep: '#2C4A24',
-  /** Multipliers that dim the painted forest and canopy to a dusk under the dark green arcade. */
-  forestShade: '#6F8466',
   canopyShade: '#B9C2A0',
 } as const;
 

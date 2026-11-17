@@ -69,8 +69,8 @@ export const JA_STARTER: DeckItem[] = [
       { mnemonic: 'A cloud says "Me? Zoo!" and rains on a zoo of animals.', props: [
         { prop: 'cloud', pos: [0, 0.165, 0], scale: 0.6 },
         { prop: 'drop', pos: [0, 0.1, 0.01], scale: 0.3 },
-        { prop: 'dog', pos: [-0.05, 0, 0.02], scale: 0.5 },
-        { prop: 'cat', pos: [0.05, 0, 0.02], scale: 0.5, color: '#e8873a' },
+        { prop: 'dog', pos: [-0.032, 0, 0.02], scale: 0.5 },
+        { prop: 'cat', pos: [0.032, 0, 0.02], scale: 0.5, color: '#e8873a' },
       ] },
       { mnemonic: 'You MISS the umbrella and water soaks you.', props: [
         { prop: 'umbrella', pos: [-0.025, 0, 0], scale: 0.55 },
