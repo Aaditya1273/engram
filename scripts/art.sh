@@ -82,3 +82,14 @@ magick "$SRC/Enchanted Forest with Golden Fireflies.png" -resize 1024x -quality 
 magick "$SRC/Cascading White Flower Vines.png" -crop 740x1780+0+290 +repage -channel A -level 55%,100% +channel \
   -trim +repage -resize x1024 -quality 85 -define webp:alpha-quality=90 "$OUT/palace/vines.webp"
 du -sh "$OUT"/*
+
+# UI cursors: the gem arrow and the pointing hand from the cursor sheet, 40 px tall plus a 2x copy.
+mkdir -p "$OUT/ui"
+for spec in "cursor 345x420+0+0" "pointer 330x420+20+467"; do
+  set -- $spec
+  magick "$SRC/Enchanted Crystal Cursor Collection.png" -crop "$2" +repage -background black -flatten "$TMP/$1.png"
+  "$REMBG" i -m isnet-general-use "$TMP/$1.png" "$TMP/$1-cut.png" 2>/dev/null
+  magick "$TMP/$1-cut.png" -channel A -level 8%,100% +channel -background none -alpha background -trim +repage "$TMP/$1-trim.png"
+  magick "$TMP/$1-trim.png" -resize x40 "$OUT/ui/$1.png"
+  magick "$TMP/$1-trim.png" -resize x80 "$OUT/ui/$1@2x.png"
+done

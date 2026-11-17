@@ -11,6 +11,12 @@ import { EYE_Y, LANTERN_HOOP_Y, RADIUS, SCENE_Y, SLOT_COUNT, SLOT_DEG, SNAP_SLOT
 export { EYE_Y, SLOT_COUNT } from './layout';
 const SCENE_SCALE = 1.7;
 const LANTERN_Y = 1.55;
+/**
+ * Lanterns hang from their hoops as pendulums. On a computer the cursor tugs a nearby lantern toward it, like a
+ * magnet; let go and a light spring swings it home with a few fading sways. Angles in radians, per axis.
+ */
+const SWING = { reach: 0.3, maxPull: 0.15, stiffness: 55, damping: 3.2 } as const;
+const PENDULUM = LANTERN_HOOP_Y - LANTERN_Y;
 const FADE_MS = 75;
 /** Hemisphere light range: the room warms from dusk to sunlit as you work, but is never black. */
 const WARMTH_MIN = 1.1, WARMTH_MAX = 2.6;
@@ -44,6 +50,8 @@ const LOTUS = {
 const MOTES = 14, MOTE_S = 1.6;
 let moteMat: THREE.PointsMaterial | null = null; // created lazily: the soft dot texture needs a canvas
 
+const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+
 export class Alcove {
   readonly group = new THREE.Group();
   private scene: BuiltScene | null = null;
@@ -63,6 +71,9 @@ export class Alcove {
   private target: number | null = null;
   private shown = 0;
   private phase = Math.random() * 100;
+  /** Everything that hangs: chain, lantern, glow. Pivots at the hoop. */
+  private swing = new THREE.Group();
+  private sway = { x: 0, z: 0, vx: 0, vz: 0 };
 
   constructor(readonly slot: number, onSelect: (slot: number) => void) {
     const a = THREE.MathUtils.degToRad(slot * SLOT_DEG);
@@ -75,7 +86,15 @@ export class Alcove {
       this.group.add(mesh);
       return mesh;
     };
-    add(GEO.chain, MAT.chain, 0, (LANTERN_HOOP_Y + LANTERN_Y + 0.07) / 2, 0.04); // from the gold hoop to the painted ring on the lantern
+    this.swing.position.set(0, LANTERN_HOOP_Y, 0.04);
+    this.group.add(this.swing);
+    const hang = (mesh: THREE.Object3D) => {
+      mesh.position.y -= LANTERN_HOOP_Y;
+      mesh.position.z -= 0.04;
+      this.swing.add(mesh);
+      return mesh;
+    };
+    hang(add(GEO.chain, MAT.chain, 0, (LANTERN_HOOP_Y + LANTERN_Y + 0.07) / 2, 0.04)); // from the gold hoop to the painted ring on the lantern
 
     this.sceneHolder.position.set(0, SCENE_Y, 0);
     this.sceneHolder.scale.setScalar(SCENE_SCALE);
@@ -83,11 +102,12 @@ export class Alcove {
     this.lotus.position.set(0, SCENE_Y + 0.004, 0.02);
     this.group.add(this.lotus);
 
-    this.core = add(GEO.lantern, new THREE.MeshBasicMaterial({ map: lanternTex, color: UNLIT, alphaTest: 0.35, alphaToCoverage: true }), 0, LANTERN_Y, 0.04) as typeof this.core;
+    this.core = hang(add(GEO.lantern, new THREE.MeshBasicMaterial({ map: lanternTex, color: UNLIT, alphaTest: 0.35, alphaToCoverage: true }), 0, LANTERN_Y, 0.04)) as typeof this.core;
     this.glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
     this.glow.position.set(0, LANTERN_Y, 0.05);
     this.glow.scale.setScalar(0.3);
     this.group.add(this.glow);
+    hang(this.glow);
     this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 0.006, 0.05) as typeof this.wash;
 
     this.veil = add(GEO.veil, MAT.veil, 0, SCENE_Y + 0.24, 0);
@@ -150,7 +170,7 @@ export class Alcove {
   /** Successful recall / new memory: a soft gold ring of light, a swelling lantern, rising motes. */
   burst() {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-    s.position.copy(this.glow.position);
+    s.position.copy(this.group.worldToLocal(this.glow.getWorldPosition(new THREE.Vector3())));
     this.group.add(s);
     this.bursts.push({ s, t: 0 });
     this.bloom = 1;
@@ -159,12 +179,35 @@ export class Alcove {
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(MOTES * 3), 3));
     moteMat ??= new THREE.PointsMaterial({ color: LANTERN.mote, map: glowTexture(), size: 0.035, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     const pts = new THREE.Points(geo, moteMat.clone());
-    pts.position.copy(this.glow.position);
+    pts.position.copy(s.position);
     this.group.add(pts);
     this.motes = { pts, seeds, t: 0 };
   }
 
-  update(dt: number, t: number) {
+  /** Pendulum toward the cursor (if it's near the lantern), else back to rest; a damped spring either way. */
+  private swingToward(pointer: THREE.Ray | null, dt: number) {
+    let tx = 0, tz = 0;
+    if (pointer) {
+      const rest = this.group.localToWorld(_v.set(0, LANTERN_Y, 0.04));
+      const near = pointer.closestPointToPoint(rest, _w);
+      if (near.distanceTo(rest) < SWING.reach) {
+        const pull = this.group.worldToLocal(near).sub(this.group.worldToLocal(rest.clone()));
+        pull.y = 0;
+        if (pull.length() > SWING.maxPull) pull.setLength(SWING.maxPull);
+        tz = pull.x / PENDULUM; // about z: sideways
+        tx = -pull.z / PENDULUM; // about x: toward or away from you
+      }
+    }
+    const s = this.sway, k = SWING.stiffness, c = SWING.damping, h = Math.min(dt, 1 / 30);
+    s.vx += (k * (tx - s.x) - c * s.vx) * h;
+    s.vz += (k * (tz - s.z) - c * s.vz) * h;
+    s.x += s.vx * h;
+    s.z += s.vz * h;
+    this.swing.rotation.set(s.x, 0, s.z);
+  }
+
+  update(dt: number, t: number, pointer: THREE.Ray | null = null) {
+    this.swingToward(pointer, dt);
     const target = this.target ?? 0;
     this.shown += (target - this.shown) * (1 - Math.exp(-dt / 0.35));
     this.bloom = Math.max(0, this.bloom - dt / 1.4);
@@ -233,6 +276,8 @@ export class Palace {
   /** Each wing is another SLOT_COUNT alcoves; one wing is shown at a time. Memory slot = wing × SLOT_COUNT + alcove. */
   wing = 0;
   onAlcoveSelect: (slot: number) => void = () => {};
+  /** The mouse ray on a computer (null in the headset): lanterns lean toward it. */
+  pointer: THREE.Ray | null = null;
   /** Called inside the fade when the palace switches wing, to re-fill the alcoves. */
   onWing: (wing: number) => void = () => {};
 
@@ -322,6 +367,6 @@ export class Palace {
       w.t = Math.min(1, w.t + (dt * 1000) / w.ms);
       this.hemi.intensity = w.from + (w.to - w.from) * (1 - (1 - w.t) ** 3);
     }
-    for (const a of this.alcoves) a.update(dt, t);
+    for (const a of this.alcoves) a.update(dt, t, this.pointer);
   }
 }

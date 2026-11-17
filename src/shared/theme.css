@@ -121,3 +121,15 @@ button:disabled {
     animation: none !important;
   }
 }
+
+/* Cursors from the cursor sheet: a gold-set gem arrow, and a pointing hand for anything you can press.
+   Hotspots are the arrow's tip and the fingertip; plain system cursors are the fallback. */
+html, body {
+  cursor: url('/art/ui/cursor.png') 1 1, auto;
+  cursor: image-set(url('/art/ui/cursor.png') 1x, url('/art/ui/cursor@2x.png') 2x) 1 1, auto;
+}
+a, button, summary, label[for], select, [role='button'], .btn, #app canvas.pointing {
+  cursor: url('/art/ui/pointer.png') 6 1, pointer;
+  cursor: image-set(url('/art/ui/pointer.png') 1x, url('/art/ui/pointer@2x.png') 2x) 6 1, pointer;
+}
+input[type='text'], input:not([type]), textarea { cursor: text; }

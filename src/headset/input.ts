@@ -58,7 +58,9 @@ export class Input {
     el.addEventListener('pointermove', (e) => {
       const r = el.getBoundingClientRect();
       this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      this.mouseSeen = true;
     });
+    el.addEventListener('pointerleave', () => (this.mouseSeen = false));
     el.addEventListener('click', () => !this.xr && this.select());
     window.addEventListener('keydown', (e) => {
       if (this.xr) return;
@@ -101,6 +103,12 @@ export class Input {
     sel?.onSelect();
   }
 
+  /** The mouse ray on a computer once the mouse has moved over the palace; null in the headset. */
+  get pointer(): THREE.Ray | null {
+    return !this.xr && this.mouseSeen ? this.raycaster.ray : null;
+  }
+  private mouseSeen = false;
+
   private ray() {
     if (this.xr) {
       const pos = new THREE.Vector3(), dir = new THREE.Vector3();
@@ -131,6 +139,8 @@ export class Input {
       this.hovered = next;
       this.dwellStart = performance.now();
       this.dwellFired = false;
+      // Something pressable under the mouse: the pointing-hand cursor (theme.css).
+      this.renderer.domElement.classList.toggle('pointing', !!next && !this.xr);
     }
 
     // Reticle: in the headset it marks head gaze; on desktop the mouse cursor does that job.

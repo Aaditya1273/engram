@@ -106,6 +106,7 @@ renderer.setAnimationLoop((time, frame) => {
     }
   }
   input.update(frame);
+  palace.pointer = input.pointer;
   palace.update(dt, time / 1000);
   renderer.render(scene, camera);
 });
