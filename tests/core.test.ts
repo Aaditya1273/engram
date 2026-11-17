@@ -9,6 +9,7 @@ import { cardFrom, recallProbability } from '../src/core/model';
 import { lanternLook } from '../src/core/lantern';
 import { JA_STARTER } from '../src/shared/deck-ja';
 import { PROP_IDS, pickVariant } from '../src/shared/props';
+import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 
 // Deterministic noise so tests never flake.
 let seed = 7;
@@ -195,7 +196,7 @@ describe('twist + deck schema', () => {
   it('dresses the focus prop', () => {
     const scene = JA_STARTER[0].scenes[0];
     const out = applyTwist(scene, { color: '#ff0000', add: ['glasses'] });
-    expect(out.props[scene.focus!].color).toBe('#ff0000');
+    expect(out.props[scene.focus ?? 0].color).toBe('#ff0000');
     expect(out.props.at(-1)!.prop).toBe('glasses');
     expect(scene.props.length).toBe(out.props.length - 1); // original untouched
   });
@@ -206,7 +207,7 @@ describe('twist + deck schema', () => {
       expect(item.scenes).toHaveLength(3);
       for (const s of item.scenes) {
         expect(s.mnemonic.length).toBeGreaterThan(5);
-        for (const p of s.props) expect(PROP_IDS).toContain(p.prop);
+        for (const p of s.props) expect([...PROP_IDS, ...SCENE_ART_IDS]).toContain(p.prop);
         expect(s.props[s.focus ?? 0]).toBeDefined();
       }
     }

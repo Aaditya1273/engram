@@ -1,3 +1,4 @@
+import { PROP_HEIGHT } from '../shared/props-catalog';
 import type { PropId, SceneSpec } from '../shared/types';
 
 /**
@@ -35,9 +36,11 @@ export const isEmptyTwist = (t: Twist) => !t.color && t.add.length === 0;
 /** Wearables sit on top of the main prop; other additions stand beside it. */
 const WEARABLE: PropId[] = ['glasses', 'hat'];
 
-export function applyTwist(scene: SceneSpec, twist: Twist, mainTop = 0.11): SceneSpec {
+export function applyTwist(scene: SceneSpec, twist: Twist): SceneSpec {
   const props = scene.props.map((p) => ({ ...p }));
   const main = props[scene.focus ?? 0];
+  // Wearables sit just under the top of the main prop's painting (its head), a little toward its face (+x).
+  const mainTop = main ? PROP_HEIGHT[main.prop] * 0.92 : 0;
   if (twist.color && main) main.color = twist.color;
   twist.add.forEach((prop, i) => {
     if (WEARABLE.includes(prop) && main) {

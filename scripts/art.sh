@@ -44,6 +44,9 @@ prop star       'Golden Star and Ornate Coin Collection.png' 0.5x0.68+0.05+0.05
 prop shoe       'Enchanted Cream and Forest Green Boots.png'
 prop sun        'Decorative Golden Sun Icon.png'
 prop lantern    'Ornate Ivy-Wrapped Glowing Lantern.png'
+# Whole-scene paintings for the starter deck.
+prop cat-hug    'Chibi Boy with Shoulder-Hugging Cat.png'
+prop summit     'Snow-Capped Mountain with Cherry Blossoms.png'
 
 # Website art: opaque scenes as wide WebP; characters cut out like the props.
 site() { magick "$SRC/$2" -resize "$3" -quality 80 "$OUT/site/$1.webp"; }

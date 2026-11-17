@@ -50,6 +50,11 @@ const fresh = (): SaveData => ({
 });
 
 /** Older saves predate review ids, per-memory questions and the cloud block. */
+/** Starter mnemonics that were reworded, old → new, so saved scenes still find their deck scene. */
+const RENAMED: Record<string, string> = {
+  'A HONest person swears on a book.': 'HONest truth: a gold star shines over a book.',
+};
+
 function migrate(d: SaveData, hadCloud: boolean): SaveData {
   d.cloud = { ...fresh().cloud, ...d.cloud };
   // A save from before sync existed: everything in it still needs uploading once.
@@ -64,11 +69,13 @@ function migrate(d: SaveData, hadCloud: boolean): SaveData {
     m.question ??= `What is "${m.cue}" in Japanese?`;
     m.lang ??= 'ja-JP';
     // Starter scenes follow the shipped deck (its colours were retuned for the painted props); the twist is re-applied.
-    const fresh = JA_STARTER.find((i) => i.id === m.id)?.scenes.find((sc) => sc.mnemonic === m.scene.mnemonic);
+    const mnemonic = RENAMED[m.scene.mnemonic] ?? m.scene.mnemonic;
+    const fresh = JA_STARTER.find((i) => i.id === m.id)?.scenes.find((sc) => sc.mnemonic === mnemonic);
     if (fresh) {
       const scene = applyTwist(fresh, parseTwist(m.twist ?? ''));
       if (JSON.stringify(scene) !== JSON.stringify(m.scene)) {
         m.scene = scene;
+        m.mnemonic = scene.mnemonic;
         if (!d.cloud.dirtyMemories.includes(m.id)) d.cloud.dirtyMemories.push(m.id);
       }
     }

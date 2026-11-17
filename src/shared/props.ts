@@ -8,6 +8,8 @@ import type { PropId } from './types';
  * ponytail: flat cut-outs, not meshes. A glTF can replace one prop's art later without touching scenes.
  */
 
+import { PROP_HEIGHT } from './props-catalog';
+
 export { PROP_IDS } from './props-catalog';
 
 const geo = new Map<string, THREE.BufferGeometry>();
@@ -40,6 +42,7 @@ const DEFAULT_COLOR: Record<PropId, string> = {
   cat: '#e8873a', dog: '#b07a3e', bird: '#f0f0f0', book: '#3a7fbf', umbrella: '#d94848', house: '#c9a36b',
   mountain: '#6f8a6b', tree: '#3f8a4f', drop: '#5aa8e6', cloud: '#f4f6f8', fountain: '#9fb4c4', glasses: '#222222',
   hat: '#2b2b2b', ball: '#d94848', star: '#ffd24a', shoe: '#2f6fd1', sun: '#ffc93a', person: '#efc9a4',
+  'cat-hug': '#e8873a', summit: '#6f8a6b',
 };
 
 type Builder = (root: THREE.Group, c: THREE.Material, color: string) => void;
@@ -162,33 +165,51 @@ const BUILDERS: Record<PropId, Builder> = {
     part(r, g('sphere2', () => new THREE.IcosahedronGeometry(0.5, 3)), c, [0, 0.135, 0], [0.058, 0.056, 0.054]);
     part(r, g('sphere2', () => new THREE.IcosahedronGeometry(0.5, 3)), mat('#3a2a20'), [0, 0.152, -0.006], [0.062, 0.04, 0.058]);
   },
+  'cat-hug'(r, c) {
+    BUILDERS.person(r, mat(DEFAULT_COLOR.person), DEFAULT_COLOR.person);
+    const cat = new THREE.Group();
+    BUILDERS.cat(cat, c, '');
+    cat.position.set(0.01, 0.12, 0.02);
+    cat.scale.setScalar(0.55);
+    r.add(cat);
+  },
+  summit(r, c) {
+    BUILDERS.mountain(r, c, '');
+    const person = new THREE.Group();
+    BUILDERS.person(person, mat(DEFAULT_COLOR.person), DEFAULT_COLOR.person);
+    person.position.y = 0.19;
+    person.scale.setScalar(0.4);
+    r.add(person);
+  },
 };
 
 /** Self-lit props (sun, star) stay visible even in the dimmed palace. */
 const GLOWS: PropId[] = ['sun', 'star'];
 
 /**
- * Painted art per prop: height in metres at scale 1, and colour variants. A requested colour close to a
+ * Painted art per prop (heights live in PROP_HEIGHT), with colour variants. A requested colour close to a
  * variant uses that painting as is; any other colour tints the first variant, so "make it blue" still works.
  */
-const ART: Partial<Record<PropId, { h: number; variants: [file: string, color: string][] }>> = {
-  cat: { h: 0.12, variants: [['cat-orange', '#e8873a'], ['cat-black', '#333333'], ['cat-white', '#f2f2f2']] },
-  dog: { h: 0.11, variants: [['dog', '#c9955a']] },
-  bird: { h: 0.08, variants: [['bird', '#5a86c8']] },
-  book: { h: 0.09, variants: [['book', '#3f5a3a']] },
-  umbrella: { h: 0.24, variants: [['umbrella', '#d94848']] },
-  house: { h: 0.15, variants: [['house', '#c9a36b']] },
-  mountain: { h: 0.2, variants: [['mountain', '#6f8a6b']] },
-  tree: { h: 0.18, variants: [['tree', '#3f8a4f']] },
-  drop: { h: 0.08, variants: [['drop', '#5aa8e6'], ['drop-honey', '#e0a628']] },
-  cloud: { h: 0.09, variants: [['cloud', '#f4f6f8']] },
-  fountain: { h: 0.17, variants: [['fountain', '#b8ad94']] },
-  glasses: { h: 0.03, variants: [['glasses', '#3a3a2a']] },
-  hat: { h: 0.05, variants: [['hat', '#e0b860']] },
-  ball: { h: 0.07, variants: [['ball', '#d94848']] },
-  star: { h: 0.1, variants: [['star', '#ffd24a']] },
-  shoe: { h: 0.07, variants: [['shoe', '#e8dcc0']] },
-  sun: { h: 0.12, variants: [['sun', '#ffc93a']] },
+const ART: Partial<Record<PropId, { variants: [file: string, color: string][] }>> = {
+  cat: { variants: [['cat-orange', '#e8873a'], ['cat-black', '#333333'], ['cat-white', '#f2f2f2']] },
+  dog: { variants: [['dog', '#c9955a']] },
+  bird: { variants: [['bird', '#5a86c8']] },
+  book: { variants: [['book', '#3f5a3a']] },
+  umbrella: { variants: [['umbrella', '#d94848']] },
+  house: { variants: [['house', '#c9a36b']] },
+  mountain: { variants: [['mountain', '#6f8a6b']] },
+  tree: { variants: [['tree', '#3f8a4f']] },
+  drop: { variants: [['drop', '#5aa8e6'], ['drop-honey', '#e0a628']] },
+  cloud: { variants: [['cloud', '#f4f6f8']] },
+  fountain: { variants: [['fountain', '#b8ad94']] },
+  glasses: { variants: [['glasses', '#3a3a2a']] },
+  hat: { variants: [['hat', '#e0b860']] },
+  ball: { variants: [['ball', '#d94848']] },
+  star: { variants: [['star', '#ffd24a']] },
+  shoe: { variants: [['shoe', '#e8dcc0']] },
+  sun: { variants: [['sun', '#ffc93a']] },
+  'cat-hug': { variants: [['cat-hug', '#e8873a']] },
+  summit: { variants: [['summit', '#6f8a6b']] },
 };
 /** Colours closer than this (RGB distance, 0..√3) count as the painted colour. */
 const VARIANT_NEAR = 0.3;
@@ -293,7 +314,7 @@ export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): T
     buildPrimitive(root, id, color);
     return root;
   }
-  const h = ART[id]!.h;
+  const h = PROP_HEIGHT[id];
   const sat = opts.sat ?? { value: 1 };
   const shadow = new THREE.Mesh(g('shadow', () => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)),
     new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false }));
