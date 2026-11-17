@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { DECOR, PANEL } from '../shared/theme';
 import type { DeckItem } from '../shared/types';
 import { buildScene, type BuiltScene } from './scene-builder';
-import { makeButton, Panel, type Selectable } from './ui';
+import { buttonWidth, makeButton, Panel, type Selectable } from './ui';
 import { narrate } from './speech';
 import { play } from './audio';
 import type { Palace } from './palace';
@@ -11,6 +11,7 @@ import type { Input } from './input';
 const CARD_BASE = new THREE.CylinderGeometry(0.1, 0.105, 0.012, 16);
 const CARD_MAT = new THREE.MeshLambertMaterial({ color: DECOR.capTop, emissive: DECOR.goldEmissive, emissiveIntensity: 0.4 });
 const CARD_HIT = new THREE.BoxGeometry(0.23, 0.34, 0.2);
+const BUTTON_H = 0.072;
 const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
 /**
@@ -30,7 +31,7 @@ export class Stage {
   private alcoveWaiter: { slot: number; res: () => void } | null = null;
   private resumeWaiters: (() => void)[] = [];
   private builtCards: BuiltScene[] = [];
-  private backdrop = new Panel(0.84, 0.4, { frame: 'ornate' });
+  private backdrop = new Panel(0.86, 0.47, { frame: 'ornate' });
   paused = false;
   browsing = false;
   onBrowseSelect: (slot: number) => void = () => {};
@@ -39,13 +40,13 @@ export class Stage {
     palace.root.add(this.hud);
     // Below the pedestal tops (about 10° down) so it never hides a scene. Tilted halfway toward the eye: a full
     // tilt keystones the text on a flat desktop view (the left half of a line leans like italics).
-    this.caption.position.set(0, 0.72, -0.95);
-    this.caption.lookAt(0, 0.96, 0);
+    this.caption.position.set(0, 0.79, -0.95);
+    this.caption.lookAt(0, 1.0, 0);
     this.caption.visible = false;
     this.topRow.position.set(0, 1.53, -1.1);
     this.cards.position.set(0, 1.12, -0.82);
     // A framed backdrop behind the three choices, so the alcoves behind them don't show through and clutter the pick.
-    this.backdrop.position.set(0, 0.09, -0.08);
+    this.backdrop.position.set(0, 0.06, -0.08);
     this.backdrop.visible = false;
     this.cards.add(this.backdrop);
     this.hud.add(this.caption, this.topRow, this.cards, this.arrows, this.pauseLayer);
@@ -136,17 +137,11 @@ export class Stage {
     await this.whilePaused();
     return new Promise<T>((res) => {
       this.clearRow();
-      const w = options.length > 3 ? 0.15 : 0.19, gap = 0.015;
-      const total = options.length * w + (options.length - 1) * gap;
-      options.forEach((o, i) => {
-        const b = makeButton(o.label, () => {
-          this.clearRow();
-          play('tick');
-          res(o.value);
-        }, w, 0.075);
-        b.position.x = -total / 2 + w / 2 + i * (w + gap);
-        this.topRow.add(b);
-      });
+      this.layoutRow(options.map((o) => makeButton(o.label, () => {
+        this.clearRow();
+        play('tick');
+        res(o.value);
+      }, buttonWidth(o.label), BUTTON_H)));
     });
   }
 
@@ -180,18 +175,24 @@ export class Stage {
     });
   }
 
+  /** Centres a row of buttons of differing widths, evenly gapped. */
+  private layoutRow(buttons: Panel[]) {
+    const gap = 0.016, total = buttons.reduce((s, b) => s + b.w, 0) + gap * (buttons.length - 1);
+    let x = -total / 2;
+    for (const b of buttons) {
+      b.position.x = x + b.w / 2;
+      x += b.w + gap;
+      this.topRow.add(b);
+    }
+  }
+
   /** Buttons that stay up while something else happens (e.g. "Show me" during recall). */
   offer(options: { label: string; onSelect: () => void }[]) {
     this.clearRow();
-    const w = 0.19;
-    options.forEach((o, i) => {
-      const b = makeButton(o.label, () => {
-        this.clearRow();
-        o.onSelect();
-      }, w, 0.075);
-      b.position.x = (i - (options.length - 1) / 2) * (w + 0.015);
-      this.topRow.add(b);
-    });
+    this.layoutRow(options.map((o) => makeButton(o.label, () => {
+      this.clearRow();
+      o.onSelect();
+    }, buttonWidth(o.label), BUTTON_H)));
   }
 
   clearRow() {
@@ -225,7 +226,7 @@ export class Stage {
         built.group.scale.setScalar(0.85);
         built.group.position.y = 0.006;
         this.builtCards.push(built);
-        const text = new Panel(0.23, 0.1, { size: 0.0165, radius: 0.012 }).set({ body: spec.mnemonic });
+        const text = new Panel(0.23, 0.1, { size: 0.0165, radius: 0.012, bg: 'rgba(16, 40, 31, 0.94)', border: 'rgba(217, 183, 110, 0.7)' }).set({ body: spec.mnemonic });
         text.position.set(0, -0.08, 0.03);
         const hit = new THREE.Mesh(CARD_HIT, HIT_MAT);
         hit.position.y = 0.05;

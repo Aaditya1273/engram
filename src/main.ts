@@ -36,6 +36,10 @@ scene.background = new THREE.Color(SCENE.sky);
 scene.fog = new THREE.Fog(SCENE.sky, 2.4, 8);
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 30);
 camera.position.set(0, EYE_Y, 0);
+// On a flat screen, look a little down: the pedestals sit mid-frame and the caption below them stays in view.
+// (In the headset your head sets the view.)
+const DESKTOP_PITCH = -0.085;
+camera.rotation.x = DESKTOP_PITCH;
 scene.add(camera);
 
 const palace = new Palace(scene, camera);
@@ -84,7 +88,7 @@ renderer.xr.addEventListener('sessionstart', () => {
 renderer.xr.addEventListener('sessionend', () => {
   palace.root.position.set(0, 0, 0);
   camera.position.set(0, EYE_Y, 0);
-  camera.rotation.set(0, 0, 0);
+  camera.rotation.set(DESKTOP_PITCH, 0, 0);
 });
 
 // ---------------------------------------------------------------- loop

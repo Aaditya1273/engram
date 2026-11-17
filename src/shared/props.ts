@@ -329,6 +329,22 @@ export function setModelEnvironment(tex: THREE.Texture) {
 const HAS_MODEL = new Set(Object.keys(MODELS));
 export const modelUrl = (file: string) => `${import.meta.env.BASE_URL}art/models/${file}.glb`;
 
+/**
+ * Meshopt-compressed models store positions and normals as normalised 16/8-bit integers, with the scale in the
+ * node transform. Baking a transform into such an attribute would clamp it to [-1, 1] and crush the model, so
+ * they become plain floats first.
+ */
+function dequantize(geo: THREE.BufferGeometry) {
+  for (const name of ['position', 'normal'] as const) {
+    const a = geo.getAttribute(name);
+    if (!a || a.array instanceof Float32Array) continue;
+    const f = new Float32Array(a.count * a.itemSize);
+    for (let i = 0; i < a.count; i++) for (let c = 0; c < a.itemSize; c++) f[i * a.itemSize + c] = a.getComponent(i, c);
+    geo.setAttribute(name, new THREE.BufferAttribute(f, a.itemSize));
+  }
+  return geo;
+}
+
 interface ModelTemplate {
   parts: { geo: THREE.BufferGeometry; mat: THREE.MeshStandardMaterial }[];
   /** Width ÷ height, from the model's bounds. */
@@ -350,7 +366,7 @@ export function loadModel(url: string): Promise<ModelTemplate> {
         if (!(o instanceof THREE.Mesh)) return;
         const mats = Array.isArray(o.material) ? o.material : [o.material];
         const mat = mats[0] instanceof THREE.MeshStandardMaterial ? mats[0] : new THREE.MeshStandardMaterial({ map: (mats[0] as THREE.MeshBasicMaterial).map ?? null });
-        parts.push({ geo: o.geometry.clone().applyMatrix4(o.matrixWorld), mat });
+        parts.push({ geo: dequantize(o.geometry.clone()).applyMatrix4(o.matrixWorld), mat });
       });
       if (!parts.length) throw new Error(`no mesh in ${url}`);
       const box = new THREE.Box3();

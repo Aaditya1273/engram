@@ -60,19 +60,20 @@ export const JA_STARTER: DeckItem[] = [
     scenes: [
       { mnemonic: 'MIst sprays from a fountain: cool water, "mizu".', props: [
         { prop: 'fountain', pos: [0, 0, 0], scale: 0.85 },
-        { prop: 'drop', pos: [0.035, 0.16, 0], scale: 0.4 },
-        { prop: 'drop', pos: [-0.04, 0.15, 0.01], scale: 0.35 },
+        { prop: 'drop', pos: [-0.028, 0.152, 0.01], scale: 0.28 },
+        { prop: 'drop', pos: [0.03, 0.162, 0.01], scale: 0.32 },
       ] },
       { mnemonic: 'A cloud says "Me? Zoo!" and rains on a zoo of animals.', props: [
-        { prop: 'cloud', pos: [0, 0.165, 0], scale: 0.6 },
-        { prop: 'drop', pos: [0, 0.1, 0.01], scale: 0.3 },
+        { prop: 'cloud', pos: [0, 0.138, 0], scale: 0.62 },
+        { prop: 'drop', pos: [-0.026, 0.09, 0.01], scale: 0.24 },
+        { prop: 'drop', pos: [0.028, 0.1, 0.01], scale: 0.24 },
         { prop: 'dog', pos: [-0.032, 0, 0.02], scale: 0.5 },
         { prop: 'cat', pos: [0.032, 0, 0.02], scale: 0.5, color: '#f2f2f2' },
       ] },
       { mnemonic: 'You MISS the umbrella and water soaks you.', props: [
-        { prop: 'umbrella', pos: [-0.025, 0, 0], scale: 0.55 },
-        { prop: 'drop', pos: [0.065, 0.17, 0.02], scale: 0.4 },
-        { prop: 'drop', pos: [0.075, 0.1, 0.01], scale: 0.35 },
+        { prop: 'umbrella', pos: [-0.02, 0, 0], scale: 0.55 },
+        { prop: 'drop', pos: [0.056, 0.105, 0.02], scale: 0.3 },
+        { prop: 'drop', pos: [0.064, 0.045, 0.02], scale: 0.28 },
       ] },
     ],
   },

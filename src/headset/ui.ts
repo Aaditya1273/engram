@@ -91,8 +91,11 @@ export interface PanelStyle {
   radius?: number;
   /** Body weight: buttons read better a little heavier. */
   weight?: number;
-  /** 'ornate': the caption card (notched corners, double gold frame, leaf crest). 'round': a circular gold-ringed button. */
-  frame?: 'plain' | 'ornate' | 'round';
+  /**
+   * 'ornate': the caption card (notched corners, double gold frame, leaf crest). 'round': a circular gold-ringed
+   * button. 'pill': a button or plaque, glowing gold rim, one line of text that shrinks to fit rather than wrap.
+   */
+  frame?: 'plain' | 'ornate' | 'round' | 'pill';
 }
 
 const EASE_MS = 180;
@@ -167,6 +170,7 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     let top = 0, bottom = H;
     if (style.frame === 'ornate') [top, bottom] = this.drawOrnate();
     else if (style.frame === 'round') this.drawRound();
+    else if (style.frame === 'pill') return this.drawPill();
     else {
       ctx.beginPath();
       ctx.roundRect(inset, inset, W - inset * 2, H - inset * 2, style.radius * PX_PER_M);
@@ -261,6 +265,47 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     return [y + i, dy - 6];
   }
 
+  /** Pill: forest gradient, glowing gold rim and inner hairline, one centred line of ivory text sized to fit. */
+  private drawPill() {
+    const { ctx, canvas, style } = this;
+    const W = canvas.width, H = canvas.height, glow = 10, x = glow, y = glow, w = W - glow * 2, h = H - glow * 2, r = h / 2;
+    const lift = ease(this.hoverT);
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    const fill = ctx.createLinearGradient(0, y, 0, y + h);
+    fill.addColorStop(0, this.hovered ? 'rgba(44, 96, 74, 0.98)' : 'rgba(30, 70, 54, 0.96)');
+    fill.addColorStop(1, this.hovered ? 'rgba(22, 58, 44, 0.98)' : 'rgba(13, 36, 27, 0.96)');
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.save();
+    ctx.shadowColor = 'rgba(233, 196, 120, 0.9)';
+    ctx.shadowBlur = this.hovered ? 14 : 7;
+    ctx.lineWidth = this.hovered ? 4.5 : 3;
+    ctx.strokeStyle = '#D9B76E';
+    ctx.stroke();
+    ctx.restore();
+    const i = 6;
+    ctx.beginPath();
+    ctx.roundRect(x + i, y + i, w - i * 2, h - i * 2, r - i);
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = `rgba(217, 183, 110, ${0.45 + 0.3 * lift})`;
+    ctx.stroke();
+    const text = this.content.body ?? this.content.title ?? '';
+    let size = style.size * PX_PER_M * textScale;
+    const room = w - r * 1.1;
+    ctx.font = `${style.weight} ${size}px ${FONT.body}`;
+    const tw = ctx.measureText(text).width;
+    if (tw > room) {
+      size *= room / tw;
+      ctx.font = `${style.weight} ${size}px ${FONT.body}`;
+    }
+    ctx.fillStyle = this.hovered ? '#FFFDF6' : style.fg;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, W / 2, H / 2 + size * 0.04);
+    this.tex.needsUpdate = true;
+  }
+
   /** A round button: dark green disc, glowing gold ring, compass ticks, and a drawn arrow for ‹ / ›. */
   private drawRound() {
     const { ctx, canvas } = this;
@@ -315,8 +360,11 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
   }
 }
 
+/** Button width that fits its label on one line at the standard size, within sensible bounds (metres). */
+export const buttonWidth = (label: string) => Math.min(0.28, Math.max(0.13, 0.07 + label.length * 0.0118));
+
 export function makeButton(label: string, onSelect: () => void, w = 0.2, h = 0.07, style: PanelStyle = {}): Panel {
-  const p = new Panel(w, h, { size: 0.025, bg: PANEL.button, border: 'rgba(217, 183, 110, 0.55)', weight: 600, radius: h / 2, ...style }).set({ body: label });
+  const p = new Panel(w, h, { size: 0.026, weight: 600, frame: 'pill', ...style }).set({ body: label });
   const sel: Selectable = { onSelect, onHover: (v) => p.setHovered(v) };
   p.userData.selectable = sel;
   p.userData.label = label;

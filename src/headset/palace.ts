@@ -93,8 +93,10 @@ export class Alcove {
     this.veil = add(GEO.veil, MAT.veil, 0, SCENE_Y + 0.24, 0);
     this.veil.visible = false;
 
-    this.label = new Panel(0.4, 0.07, { size: 0.025, bg: 'rgba(16, 40, 31, 0.92)', border: 'rgba(217, 183, 110, 0.8)', radius: 0.035 });
-    this.label.position.set(0, SCENE_Y - 0.1, 0.17);
+    // A gold-rimmed plaque on the pedestal's shaft, just under the cap, tipped back toward the seated eye.
+    this.label = new Panel(0.27, 0.064, { size: 0.028, weight: 600, frame: 'pill' });
+    this.label.position.set(0, SCENE_Y - 0.135, 0.175);
+    this.label.rotation.x = -0.16;
     this.label.visible = false;
     this.group.add(this.label);
 
