@@ -60,7 +60,7 @@ async function enrolGesture({ stage, input }: Ctx, hint: string): Promise<Gestur
 let twistSkips = 0;
 
 /**
- * One personal twist, mapped onto the prop kit (keyword parser offline, Claude when online).
+ * One personal twist, mapped onto the prop kit (keyword parser offline, the AI model when online).
  * Guardrail: never let the AI finish the memory alone. After three skips in a row, ask one
  * personal question instead.
  */

@@ -6,8 +6,9 @@ import { handle } from '../server/routes';
 import { offlineDraft } from '../server/pipeline';
 import type { Memory, Review } from '../src/shared/types';
 
-// Real Postgres (PGlite, in memory), real routes, offline drafter (no ANTHROPIC_API_KEY in tests).
-delete process.env.ANTHROPIC_API_KEY;
+// Real Postgres (PGlite, in memory), real routes, offline drafter (no AI keys in tests).
+delete process.env.GEMINI_API_KEY;
+delete process.env.NVIDIA_API_KEY;
 useMemoryDb();
 
 const BASE = 'http://atrium.test';

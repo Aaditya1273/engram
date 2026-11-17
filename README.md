@@ -252,7 +252,7 @@ flowchart LR
 | Speech | Web Speech API (recognition in `ja-JP`, narration via speech synthesis) | Spoken answers and twists; pinchable fallback when missing |
 | Audio | Web Audio, synthesised | No audio files to download |
 | 3D assets | Procedural low-poly prop kit (three.js primitives) | Zero downloads, so the first five minutes work offline. Swap in a CC0 glTF kit later; the scene JSON doesn't change. |
-| AI pipeline | Claude (`claude-opus-5-5`) with structured outputs (Zod schema) + server-side refusal fallback | One call drafts every item and its three scenes; output is clamped to the prop kit. Without a key, an offline line-based drafter takes over. |
+| AI pipeline | Gemini (`gemini-3.8-flash`) or NVIDIA (`meta/llama-3.3-70b-instruct`) through their OpenAI-compatible chat APIs, JSON-schema output, no SDK | One call drafts every item and its three scenes; output is validated with Zod and clamped to the prop kit. Without a key, an offline line-based drafter takes over. |
 | Hosting | Cloudflare Pages: static app + one Pages Function for `/api/*` (Web-standard `fetch` handler) | One deploy, one URL, edge-served |
 | Database | Postgres: Neon in production, PGlite (Postgres in WASM) locally and in tests | Same SQL everywhere; no ORM |
 | MCP | MCP TypeScript SDK, stateless Streamable HTTP | Any MCP client connects with a per-agent key |
@@ -297,7 +297,7 @@ atrium/
 ├── server/
 │   ├── routes.ts               # the whole REST API as one fetch handler
 │   ├── mcp.ts                  # MCP server: 6 tools, per-agent keys and scopes
-│   ├── pipeline.ts             # Claude drafting (structured outputs) + offline drafter
+│   ├── pipeline.ts             # Gemini/NVIDIA drafting (JSON schema) + offline drafter
 │   ├── knowledge.ts            # due / known / gaps / readiness from the review log
 │   ├── ops.ts                  # data operations shared by REST and MCP
 │   ├── auth.ts                 # hashed tokens, scopes, rate limits
@@ -326,7 +326,7 @@ git clone https://github.com/<your-org>/atrium.git
 cd atrium
 npm install
 
-cp .env.example .env          # optional: ANTHROPIC_API_KEY for AI drafting, DATABASE_URL for Neon
+cp .env.example .env          # optional: GEMINI_API_KEY or NVIDIA_API_KEY for AI drafting, DATABASE_URL for Neon
 npm run dev                   # headset app + companion + API + MCP on one dev server
 ```
 
@@ -356,7 +356,7 @@ Cloud features need a Postgres database (e.g. a free Neon project). Set the secr
 
 ```bash
 npx wrangler pages secret put DATABASE_URL --project-name atrium       # Neon connection string
-npx wrangler pages secret put ANTHROPIC_API_KEY --project-name atrium  # optional: AI scene drafting
+npx wrangler pages secret put GEMINI_API_KEY --project-name atrium     # optional: AI scene drafting (or NVIDIA_API_KEY)
 ```
 
 Tables are created on the first request. Without `DATABASE_URL` the API answers `/api/health` with `db: "none"` and the headset stays happily offline. The headset app is `/`, the companion `/companion.html`, the MCP endpoint `/api/mcp`.
@@ -380,7 +380,8 @@ All optional locally (see `.env.example`).
 | Variable | Needed in production | Description |
 | --- | :---: | --- |
 | `DATABASE_URL` | ✅ | Postgres connection string (e.g. Neon). Unset → embedded PGlite in `.data/` |
-| `ANTHROPIC_API_KEY` | ✅ | Claude for scene drafting and free-form twists. Unset → offline drafter |
+| `GEMINI_API_KEY` or `NVIDIA_API_KEY` | ⬜ | AI scene drafting and free-form twists (Gemini wins if both are set). Unset → offline drafter |
+| `LLM_MODEL` | ⬜ | Override the model (default `gemini-3.8-flash` / `meta/llama-3.3-70b-instruct`) |
 | `PUBLIC_BASE_URL` | ⬜ | Origin used in pairing links and MCP URLs when behind a proxy |
 | `PGLITE_DIR` | ⬜ | Where the local embedded database lives (default `.data/pglite`) |
 
@@ -546,7 +547,7 @@ Every core feature rests on published work. These are the studies' own results, 
 
 - [x] Concept, research and design
 - [x] **Headset core:** palace, first five minutes, co-creation, gesture signature, dimming lanterns, graded recall, no-backlog sessions, comeback walk, streaks with freezes and repair, gaze-only mode, captions
-- [x] **Cloud:** API, offline-first sync, AI scene drafting (Claude, with an offline fallback), voice capture, inbox co-creation, pairing
+- [x] **Cloud:** API, offline-first sync, AI scene drafting (Gemini or NVIDIA, with an offline fallback), voice capture, inbox co-creation, pairing
 - [x] **MCP server:** `add_memories`, `create_goal`, `list_due`, `get_known`, `get_gaps`, `get_readiness`
 - [x] Readiness score and goals
 - [x] Phone companion with graded mental walk
