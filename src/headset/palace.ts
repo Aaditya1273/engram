@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { lanternLook } from '../core/lantern';
-import { LANTERN, PALETTE, PANEL, SCENE } from '../shared/theme';
+import { LANTERN, PALETTE, SCENE } from '../shared/theme';
 import type { SceneSpec } from '../shared/types';
+import { buildDecor } from './decor';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { glowTexture, Panel, type Selectable } from './ui';
 
@@ -11,26 +11,18 @@ import { EYE_Y, RADIUS, SCENE_Y, SLOT_COUNT, SLOT_DEG, SNAP_SLOTS } from './layo
 export { EYE_Y, SLOT_COUNT } from './layout';
 const SCENE_SCALE = 1.7;
 const LANTERN_Y = 1.55;
-const ROOM_R = 2.7;
 const FADE_MS = 75;
+/** Hemisphere light range: the room warms from dusk to sunlit as you work, but is never black. */
+const WARMTH_MIN = 1.1, WARMTH_MAX = 2.6;
 
-const stone = (c: string) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-// Shared across all alcoves: natural dark materials, one set for the whole palace.
+// The architecture lives in decor.ts; these are the live, per-alcove parts.
 const MAT = {
-  niche: stone(SCENE.niche),
-  trim: stone(SCENE.trim),
-  pedestal: stone(SCENE.pedestal),
-  chain: stone(PALETTE.charcoal),
+  chain: new THREE.MeshLambertMaterial({ color: PALETTE.gold, emissive: PALETTE.gold, emissiveIntensity: 0.3 }),
   veil: new THREE.MeshLambertMaterial({ color: SCENE.veil, emissive: SCENE.veilSheen, emissiveIntensity: 0.35, side: THREE.DoubleSide, flatShading: true }),
 };
 const GEO = {
-  back: new THREE.BoxGeometry(0.52, 1.05, 0.04),
-  pillar: new THREE.BoxGeometry(0.06, 1.15, 0.08),
-  lintel: new THREE.BoxGeometry(0.62, 0.06, 0.1),
-  pedestal: new THREE.CylinderGeometry(0.13, 0.15, SCENE_Y, 8),
-  pedestalTop: new THREE.CylinderGeometry(0.15, 0.15, 0.02, 12),
-  chain: new THREE.CylinderGeometry(0.004, 0.004, 0.1, 4),
+  chain: new THREE.CylinderGeometry(0.003, 0.003, 0.2, 4),
   lantern: new THREE.PlaneGeometry(0.067, 0.14),
   veil: new THREE.CylinderGeometry(0.24, 0.26, 0.5, 10, 1, true),
   hit: new THREE.BoxGeometry(0.55, 1.2, 0.35),
@@ -75,13 +67,7 @@ export class Alcove {
       this.group.add(mesh);
       return mesh;
     };
-    add(GEO.back, MAT.niche, 0, 1.12, -0.2);
-    add(GEO.pillar, MAT.trim, -0.28, 1.08, -0.16);
-    add(GEO.pillar, MAT.trim, 0.28, 1.08, -0.16);
-    add(GEO.lintel, MAT.trim, 0, 1.68, -0.16);
-    add(GEO.pedestal, MAT.trim, 0, SCENE_Y / 2, 0);
-    add(GEO.pedestalTop, MAT.pedestal, 0, SCENE_Y - 0.01, 0);
-    add(GEO.chain, MAT.chain, 0, LANTERN_Y + 0.115, 0.04); // hangs from the painted ring at the lantern top
+    add(GEO.chain, MAT.chain, 0, LANTERN_Y + 0.165, 0.04); // from the arch's crown to the painted ring on the lantern
 
     this.sceneHolder.position.set(0, SCENE_Y, 0);
     this.sceneHolder.scale.setScalar(SCENE_SCALE);
@@ -92,12 +78,12 @@ export class Alcove {
     this.glow.position.set(0, LANTERN_Y, 0.05);
     this.glow.scale.setScalar(0.3);
     this.group.add(this.glow);
-    this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 1.28, -0.175) as typeof this.wash;
+    this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 1.28, -0.215) as typeof this.wash;
 
     this.veil = add(GEO.veil, MAT.veil, 0, SCENE_Y + 0.24, 0);
     this.veil.visible = false;
 
-    this.label = new Panel(0.4, 0.07, { size: 0.025, bg: PANEL.bg, border: 'rgba(185, 154, 98, 0.3)', radius: 0.035 });
+    this.label = new Panel(0.4, 0.07, { size: 0.025, bg: 'rgba(16, 40, 31, 0.92)', border: 'rgba(217, 183, 110, 0.8)', radius: 0.035 });
     this.label.position.set(0, SCENE_Y - 0.1, 0.17);
     this.label.visible = false;
     this.group.add(this.label);
@@ -226,8 +212,8 @@ export class Palace {
   readonly root = new THREE.Group();
   readonly ring = new THREE.Group();
   readonly alcoves: Alcove[] = [];
-  private hemi = new THREE.HemisphereLight(SCENE.lightSky, SCENE.lightGround, 0.15);
-  private warmth = { from: 0.15, to: 0.15, t: 1, ms: 1 };
+  private hemi = new THREE.HemisphereLight(SCENE.lightSky, SCENE.lightGround, WARMTH_MIN);
+  private warmth = { from: WARMTH_MIN, to: WARMTH_MIN, t: 1, ms: 1 };
   private fadeMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
   /** Slot within the current wing (0..SLOT_COUNT-1; fractional to centre between two). */
   focusSlot = 0;
@@ -256,54 +242,12 @@ export class Palace {
   }
 
   private buildRoom() {
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(ROOM_R, 24), stone(SCENE.floor));
-    floor.rotation.x = -Math.PI / 2;
-    // A thin gold inlay ring under the chair: the one ornament in the floor.
-    const inlay = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.6, 48), stone(SCENE.inlay));
-    inlay.rotation.x = -Math.PI / 2;
-    inlay.position.y = 0.002;
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(ROOM_R, ROOM_R, 3.4, 24, 1, true), new THREE.MeshLambertMaterial({ color: SCENE.wall, side: THREE.BackSide, flatShading: true }));
-    wall.position.y = 1.7;
-    const ceiling = new THREE.Mesh(new THREE.RingGeometry(0.7, ROOM_R, 24), stone(SCENE.ceiling));
-    ceiling.rotation.x = Math.PI / 2;
-    ceiling.position.y = 3.4;
-    // The atrium's open oculus: dusk overhead, a fixed and calm horizon cue.
-    const oculus = new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), new THREE.MeshBasicMaterial({ color: SCENE.oculus, fog: false }));
-    oculus.rotation.x = Math.PI / 2;
-    oculus.position.y = 3.41;
-    this.root.add(floor, inlay, wall, ceiling, oculus);
-    this.buildFerns();
-  }
-
-  /** The living garden: a low ring of ferns between the alcoves. One instanced draw call. */
-  private buildFerns() {
-    const frond = (yaw: number, tilt: number) => {
-      // A broad, flattened leaf rather than a spike, splayed outward into a low rosette.
-      const g = new THREE.ConeGeometry(0.06, 0.26, 4);
-      g.scale(1, 1, 0.25);
-      g.translate(0, 0.13, 0);
-      g.rotateZ(tilt);
-      g.rotateY(yaw);
-      return g;
-    };
-    const fern = mergeGeometries([0, 1, 2, 3, 4, 5].map((i) => frond((i / 6) * Math.PI * 2, 0.85 + (i % 2) * 0.25)))!;
-    const ferns = new THREE.InstancedMesh(fern, new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }), SLOT_COUNT);
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
-    for (let i = 0; i < SLOT_COUNT; i++) {
-      const a = THREE.MathUtils.degToRad((i + 0.5) * SLOT_DEG);
-      const s = 0.55 + ((i * 37) % 10) / 30;
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), i * 1.7);
-      // On the floor between the pedestals, slightly in front of them; turns with the ring.
-      m.compose(new THREE.Vector3(Math.sin(a) * 1.62, 0, -Math.cos(a) * 1.62), q, new THREE.Vector3(s, s, s));
-      ferns.setMatrixAt(i, m);
-      ferns.setColorAt(i, c.set(SCENE.fern).lerp(new THREE.Color(SCENE.fernTip), (i % 3) / 3));
-    }
-    this.ring.add(ferns);
+    buildDecor(this.ring, this.root);
   }
 
   /** Warm the room up (0 = dim, 1 = fully lit). */
   setWarmth(w: number, ms = 1200) {
-    this.warmth = { from: this.hemi.intensity, to: 0.2 + w * 2.1, t: 0, ms };
+    this.warmth = { from: this.hemi.intensity, to: WARMTH_MIN + w * (WARMTH_MAX - WARMTH_MIN), t: 0, ms };
   }
 
   private fadeTo(opacity: number) {

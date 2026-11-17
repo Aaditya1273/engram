@@ -27,10 +27,28 @@ export const SCENE = {
   veilSheen: PALETTE.forest,
   fern: '#2F5A45',
   fernTip: '#4C7A5C',
-  lightSky: PALETTE.sage,
-  lightGround: PALETTE.charcoal,
+  lightSky: '#FFF0CF', // warm sunlight from the oculus
+  lightGround: '#3A3324',
   fade: '#0B1410',
   cardBase: '#C9D6C5',
+} as const;
+
+/** The rotunda's architecture (after the palace mockup): green marble, gold trim, ivy, a sunlit oculus. */
+export const DECOR = {
+  gold: '#C9A259',
+  goldEmissive: '#8A6526',
+  goldLine: '#E2C27A',
+  capTop: '#CDBF9B',
+  emblemTint: '#FFFFFF',
+  banner: '#1F4A3A',
+  bannerDark: '#122C22',
+  nicheTint: '#7D9286',
+  floorTint: '#9AA89E',
+  leafDark: '#2F5A2A',
+  leafLight: '#8DB850',
+  sunCore: '#FFFBE8',
+  sunMid: '#F6DC8E',
+  sunEdge: '#7F9C58',
 } as const;
 
 /** The lantern: Atrium's signature. Unlit charcoal → muted gold → warm ivory-gold at full. */

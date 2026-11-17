@@ -62,4 +62,11 @@ site_cut boy-cat 'Chibi Boy with Shoulder-Hugging Cat.png' 640x
 site_cut lotus   'Glowing Golden Recall Lotus.png' 560x
 site_cut lantern 'Enchanted Golden Lantern with Glowing Ribbons.png' 480x
 site_cut fern    'Fern Bush with White Flowers and Mossy Rocks.png' 720x
+# Palace textures, cut from the pedestal paintings: a seamless green-marble tile (mirrored 2×2) and the gold
+# leaf emblem with its green ground keyed out (gold is red-dominant, the marble green-dominant).
+mkdir -p "$OUT/palace"
+magick "$SRC/Green Marble Pedestal with Vines.png" -crop 190x260+300+740 +repage \
+  \( +clone -flop \) +append \( +clone -flip \) -append -resize 512x512! -quality 80 "$OUT/palace/marble.webp"
+magick "$SRC/Stone and Green Panel Pedestal.png" -crop 170x150+430+320 +repage -alpha set \
+  -channel A -fx 'clamp((u.r-u.g)*7+0.05)' +channel -trim +repage -resize 256x256 -quality 85 -define webp:alpha-quality=95 "$OUT/palace/emblem.webp"
 du -sh "$OUT"/*

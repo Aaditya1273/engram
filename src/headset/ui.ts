@@ -28,6 +28,41 @@ if (typeof document !== 'undefined' && document.fonts) {
   ]).then(redraw, redraw);
 }
 
+/** The gold leaf emblem, crowning ornate panels. */
+let emblem: HTMLImageElement | null = null;
+if (typeof Image !== 'undefined') {
+  const img = new Image();
+  img.onload = () => {
+    emblem = img;
+    live.forEach((p) => p.draw());
+  };
+  img.src = `${import.meta.env.BASE_URL}art/palace/emblem.webp`;
+}
+
+/** A rectangle whose corners are scooped inward, like the mockup's caption card. */
+function notched(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arc(x + w, y, r, Math.PI, Math.PI / 2, true);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arc(x + w, y + h, r, (3 * Math.PI) / 2, Math.PI, true);
+  ctx.lineTo(x + r, y + h);
+  ctx.arc(x, y + h, r, 0, (3 * Math.PI) / 2, true);
+  ctx.lineTo(x, y + r);
+  ctx.arc(x, y, r, Math.PI / 2, 0, true);
+  ctx.closePath();
+}
+
+const diamond = (ctx: CanvasRenderingContext2D, x: number, y: number, s: number) => {
+  ctx.beginPath();
+  ctx.moveTo(x, y - s);
+  ctx.lineTo(x + s, y);
+  ctx.lineTo(x, y + s);
+  ctx.lineTo(x - s, y);
+  ctx.closePath();
+};
+
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const out: string[] = [];
   for (const para of text.split('\n')) {
@@ -56,6 +91,8 @@ export interface PanelStyle {
   radius?: number;
   /** Body weight: buttons read better a little heavier. */
   weight?: number;
+  /** 'ornate': the caption card (notched corners, double gold frame, leaf crest). 'round': a circular gold-ringed button. */
+  frame?: 'plain' | 'ornate' | 'round';
 }
 
 const EASE_MS = 180;
@@ -88,7 +125,7 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     this.ctx = canvas.getContext('2d')!;
     this.tex = tex;
     this.style = {
-      bg: PANEL.bg, fg: PANEL.fg, accent: PANEL.title, border: PANEL.hairline, size: 0.03, align: 'center', radius: 0.018, weight: 400,
+      bg: PANEL.bg, fg: PANEL.fg, accent: PANEL.title, border: PANEL.hairline, size: 0.03, align: 'center', radius: 0.018, weight: 400, frame: 'plain',
       ...style,
     };
     this.renderOrder = 10;
@@ -126,13 +163,23 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     const { ctx, canvas, style } = this;
     const W = canvas.width, H = canvas.height, pad = 0.025 * PX_PER_M, inset = 4;
     ctx.clearRect(0, 0, W, H);
-    ctx.beginPath();
-    ctx.roundRect(inset, inset, W - inset * 2, H - inset * 2, style.radius * PX_PER_M);
-    ctx.fillStyle = this.hovered && style.bg === PANEL.button ? PANEL.buttonHover : style.bg;
-    ctx.fill();
-    ctx.lineWidth = this.hovered ? 6 : 2.5;
-    ctx.strokeStyle = this.hovered ? PANEL.focus : style.border;
-    ctx.stroke();
+    // Text is laid out in [top, bottom]; the ornate frame reserves room for its crest and divider.
+    let top = 0, bottom = H;
+    if (style.frame === 'ornate') [top, bottom] = this.drawOrnate();
+    else if (style.frame === 'round') this.drawRound();
+    else {
+      ctx.beginPath();
+      ctx.roundRect(inset, inset, W - inset * 2, H - inset * 2, style.radius * PX_PER_M);
+      ctx.fillStyle = this.hovered && style.bg === PANEL.button ? PANEL.buttonHover : style.bg;
+      ctx.fill();
+      ctx.lineWidth = this.hovered ? 6 : 2.5;
+      ctx.strokeStyle = this.hovered ? PANEL.focus : style.border;
+      ctx.stroke();
+    }
+    if (style.frame === 'round') {
+      this.tex.needsUpdate = true;
+      return;
+    }
 
     const size = style.size * PX_PER_M * textScale;
     ctx.textAlign = style.align;
@@ -140,8 +187,8 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     const x = style.align === 'center' ? W / 2 : pad;
     const lines: { text: string; font: string; color: string; lh: number }[] = [];
     if (this.content.title) {
-      ctx.font = `500 ${size * 1.3}px ${FONT.display}`;
-      for (const t of wrap(ctx, this.content.title, W - pad * 2)) lines.push({ text: t, font: ctx.font, color: style.accent, lh: size * 1.55 });
+      ctx.font = style.frame === 'ornate' ? `600 ${size * 1.6}px ${FONT.display}` : `500 ${size * 1.3}px ${FONT.display}`;
+      for (const t of wrap(ctx, this.content.title, W - pad * 2)) lines.push({ text: t, font: ctx.font, color: style.accent, lh: size * (style.frame === 'ornate' ? 1.85 : 1.55) });
     }
     if (this.content.body) {
       ctx.font = `${style.weight} ${size}px ${FONT.body}`;
@@ -149,7 +196,7 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     }
     const total = lines.reduce((s, l) => s + l.lh, 0);
     // Optical centring: cap-height text sits a touch low in a 'top' baseline box.
-    let y = Math.max(pad * 0.5, (H - total) / 2 + size * 0.06);
+    let y = Math.max(top + pad * 0.5, top + (bottom - top - total) / 2 + size * 0.06);
     for (const l of lines) {
       ctx.font = l.font;
       ctx.fillStyle = l.color;
@@ -157,6 +204,107 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
       y += l.lh;
     }
     this.tex.needsUpdate = true;
+  }
+
+  /** The caption card: forest panel, scooped corners, glowing double gold frame, leaf crest, diamond divider. */
+  private drawOrnate(): [number, number] {
+    const { ctx, canvas } = this;
+    const W = canvas.width, H = canvas.height;
+    const crest = 0.034 * PX_PER_M, glow = 16, r = 0.022 * PX_PER_M;
+    const x = glow, y = crest * 0.55, w = W - glow * 2, h = H - y - glow;
+    notched(ctx, x, y, w, h, r);
+    const fill = ctx.createLinearGradient(0, y, 0, y + h);
+    fill.addColorStop(0, 'rgba(30, 70, 54, 0.97)');
+    fill.addColorStop(1, 'rgba(14, 38, 29, 0.97)');
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.save();
+    ctx.shadowColor = 'rgba(233, 196, 120, 0.85)';
+    ctx.shadowBlur = glow;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#D9B76E';
+    ctx.stroke();
+    ctx.restore();
+    const i = 11;
+    notched(ctx, x + i, y + i, w - i * 2, h - i * 2, r - i * 0.6);
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = 'rgba(217, 183, 110, 0.75)';
+    ctx.stroke();
+    // Crest: the gold leaves astride the top edge, with a short flourish either side.
+    ctx.strokeStyle = '#D9B76E';
+    ctx.lineWidth = 2.5;
+    for (const d of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + d * crest * 0.7, y);
+      ctx.quadraticCurveTo(W / 2 + d * crest * 1.4, y - crest * 0.18, W / 2 + d * crest * 2.2, y);
+      ctx.stroke();
+    }
+    if (emblem) {
+      const ew = crest * 1.25, eh = (ew * emblem.height) / emblem.width;
+      ctx.drawImage(emblem, W / 2 - ew / 2, y - eh * 0.62, ew, eh);
+    }
+    // Divider near the foot: hairline, diamond, hairline; and a diamond set into the bottom edge.
+    const dy = y + h - 0.03 * PX_PER_M;
+    ctx.fillStyle = ctx.strokeStyle = 'rgba(217, 183, 110, 0.8)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - w * 0.22, dy);
+    ctx.lineTo(W / 2 - 12, dy);
+    ctx.moveTo(W / 2 + 12, dy);
+    ctx.lineTo(W / 2 + w * 0.22, dy);
+    ctx.stroke();
+    diamond(ctx, W / 2, dy, 6);
+    ctx.stroke();
+    diamond(ctx, W / 2, y + h, 8);
+    ctx.fillStyle = '#E2C27A';
+    ctx.fill();
+    return [y + i, dy - 6];
+  }
+
+  /** A round button: dark green disc, glowing gold ring, compass ticks, and a drawn arrow for ‹ / ›. */
+  private drawRound() {
+    const { ctx, canvas } = this;
+    const W = canvas.width, c = W / 2, R = c - 14;
+    ctx.beginPath();
+    ctx.arc(c, c, R, 0, Math.PI * 2);
+    ctx.fillStyle = this.hovered ? 'rgba(30, 70, 54, 0.92)' : 'rgba(16, 40, 31, 0.78)';
+    ctx.fill();
+    ctx.save();
+    ctx.shadowColor = 'rgba(233, 196, 120, 0.9)';
+    ctx.shadowBlur = this.hovered ? 16 : 9;
+    ctx.lineWidth = this.hovered ? 6 : 4;
+    ctx.strokeStyle = '#D9B76E';
+    ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = '#D9B76E';
+    ctx.lineWidth = 3;
+    for (let k = 0; k < 4; k++) {
+      const a = (k * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.moveTo(c + Math.cos(a) * (R + 4), c + Math.sin(a) * (R + 4));
+      ctx.lineTo(c + Math.cos(a) * (R + 12), c + Math.sin(a) * (R + 12));
+      ctx.stroke();
+    }
+    const label = this.content.body ?? '';
+    const dir = label === '‹' ? -1 : label === '›' ? 1 : 0;
+    if (dir) {
+      const s = R * 0.42;
+      ctx.lineWidth = 6;
+      ctx.lineCap = ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(c - dir * s, c);
+      ctx.lineTo(c + dir * s, c);
+      ctx.moveTo(c + dir * s * 0.25, c - s * 0.65);
+      ctx.lineTo(c + dir * s, c);
+      ctx.lineTo(c + dir * s * 0.25, c + s * 0.65);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = PANEL.fg;
+      ctx.font = `600 ${R * 0.8}px ${FONT.body}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, c, c);
+    }
   }
 
   dispose() {
@@ -167,8 +315,8 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
   }
 }
 
-export function makeButton(label: string, onSelect: () => void, w = 0.2, h = 0.07): Panel {
-  const p = new Panel(w, h, { size: 0.025, bg: PANEL.button, border: 'rgba(244, 240, 230, 0.16)', weight: 600, radius: h / 2 }).set({ body: label });
+export function makeButton(label: string, onSelect: () => void, w = 0.2, h = 0.07, style: PanelStyle = {}): Panel {
+  const p = new Panel(w, h, { size: 0.025, bg: PANEL.button, border: 'rgba(217, 183, 110, 0.55)', weight: 600, radius: h / 2, ...style }).set({ body: label });
   const sel: Selectable = { onSelect, onHover: (v) => p.setHovered(v) };
   p.userData.selectable = sel;
   p.userData.label = label;

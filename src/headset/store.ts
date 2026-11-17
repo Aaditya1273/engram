@@ -1,6 +1,8 @@
 import type { Card } from 'ts-fsrs';
 import { cardFrom, dueAt, recallProbability } from '../core/model';
 import { newStreak, recordFullSession, recordRecall, type StreakState } from '../core/streak';
+import { applyTwist, parseTwist } from '../core/twist';
+import { JA_STARTER } from '../shared/deck-ja';
 import type { Goal, Memory, Review } from '../shared/types';
 
 export interface Settings {
@@ -61,6 +63,15 @@ function migrate(d: SaveData, hadCloud: boolean): SaveData {
   for (const m of d.memories) {
     m.question ??= `What is "${m.cue}" in Japanese?`;
     m.lang ??= 'ja-JP';
+    // Starter scenes follow the shipped deck (its colours were retuned for the painted props); the twist is re-applied.
+    const fresh = JA_STARTER.find((i) => i.id === m.id)?.scenes.find((sc) => sc.mnemonic === m.scene.mnemonic);
+    if (fresh) {
+      const scene = applyTwist(fresh, parseTwist(m.twist ?? ''));
+      if (JSON.stringify(scene) !== JSON.stringify(m.scene)) {
+        m.scene = scene;
+        if (!d.cloud.dirtyMemories.includes(m.id)) d.cloud.dirtyMemories.push(m.id);
+      }
+    }
   }
   return d;
 }

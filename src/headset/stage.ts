@@ -20,7 +20,7 @@ const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, dep
  */
 export class Stage {
   readonly hud = new THREE.Group();
-  private caption = new Panel(0.66, 0.2, { size: 0.028 });
+  private caption = new Panel(0.66, 0.25, { size: 0.028, frame: 'ornate' });
   private topRow = new THREE.Group();
   private cards = new THREE.Group();
   private arrows = new THREE.Group();
@@ -43,7 +43,7 @@ export class Stage {
     this.hud.add(this.caption, this.topRow, this.cards, this.arrows, this.pauseLayer);
 
     for (const dir of [-1, 1] as const) {
-      const b = makeButton(dir < 0 ? '‹' : '›', () => this.flick(dir), 0.07, 0.12);
+      const b = makeButton(dir < 0 ? '‹' : '›', () => this.flick(dir), 0.1, 0.1, { frame: 'round' });
       b.position.set(dir * 0.34, 1.2, -1.1);
       b.lookAt(0, 1.2, 0);
       this.arrows.add(b);
