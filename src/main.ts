@@ -112,13 +112,9 @@ addEventListener('resize', () => {
 
 async function run() {
   // Cloud is optional: register/sync in the background; the palace never waits for the network.
+  // After a sync, show anything new from other devices. Never clear here: a flow may be mid-scene.
   void cloud.connect().then(() => Promise.all([cloud.sync(), cloud.refreshGoals()])).then(() => {
-    /** Alcoves show one wing at a time; switching wings (inside the snap fade) re-fills them. */
-palace.onWing = () => {
-  for (const a of palace.alcoves) a.clear();
-  for (const m of store.data.memories) showMemory(ctx, m);
-};
-palace.onWing(0);
+    for (const m of store.data.memories) showMemory(ctx, m);
   });
   const { missedDays } = arrive(store);
   if (!store.data.onboarded) await firstFive(ctx);
