@@ -47,6 +47,8 @@ prop lantern    'Ornate Ivy-Wrapped Glowing Lantern.png'
 # Whole-scene paintings for the starter deck.
 prop cat-hug    'Chibi Boy with Shoulder-Hugging Cat.png'
 prop summit     'Snow-Capped Mountain with Cherry Blossoms.png'
+prop cat-books  'Elegant Cats, Vase, Books and Golden Motifs.png' 0.24x1+0.205+0
+prop cat-ball   'Elegant Cats, Vase, Books and Golden Motifs.png' 0.38x1+0.44+0
 
 # Website art: opaque scenes as wide WebP; characters cut out like the props.
 site() { magick "$SRC/$2" -resize "$3" -quality 80 "$OUT/site/$1.webp"; }

@@ -18,14 +18,12 @@ export const JA_STARTER: DeckItem[] = [
       { mnemonic: 'A cat curled around your NECK, purring "neko".', props: [
         { prop: 'cat-hug', pos: [0, 0, 0] },
       ] },
-      { mnemonic: 'A cat sneaks up a NECK-tall tower of books.', focus: 1, props: [
-        { prop: 'book', pos: [0, 0, 0] },
-        { prop: 'cat', pos: [0, 0.088, 0], scale: 0.75, color: '#444444' },
+      { mnemonic: 'A cat sneaks up a NECK-tall tower of books.', props: [
+        { prop: 'cat-books', pos: [0, 0, 0] },
       ] },
       { mnemonic: '"Neko, neko!" A cat chases a ball under the sun.', props: [
-        { prop: 'cat', pos: [-0.04, 0, 0.01], scale: 0.8, color: '#f2f2f2' },
-        { prop: 'ball', pos: [0.06, 0, 0.03], scale: 0.7 },
-        { prop: 'sun', pos: [0.045, 0.17, -0.03], scale: 0.45 },
+        { prop: 'cat-ball', pos: [0, 0, 0] },
+        { prop: 'sun', pos: [0.05, 0.15, -0.03], scale: 0.45 },
       ] },
     ],
   },

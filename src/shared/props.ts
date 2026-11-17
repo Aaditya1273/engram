@@ -42,7 +42,7 @@ const DEFAULT_COLOR: Record<PropId, string> = {
   cat: '#e8873a', dog: '#b07a3e', bird: '#f0f0f0', book: '#3a7fbf', umbrella: '#d94848', house: '#c9a36b',
   mountain: '#6f8a6b', tree: '#3f8a4f', drop: '#5aa8e6', cloud: '#f4f6f8', fountain: '#9fb4c4', glasses: '#222222',
   hat: '#2b2b2b', ball: '#d94848', star: '#ffd24a', shoe: '#2f6fd1', sun: '#ffc93a', person: '#efc9a4',
-  'cat-hug': '#e8873a', summit: '#6f8a6b',
+  'cat-hug': '#e8873a', summit: '#6f8a6b', 'cat-books': '#333333', 'cat-ball': '#f2f2f2',
 };
 
 type Builder = (root: THREE.Group, c: THREE.Material, color: string) => void;
@@ -181,6 +181,24 @@ const BUILDERS: Record<PropId, Builder> = {
     person.scale.setScalar(0.4);
     r.add(person);
   },
+  'cat-books'(r, c) {
+    BUILDERS.book(r, mat(DEFAULT_COLOR.book), DEFAULT_COLOR.book);
+    const cat = new THREE.Group();
+    BUILDERS.cat(cat, c, '');
+    cat.position.y = 0.088;
+    cat.scale.setScalar(0.75);
+    r.add(cat);
+  },
+  'cat-ball'(r, c) {
+    const cat = new THREE.Group();
+    BUILDERS.cat(cat, c, '');
+    cat.position.x = -0.03;
+    r.add(cat);
+    const ball = new THREE.Group();
+    BUILDERS.ball(ball, mat(DEFAULT_COLOR.ball), DEFAULT_COLOR.ball);
+    ball.position.x = 0.06;
+    r.add(ball);
+  },
 };
 
 /** Self-lit props (sun, star) stay visible even in the dimmed palace. */
@@ -210,6 +228,8 @@ const ART: Partial<Record<PropId, { variants: [file: string, color: string][] }>
   sun: { variants: [['sun', '#ffc93a']] },
   'cat-hug': { variants: [['cat-hug', '#e8873a']] },
   summit: { variants: [['summit', '#6f8a6b']] },
+  'cat-books': { variants: [['cat-books', '#333333']] },
+  'cat-ball': { variants: [['cat-ball', '#f2f2f2']] },
 };
 /** Colours closer than this (RGB distance, 0..√3) count as the painted colour. */
 const VARIANT_NEAR = 0.3;

@@ -2,7 +2,7 @@ export type PropId =
   | 'cat' | 'dog' | 'bird' | 'book' | 'umbrella' | 'house' | 'mountain' | 'tree'
   | 'drop' | 'cloud' | 'fountain' | 'glasses' | 'hat' | 'ball' | 'star' | 'shoe' | 'sun' | 'person'
   // Whole-scene paintings used by the starter deck (not offered to the AI drafter).
-  | 'cat-hug' | 'summit';
+  | 'cat-hug' | 'summit' | 'cat-books' | 'cat-ball';
 
 export interface PropPlacement {
   prop: PropId;
