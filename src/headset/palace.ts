@@ -1,5 +1,7 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { lanternLook } from '../core/lantern';
+import { LANTERN, PALETTE, PANEL, SCENE } from '../shared/theme';
 import type { SceneSpec } from '../shared/types';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { glowTexture, Panel, type Selectable } from './ui';
@@ -14,6 +16,33 @@ const FADE_MS = 75;
 
 const stone = (c: string) => new THREE.MeshLambertMaterial({ color: c, flatShading: true });
 const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+// Shared across all alcoves: natural dark materials, one set for the whole palace.
+const MAT = {
+  niche: stone(SCENE.niche),
+  trim: stone(SCENE.trim),
+  pedestal: stone(SCENE.pedestal),
+  chain: stone(PALETTE.charcoal),
+  cap: new THREE.MeshLambertMaterial({ color: PALETTE.gold, emissive: PALETTE.gold, emissiveIntensity: 0.15, flatShading: true }),
+  veil: new THREE.MeshLambertMaterial({ color: SCENE.veil, emissive: SCENE.veilSheen, emissiveIntensity: 0.35, side: THREE.DoubleSide, flatShading: true }),
+};
+const GEO = {
+  back: new THREE.BoxGeometry(0.52, 1.05, 0.04),
+  pillar: new THREE.BoxGeometry(0.06, 1.15, 0.08),
+  lintel: new THREE.BoxGeometry(0.62, 0.06, 0.1),
+  pedestal: new THREE.CylinderGeometry(0.13, 0.15, SCENE_Y, 8),
+  pedestalTop: new THREE.CylinderGeometry(0.15, 0.15, 0.02, 12),
+  chain: new THREE.CylinderGeometry(0.004, 0.004, 0.1, 4),
+  core: new THREE.OctahedronGeometry(0.028, 0),
+  cap: new THREE.ConeGeometry(0.03, 0.025, 6),
+  veil: new THREE.CylinderGeometry(0.24, 0.26, 0.5, 10, 1, true),
+  hit: new THREE.BoxGeometry(0.55, 1.2, 0.35),
+  wash: new THREE.PlaneGeometry(0.5, 0.8),
+};
+const UNLIT = new THREE.Color(LANTERN.unlit), LIT = new THREE.Color(LANTERN.lit);
+
+/** Golden motes rising from a relit lantern: the reward made visible. */
+const MOTES = 14, MOTE_S = 1.6;
+let moteMat: THREE.PointsMaterial | null = null; // created lazily: the soft dot texture needs a canvas
 
 export class Alcove {
   readonly group = new THREE.Group();
@@ -21,9 +50,14 @@ export class Alcove {
   private sceneHolder = new THREE.Group();
   private core: THREE.Mesh<THREE.OctahedronGeometry, THREE.MeshBasicMaterial>;
   private glow: THREE.Sprite;
+  /** The lantern's light spilling onto its niche wall: a fading memory darkens its whole alcove. */
+  private wash: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private veil: THREE.Mesh;
   private label: Panel;
   private bursts: { s: THREE.Sprite; t: number }[] = [];
+  /** 1 right after a successful recall, easing to 0: the lantern swells, then settles. */
+  private bloom = 0;
+  private motes: { pts: THREE.Points; seeds: Float32Array; t: number } | null = null;
   /** Target and displayed recall probability. null = empty alcove (unlit). */
   private target: number | null = null;
   private shown = 0;
@@ -34,39 +68,41 @@ export class Alcove {
     this.group.position.set(Math.sin(a) * RADIUS, 0, -Math.cos(a) * RADIUS);
     this.group.lookAt(0, 0, 0);
 
-    const wall = stone('#7a6450'), trim = stone('#a08566');
     const add = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => {
       const mesh = new THREE.Mesh(geo, m);
       mesh.position.set(x, y, z);
       this.group.add(mesh);
       return mesh;
     };
-    add(new THREE.BoxGeometry(0.52, 1.05, 0.04), wall, 0, 1.12, -0.2);
-    add(new THREE.BoxGeometry(0.06, 1.15, 0.08), trim, -0.28, 1.08, -0.16);
-    add(new THREE.BoxGeometry(0.06, 1.15, 0.08), trim, 0.28, 1.08, -0.16);
-    add(new THREE.BoxGeometry(0.62, 0.06, 0.1), trim, 0, 1.68, -0.16);
-    add(new THREE.CylinderGeometry(0.13, 0.15, SCENE_Y, 8), trim, 0, SCENE_Y / 2, 0);
-    add(new THREE.CylinderGeometry(0.004, 0.004, 0.1, 4), stone('#3b2b1f'), 0, LANTERN_Y + 0.07, 0.04);
+    add(GEO.back, MAT.niche, 0, 1.12, -0.2);
+    add(GEO.pillar, MAT.trim, -0.28, 1.08, -0.16);
+    add(GEO.pillar, MAT.trim, 0.28, 1.08, -0.16);
+    add(GEO.lintel, MAT.trim, 0, 1.68, -0.16);
+    add(GEO.pedestal, MAT.trim, 0, SCENE_Y / 2, 0);
+    add(GEO.pedestalTop, MAT.pedestal, 0, SCENE_Y - 0.01, 0);
+    add(GEO.chain, MAT.chain, 0, LANTERN_Y + 0.07, 0.04);
+    add(GEO.cap, MAT.cap, 0, LANTERN_Y + 0.035, 0.04);
 
     this.sceneHolder.position.set(0, SCENE_Y, 0);
     this.sceneHolder.scale.setScalar(SCENE_SCALE);
     this.group.add(this.sceneHolder);
 
-    this.core = add(new THREE.OctahedronGeometry(0.028, 0), new THREE.MeshBasicMaterial({ color: '#2a2016' }), 0, LANTERN_Y, 0.04) as typeof this.core;
+    this.core = add(GEO.core, new THREE.MeshBasicMaterial({ color: LANTERN.unlit }), 0, LANTERN_Y, 0.04) as typeof this.core;
     this.glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
     this.glow.position.set(0, LANTERN_Y, 0.05);
     this.glow.scale.setScalar(0.3);
     this.group.add(this.glow);
+    this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 1.28, -0.175) as typeof this.wash;
 
-    this.veil = add(new THREE.CylinderGeometry(0.24, 0.26, 0.5, 10, 1, true), new THREE.MeshLambertMaterial({ color: '#3a2a3e', side: THREE.DoubleSide, flatShading: true }), 0, SCENE_Y + 0.24, 0);
+    this.veil = add(GEO.veil, MAT.veil, 0, SCENE_Y + 0.24, 0);
     this.veil.visible = false;
 
-    this.label = new Panel(0.4, 0.07, { size: 0.026, bg: 'rgba(24,18,12,0.7)' });
+    this.label = new Panel(0.4, 0.07, { size: 0.025, bg: PANEL.bg, border: 'rgba(185, 154, 98, 0.3)', radius: 0.035 });
     this.label.position.set(0, SCENE_Y - 0.1, 0.17);
     this.label.visible = false;
     this.group.add(this.label);
 
-    const hit = add(new THREE.BoxGeometry(0.55, 1.2, 0.35), hitMat, 0, 1.15, 0);
+    const hit = add(GEO.hit, hitMat, 0, 1.15, 0);
     const sel: Selectable = { onSelect: () => onSelect(this.slot) };
     hit.userData.selectable = sel;
     hit.userData.label = `alcove:${slot}`;
@@ -112,19 +148,32 @@ export class Alcove {
     if (instant && r !== null) this.shown = r;
   }
 
+  /** Successful recall / new memory: a soft gold ring of light, a swelling lantern, rising motes. */
   burst() {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     s.position.copy(this.glow.position);
     this.group.add(s);
     this.bursts.push({ s, t: 0 });
+    this.bloom = 1;
+    if (this.motes) this.group.remove(this.motes.pts);
+    const seeds = new Float32Array(MOTES * 3).map(() => Math.random());
+    const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(MOTES * 3), 3));
+    moteMat ??= new THREE.PointsMaterial({ color: LANTERN.mote, map: glowTexture(), size: 0.035, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const pts = new THREE.Points(geo, moteMat.clone());
+    pts.position.copy(this.glow.position);
+    this.group.add(pts);
+    this.motes = { pts, seeds, t: 0 };
   }
 
   update(dt: number, t: number) {
     const target = this.target ?? 0;
     this.shown += (target - this.shown) * (1 - Math.exp(-dt / 0.35));
+    this.bloom = Math.max(0, this.bloom - dt / 1.4);
+    const b = this.bloom * this.bloom * (3 - 2 * this.bloom); // smoothstep: swell, then settle
     if (this.target === null) {
       this.glow.material.opacity = 0;
-      this.core.material.color.set('#2a2016');
+      this.wash.material.opacity = 0;
+      this.core.material.color.copy(UNLIT);
     } else {
       const look = lanternLook(this.shown);
       let k = look.intensity;
@@ -132,19 +181,40 @@ export class Alcove {
         const n = Math.sin(t * 11 + this.phase) * Math.sin(t * 4.3 + this.phase * 2) * Math.sin(t * 17.1);
         k *= 0.7 + 0.3 * (0.5 + 0.5 * n);
       }
-      this.glow.material.opacity = k;
-      this.glow.scale.setScalar(0.18 + 0.22 * k);
-      this.core.material.color.setRGB(0.16 + 0.84 * k, 0.12 + 0.7 * k, 0.08 + 0.4 * k);
+      // A slow breath even at full light, so a lit palace feels alive rather than static.
+      const breath = 1 + 0.04 * Math.sin(t * 0.9 + this.phase);
+      this.glow.material.opacity = Math.min(1, k + 0.4 * b);
+      this.glow.scale.setScalar((0.18 + 0.22 * k) * breath * (1 + 0.9 * b));
+      this.core.material.color.copy(UNLIT).lerp(LIT, Math.min(1, k + b));
+      this.wash.material.opacity = 0.32 * k + 0.25 * b;
       this.scene?.setSaturation(look.saturation);
     }
-    for (const b of this.bursts) {
-      b.t += dt;
-      const p = b.t / 0.8;
-      b.s.scale.setScalar(0.2 + p * 1.6);
-      b.s.material.opacity = Math.max(0, 1 - p);
+    if (this.motes) {
+      const m = this.motes;
+      m.t += dt;
+      const p = m.t / MOTE_S;
+      const pos = m.pts.geometry.getAttribute('position') as THREE.BufferAttribute;
+      for (let i = 0; i < MOTES; i++) {
+        const a = m.seeds[i * 3] * Math.PI * 2, r = 0.03 + 0.09 * m.seeds[i * 3 + 1] * p, rise = (0.12 + 0.25 * m.seeds[i * 3 + 2]) * p;
+        pos.setXYZ(i, Math.cos(a + p * 2) * r, rise, Math.sin(a + p * 2) * r * 0.5);
+      }
+      pos.needsUpdate = true;
+      (m.pts.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - p) * Math.min(1, p * 6);
+      if (p >= 1) {
+        this.group.remove(m.pts);
+        m.pts.geometry.dispose();
+        (m.pts.material as THREE.Material).dispose();
+        this.motes = null;
+      }
+    }
+    for (const bu of this.bursts) {
+      bu.t += dt;
+      const p = bu.t / 1.1;
+      bu.s.scale.setScalar(0.2 + (1 - (1 - p) ** 3) * 1.4);
+      bu.s.material.opacity = Math.max(0, 1 - p) * 0.9;
     }
     this.bursts = this.bursts.filter((b) => {
-      if (b.t < 0.8) return true;
+      if (b.t < 1.1) return true;
       this.group.remove(b.s);
       b.s.material.dispose();
       return false;
@@ -156,7 +226,7 @@ export class Palace {
   readonly root = new THREE.Group();
   readonly ring = new THREE.Group();
   readonly alcoves: Alcove[] = [];
-  private hemi = new THREE.HemisphereLight('#ffd9a8', '#2a1d14', 0.15);
+  private hemi = new THREE.HemisphereLight(SCENE.lightSky, SCENE.lightGround, 0.15);
   private warmth = { from: 0.15, to: 0.15, t: 1, ms: 1 };
   private fadeMesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
   /** Slot within the current wing (0..SLOT_COUNT-1; fractional to centre between two). */
@@ -179,33 +249,61 @@ export class Palace {
     // Comfort: snaps fade through black for 150 ms; the camera itself never moves.
     this.fadeMesh = new THREE.Mesh(
       new THREE.SphereGeometry(0.25, 12, 8),
-      new THREE.MeshBasicMaterial({ color: '#000', side: THREE.BackSide, transparent: true, opacity: 0, depthTest: false }),
+      new THREE.MeshBasicMaterial({ color: SCENE.fade, side: THREE.BackSide, transparent: true, opacity: 0, depthTest: false, fog: false }),
     );
     this.fadeMesh.renderOrder = 100;
     camera.add(this.fadeMesh);
   }
 
   private buildRoom() {
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(ROOM_R, 24), stone('#5b4636'));
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(ROOM_R, 24), stone(SCENE.floor));
     floor.rotation.x = -Math.PI / 2;
-    const rug = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.62, 24), stone('#9a6b3a'));
-    rug.rotation.x = -Math.PI / 2;
-    rug.position.y = 0.002;
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(ROOM_R, ROOM_R, 3.4, 24, 1, true), new THREE.MeshLambertMaterial({ color: '#6e5643', side: THREE.BackSide, flatShading: true }));
+    // A thin gold inlay ring under the chair: the one ornament in the floor.
+    const inlay = new THREE.Mesh(new THREE.RingGeometry(0.56, 0.6, 48), stone(SCENE.inlay));
+    inlay.rotation.x = -Math.PI / 2;
+    inlay.position.y = 0.002;
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(ROOM_R, ROOM_R, 3.4, 24, 1, true), new THREE.MeshLambertMaterial({ color: SCENE.wall, side: THREE.BackSide, flatShading: true }));
     wall.position.y = 1.7;
-    const ceiling = new THREE.Mesh(new THREE.RingGeometry(0.7, ROOM_R, 24), stone('#3a2c22'));
+    const ceiling = new THREE.Mesh(new THREE.RingGeometry(0.7, ROOM_R, 24), stone(SCENE.ceiling));
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.y = 3.4;
-    // The atrium's open oculus: a fixed, calm horizon cue overhead.
-    const oculus = new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), new THREE.MeshBasicMaterial({ color: '#2b3a5c' }));
+    // The atrium's open oculus: dusk overhead, a fixed and calm horizon cue.
+    const oculus = new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), new THREE.MeshBasicMaterial({ color: SCENE.oculus, fog: false }));
     oculus.rotation.x = Math.PI / 2;
     oculus.position.y = 3.41;
-    this.root.add(floor, rug, wall, ceiling, oculus);
+    this.root.add(floor, inlay, wall, ceiling, oculus);
+    this.buildFerns();
+  }
+
+  /** The living garden: a low ring of ferns between the alcoves. One instanced draw call. */
+  private buildFerns() {
+    const frond = (yaw: number, tilt: number) => {
+      // A broad, flattened leaf rather than a spike, splayed outward into a low rosette.
+      const g = new THREE.ConeGeometry(0.06, 0.26, 4);
+      g.scale(1, 1, 0.25);
+      g.translate(0, 0.13, 0);
+      g.rotateZ(tilt);
+      g.rotateY(yaw);
+      return g;
+    };
+    const fern = mergeGeometries([0, 1, 2, 3, 4, 5].map((i) => frond((i / 6) * Math.PI * 2, 0.85 + (i % 2) * 0.25)))!;
+    const ferns = new THREE.InstancedMesh(fern, new THREE.MeshLambertMaterial({ color: '#ffffff', flatShading: true }), SLOT_COUNT);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
+    for (let i = 0; i < SLOT_COUNT; i++) {
+      const a = THREE.MathUtils.degToRad((i + 0.5) * SLOT_DEG);
+      const s = 0.55 + ((i * 37) % 10) / 30;
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), i * 1.7);
+      // On the floor between the pedestals, slightly in front of them; turns with the ring.
+      m.compose(new THREE.Vector3(Math.sin(a) * 1.62, 0, -Math.cos(a) * 1.62), q, new THREE.Vector3(s, s, s));
+      ferns.setMatrixAt(i, m);
+      ferns.setColorAt(i, c.set(SCENE.fern).lerp(new THREE.Color(SCENE.fernTip), (i % 3) / 3));
+    }
+    this.ring.add(ferns);
   }
 
   /** Warm the room up (0 = dim, 1 = fully lit). */
   setWarmth(w: number, ms = 1200) {
-    this.warmth = { from: this.hemi.intensity, to: 0.15 + w * 1.6, t: 0, ms };
+    this.warmth = { from: this.hemi.intensity, to: 0.2 + w * 2.1, t: 0, ms };
   }
 
   private fadeTo(opacity: number) {

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PALETTE } from '../shared/theme';
 import type { Selectable } from './ui';
 
 export type Modality = 'hands' | 'pointer';
@@ -46,9 +47,9 @@ export class Input {
   private recorder: { frames: number[][]; origin: Map<XRHandedness, THREE.Vector3>; yaw: number; mouse0: THREE.Vector2 } | null = null;
 
   constructor(private renderer: THREE.WebGLRenderer, private camera: THREE.PerspectiveCamera, private scene: THREE.Scene) {
-    this.reticle = new THREE.Mesh(new THREE.RingGeometry(0.006, 0.009, 24), new THREE.MeshBasicMaterial({ color: '#fff4dd', depthTest: false, transparent: true, opacity: 0.9 }));
+    this.reticle = new THREE.Mesh(new THREE.RingGeometry(0.006, 0.009, 24), new THREE.MeshBasicMaterial({ color: PALETTE.ivory, depthTest: false, transparent: true, opacity: 0.85, fog: false }));
     this.reticle.renderOrder = 99;
-    this.dwellRing = new THREE.Mesh(new THREE.RingGeometry(0.011, 0.014, 24, 1, 0, 0.01), new THREE.MeshBasicMaterial({ color: '#ffcf7a', depthTest: false, transparent: true }));
+    this.dwellRing = new THREE.Mesh(new THREE.RingGeometry(0.011, 0.014, 24, 1, 0, 0.01), new THREE.MeshBasicMaterial({ color: PALETTE.gold, depthTest: false, transparent: true, fog: false }));
     this.dwellRing.renderOrder = 99;
     this.reticle.add(this.dwellRing);
     scene.add(this.reticle);

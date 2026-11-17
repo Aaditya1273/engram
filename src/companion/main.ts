@@ -1,3 +1,4 @@
+import '../shared/theme.css';
 import { answerMatches } from '../core/answer';
 import { dayKey } from '../core/streak';
 import { SLOT_DEG } from '../headset/layout';
@@ -62,7 +63,7 @@ let me: Me | null = null;
 async function refresh() {
   me = await api<Me>('/me');
   const s = me.streak;
-  $('ember').textContent = `🔥 ${s.count} ${s.count === 1 ? 'day' : 'days'} · ❄ ${s.freezes}`;
+  $('ember').textContent = `Ember ${s.count} ${s.count === 1 ? 'day' : 'days'} · ${s.freezes} ${s.freezes === 1 ? 'freeze' : 'freezes'}`;
   $('ember').title = 'Ember streak and banked freezes';
   renderGoals();
   renderWalkSetup();

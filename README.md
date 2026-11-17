@@ -475,6 +475,25 @@ Brightness follows the live recall probability on the FSRS-6 forgetting curve, c
 
 ---
 
+## Visual identity: The Living Garden
+
+One design system across the headset, the landing page and the companion. Tokens live in `src/shared/theme.ts` (3D) and `src/shared/theme.css` (pages).
+
+| Token | Hex | Used for |
+| --- | --- | --- |
+| Warm Ivory | `#F4F0E6` | Companion surfaces, in-world text |
+| Forest Green | `#173D32` | Palace walls, companion type and primary controls |
+| Muted Gold | `#B99A62` | Lanterns, titles, focus and hover, hairlines |
+| Deep Charcoal | `#26332D` | Niches, shadows, panels |
+| Soft Sage | `#DCE7D9` | Sky light, quiet surfaces |
+| Terracotta | `#C98265` | Misses and destructive actions only |
+
+- **Type:** Fraunces (titles, editorial) and Source Sans 3 (body, VR-legible), bundled locally so the first five minutes stay offline.
+- **The lantern is the signature:** muted gold, it washes its own niche wall, so a fading memory visibly darkens its alcove. A successful recall makes it bloom and releases rising gold motes.
+- **Motion:** panels ease in when their content changes and buttons ease on hover (180 ms); the doorway fades into the palace; `prefers-reduced-motion` is respected on the pages.
+
+---
+
 ## Design rules for VR Glasses
 
 - **Controller-free from launch to exit.**

@@ -1,0 +1,122 @@
+/* The Living Garden: shared tokens for every HTML surface. Mirrors src/shared/theme.ts. */
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/source-sans-3';
+
+:root {
+  --ivory: #f4f0e6;
+  --forest: #173d32;
+  --gold: #b99a62;
+  --charcoal: #26332d;
+  --sage: #dce7d9;
+  --terracotta: #c98265;
+
+  /* Semantic tokens: ivory sanctuary by day */
+  --bg: var(--ivory);
+  --surface: #fbf9f3;
+  --surface-sunk: #ece6d8;
+  --line: #ddd5c3;
+  --fg: var(--forest);
+  --fg-soft: #4b5f55;
+  --accent: var(--gold);
+  --accent-ink: #7a6234; /* gold dark enough for text on ivory */
+  --primary: var(--forest);
+  --primary-ink: var(--ivory);
+  --ok: #2f6b4f;
+  --attention: #a35a3f; /* terracotta, deepened for text contrast */
+
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', Georgia, serif;
+  --font-body: 'Source Sans 3 Variable', 'Segoe UI', system-ui, sans-serif;
+  --radius: 14px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  color-scheme: light;
+}
+
+/* By night the companion takes on the palace's forest. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #101c17;
+    --surface: #17261f;
+    --surface-sunk: #0d1612;
+    --line: #2b3d34;
+    --fg: var(--ivory);
+    --fg-soft: #b9c7b6;
+    --accent-ink: var(--gold);
+    --primary: var(--sage);
+    --primary-ink: var(--forest);
+    --ok: #9cc7a8;
+    --attention: #e2a189;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.55 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-optical-sizing: auto;
+}
+
+button {
+  font: 600 1rem/1 var(--font-body);
+  letter-spacing: 0.01em;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  transition: background-color 180ms var(--ease), border-color 180ms var(--ease), transform 180ms var(--ease), color 180ms var(--ease);
+}
+button:hover {
+  border-color: var(--accent);
+}
+button:active {
+  transform: translateY(1px) scale(0.99);
+}
+button.primary {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary);
+}
+button.primary:hover {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+button.danger {
+  color: var(--attention);
+  border-color: currentColor;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

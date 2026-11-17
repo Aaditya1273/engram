@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import './shared/theme.css';
+import { SCENE } from './shared/theme';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
@@ -25,7 +27,9 @@ renderer.xr.setFoveation(1);
 document.getElementById('app')!.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#120d09');
+scene.background = new THREE.Color(SCENE.sky);
+// Subtle atmosphere: the far walls soften into the dusk; everything active is well inside the fog start.
+scene.fog = new THREE.Fog(SCENE.sky, 2.4, 8);
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 30);
 camera.position.set(0, EYE_Y, 0);
 scene.add(camera);
@@ -252,7 +256,9 @@ let started = false;
 const start = () => {
   if (started) return;
   started = true;
-  overlay.hidden = true;
+  // The doorway fades out as the palace takes over.
+  overlay.classList.add('leaving');
+  setTimeout(() => (overlay.hidden = true), 450);
   void run();
 };
 desktop.onclick = () => {

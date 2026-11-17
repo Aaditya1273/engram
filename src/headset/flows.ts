@@ -188,7 +188,7 @@ export async function recallOne(ctx: Ctx, m: Memory, others: Memory[]): Promise<
     await stage.say(`Yes, ${m.display}.${note}`, '✦ Relit');
   } else {
     play('miss');
-    await stage.say(`It was ${m.display}. ${m.mnemonic}`, `${m.display} · ${m.cue}`);
+    await stage.say(`It was ${m.display}. ${m.mnemonic}`, `${m.display} · ${m.cue}`, 'attention');
   }
   return answerOk;
 }

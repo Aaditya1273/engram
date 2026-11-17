@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PANEL, SCENE } from '../shared/theme';
 import type { DeckItem } from '../shared/types';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { makeButton, Panel, type Selectable } from './ui';
@@ -8,7 +9,7 @@ import type { Palace } from './palace';
 import type { Input } from './input';
 
 const CARD_BASE = new THREE.CylinderGeometry(0.1, 0.105, 0.012, 16);
-const CARD_MAT = new THREE.MeshLambertMaterial({ color: '#a08566', flatShading: true });
+const CARD_MAT = new THREE.MeshLambertMaterial({ color: SCENE.cardBase, flatShading: true });
 const CARD_HIT = new THREE.BoxGeometry(0.23, 0.34, 0.2);
 const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
@@ -24,7 +25,7 @@ export class Stage {
   private cards = new THREE.Group();
   private arrows = new THREE.Group();
   private pauseLayer = new THREE.Group();
-  private pausePanel = new Panel(0.6, 0.3, { size: 0.03, bg: 'rgba(12,9,6,0.95)' });
+  private pausePanel = new Panel(0.6, 0.3, { size: 0.03, bg: PANEL.bgStrong, border: PANEL.focus });
   private flickWaiter: ((d: 1 | -1) => void) | null = null;
   private alcoveWaiter: { slot: number; res: () => void } | null = null;
   private resumeWaiters: (() => void)[] = [];
@@ -101,14 +102,16 @@ export class Stage {
 
   // ---------- primitives ----------
 
-  show(title?: string, body?: string) {
+  /** 'attention' (terracotta title) marks a miss; everything else uses the gold title. */
+  show(title?: string, body?: string, tone: 'default' | 'attention' = 'default') {
     this.caption.visible = !!(title || body);
+    this.caption.setAccent(tone === 'attention' ? PANEL.attention : PANEL.title);
     this.caption.set({ title, body });
   }
 
-  async say(text: string, title?: string) {
+  async say(text: string, title?: string, tone: 'default' | 'attention' = 'default') {
     await this.whilePaused();
-    this.show(title, text);
+    this.show(title, text, tone);
     await narrate(text);
     await this.whilePaused();
   }
@@ -183,7 +186,7 @@ export class Stage {
         built.group.scale.setScalar(0.85);
         built.group.position.y = 0.006;
         this.builtCards.push(built);
-        const text = new Panel(0.23, 0.1, { size: 0.016, bg: 'rgba(24,18,12,0.88)' }).set({ body: spec.mnemonic });
+        const text = new Panel(0.23, 0.1, { size: 0.0165, radius: 0.012 }).set({ body: spec.mnemonic });
         text.position.set(0, -0.08, 0.03);
         const hit = new THREE.Mesh(CARD_HIT, HIT_MAT);
         hit.position.y = 0.05;
