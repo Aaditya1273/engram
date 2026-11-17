@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import type { PropId } from './types';
 
 /**
- * Procedural low-poly prop kit: every prop is a handful of primitives, base at y = 0, facing +z,
- * about 10 cm tall at scale 1. Zero asset downloads, so the first five minutes work offline.
- * ponytail: primitives, not a CC0 glTF kit. Swap a builder for a loaded glTF when art lands; the
- * scene JSON (prop id + pos/scale/colour) does not change.
+ * The prop kit: base at y = 0, about 10 cm tall at scale 1. Each prop is a painted cut-out (public/art/props)
+ * that turns to face the viewer; the procedural primitives below are the fallback for a prop with no art
+ * (person, for now) or art that fails to load. The scene JSON (prop id + pos/scale/colour) is the same for both.
+ * ponytail: flat cut-outs, not meshes. A glTF can replace one prop's art later without touching scenes.
  */
 
 export { PROP_IDS } from './props-catalog';
@@ -39,7 +39,7 @@ const cyl = (seg = 8) => g(`cyl${seg}`, () => new THREE.CylinderGeometry(0.5, 0.
 const DEFAULT_COLOR: Record<PropId, string> = {
   cat: '#e8873a', dog: '#b07a3e', bird: '#f0f0f0', book: '#3a7fbf', umbrella: '#d94848', house: '#c9a36b',
   mountain: '#6f8a6b', tree: '#3f8a4f', drop: '#5aa8e6', cloud: '#f4f6f8', fountain: '#9fb4c4', glasses: '#222222',
-  hat: '#2b2b2b', ball: '#d94848', star: '#ffd24a', shoe: '#2f6fd1', sun: '#ffc93a', person: '#d9a27a',
+  hat: '#2b2b2b', ball: '#d94848', star: '#ffd24a', shoe: '#2f6fd1', sun: '#ffc93a', person: '#efc9a4',
 };
 
 type Builder = (root: THREE.Group, c: THREE.Material, color: string) => void;
@@ -153,21 +153,161 @@ const BUILDERS: Record<PropId, Builder> = {
       part(r, cone(4), c, [Math.cos(a) * 0.055, 0.05 + Math.sin(a) * 0.055, 0], [0.012, 0.025, 0.012], [0, 0, a - Math.PI / 2]);
     }
   },
+  // No painting yet: dressed like the art's chibi boy (forest hoodie, ivory trousers) so it sits in the same world.
   person(r, c) {
-    const shirt = mat('#4f6fa8');
-    part(r, g('capsule', () => new THREE.CapsuleGeometry(0.5, 1, 2, 6)), shirt, [0, 0.06, 0], [0.06, 0.05, 0.05]);
-    part(r, sphere(), c, [0, 0.14, 0], [0.05, 0.05, 0.05]);
-    part(r, sphere(), mat('#2b2b2b'), [0, 0.155, -0.005], [0.052, 0.03, 0.05]);
+    const capsule = g('capsule', () => new THREE.CapsuleGeometry(0.5, 1, 4, 10));
+    part(r, capsule, mat('#e9e1cf'), [-0.016, 0.022, 0], [0.026, 0.022, 0.03]);
+    part(r, capsule, mat('#e9e1cf'), [0.016, 0.022, 0], [0.026, 0.022, 0.03]);
+    part(r, capsule, mat('#2f5a45'), [0, 0.07, 0], [0.062, 0.04, 0.048]);
+    part(r, g('sphere2', () => new THREE.IcosahedronGeometry(0.5, 3)), c, [0, 0.135, 0], [0.058, 0.056, 0.054]);
+    part(r, g('sphere2', () => new THREE.IcosahedronGeometry(0.5, 3)), mat('#3a2a20'), [0, 0.152, -0.006], [0.062, 0.04, 0.058]);
   },
 };
 
 /** Self-lit props (sun, star) stay visible even in the dimmed palace. */
 const GLOWS: PropId[] = ['sun', 'star'];
 
-export function buildProp(id: PropId, color?: string): THREE.Group {
-  const root = new THREE.Group();
+/**
+ * Painted art per prop: height in metres at scale 1, and colour variants. A requested colour close to a
+ * variant uses that painting as is; any other colour tints the first variant, so "make it blue" still works.
+ */
+const ART: Partial<Record<PropId, { h: number; variants: [file: string, color: string][] }>> = {
+  cat: { h: 0.12, variants: [['cat-orange', '#e8873a'], ['cat-black', '#333333'], ['cat-white', '#f2f2f2']] },
+  dog: { h: 0.11, variants: [['dog', '#c9955a']] },
+  bird: { h: 0.08, variants: [['bird', '#5a86c8']] },
+  book: { h: 0.09, variants: [['book', '#3f5a3a']] },
+  umbrella: { h: 0.24, variants: [['umbrella', '#d94848']] },
+  house: { h: 0.15, variants: [['house', '#c9a36b']] },
+  mountain: { h: 0.2, variants: [['mountain', '#6f8a6b']] },
+  tree: { h: 0.18, variants: [['tree', '#3f8a4f']] },
+  drop: { h: 0.08, variants: [['drop', '#5aa8e6'], ['drop-honey', '#e0a628']] },
+  cloud: { h: 0.09, variants: [['cloud', '#f4f6f8']] },
+  fountain: { h: 0.17, variants: [['fountain', '#b8ad94']] },
+  glasses: { h: 0.03, variants: [['glasses', '#3a3a2a']] },
+  hat: { h: 0.05, variants: [['hat', '#e0b860']] },
+  ball: { h: 0.07, variants: [['ball', '#d94848']] },
+  star: { h: 0.1, variants: [['star', '#ffd24a']] },
+  shoe: { h: 0.07, variants: [['shoe', '#e8dcc0']] },
+  sun: { h: 0.12, variants: [['sun', '#ffc93a']] },
+};
+/** Colours closer than this (RGB distance, 0..√3) count as the painted colour. */
+const VARIANT_NEAR = 0.3;
+
+const textures = new Map<string, Promise<THREE.Texture>>();
+const loader = new THREE.TextureLoader();
+function artTexture(file: string): Promise<THREE.Texture> {
+  if (!textures.has(file)) {
+    const p = loader.loadAsync(`${import.meta.env.BASE_URL}art/props/${file}.webp`).then((t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 4;
+      return t;
+    });
+    p.catch(() => textures.delete(file)); // a failed load may succeed next time (flaky network)
+    textures.set(file, p);
+  }
+  return textures.get(file)!;
+}
+
+/** Bottom-centred unit quad, scaled per prop to the art's aspect. */
+const quad = () => g('quad', () => new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0));
+
+let shadowTex: THREE.Texture | null = null;
+function shadowTexture() {
+  if (shadowTex) return shadowTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d')!;
+  const grd = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(8, 14, 11, 0.55)');
+  grd.addColorStop(1, 'rgba(8, 14, 11, 0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 64, 64);
+  return (shadowTex = new THREE.CanvasTexture(c));
+}
+
+const _cam = new THREE.Vector3(), _pos = new THREE.Vector3(), _q = new THREE.Quaternion(), _pq = new THREE.Quaternion();
+const UP = new THREE.Vector3(0, 1, 0);
+/**
+ * Billboard about the vertical axis only, so a cut-out always shows its front and never tilts. Uses the XR
+ * rig camera (not each eye) so both eyes see the same orientation; the art stays upright when you look down.
+ */
+function faceViewer(this: THREE.Mesh, renderer: THREE.WebGLRenderer, _scene: THREE.Scene, camera: THREE.Camera) {
+  const cam = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+  cam.getWorldPosition(_cam);
+  this.getWorldPosition(_pos);
+  _q.setFromAxisAngle(UP, Math.atan2(_cam.x - _pos.x, _cam.z - _pos.z));
+  this.quaternion.copy(this.parent!.getWorldQuaternion(_pq).invert().multiply(_q));
+  this.updateMatrixWorld();
+}
+
+const LUMA = 'vec3(0.3, 0.59, 0.11)';
+/** Unlit art material with two knobs: a colour tint (twists) and saturation (fading memories). */
+function artMaterial(tex: THREE.Texture, tint: THREE.Color | null, sat: { value: number }) {
+  const m = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.35, alphaToCoverage: true, side: THREE.DoubleSide });
+  const u = { uSat: sat, uTint: { value: tint ?? new THREE.Color(1, 1, 1) }, uTintAmt: { value: tint ? 0.72 : 0 } };
+  m.userData.art = u;
+  m.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, u);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', 'uniform float uSat;\nuniform vec3 uTint;\nuniform float uTintAmt;\nvoid main() {')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        float artL = dot(diffuseColor.rgb, ${LUMA});
+        diffuseColor.rgb = mix(diffuseColor.rgb, clamp(artL * 1.9 * uTint, 0.0, 1.0), uTintAmt);
+        diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, ${LUMA})), diffuseColor.rgb, uSat);`);
+  };
+  return m;
+}
+
+/** Which painting to show for a requested colour, and the tint to apply (null = as painted). */
+export function pickVariant(id: PropId, color?: string): { file: string; tint: string | null } | null {
+  const art = ART[id];
+  if (!art) return null;
+  if (!color) return { file: art.variants[0][0], tint: null };
+  const want = new THREE.Color(color);
+  let best = art.variants[0], bestD = Infinity;
+  for (const v of art.variants) {
+    const c = new THREE.Color(v[1]);
+    const d = Math.hypot(c.r - want.r, c.g - want.g, c.b - want.b);
+    if (d < bestD) [best, bestD] = [v, d];
+  }
+  return bestD < VARIANT_NEAR ? { file: best[0], tint: null } : { file: art.variants[0][0], tint: color };
+}
+
+function buildPrimitive(root: THREE.Group, id: PropId, color?: string) {
   const c = color ?? DEFAULT_COLOR[id];
   BUILDERS[id](root, mat(c, GLOWS.includes(id) ? 0.5 : 0), c);
+}
+
+export interface PropOptions {
+  /** Standing on the pedestal (gets a contact shadow); false for worn or floating props. */
+  grounded?: boolean;
+  /** Shared saturation uniform: 1 = full colour, 0 = grey. Lets a whole scene fade, even art that loads late. */
+  sat?: { value: number };
+}
+
+export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): THREE.Group {
+  const root = new THREE.Group();
   root.userData.prop = id;
+  const pick = pickVariant(id, color);
+  if (!pick) {
+    buildPrimitive(root, id, color);
+    return root;
+  }
+  const h = ART[id]!.h;
+  const sat = opts.sat ?? { value: 1 };
+  const shadow = new THREE.Mesh(g('shadow', () => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)),
+    new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false }));
+  shadow.position.y = 0.001;
+  // Painted on art loading; until then (and if it never loads) the scene just has an empty spot.
+  artTexture(pick.file).then((tex) => {
+    const img = tex.image as { width: number; height: number };
+    const w = (h * img.width) / img.height;
+    const art = new THREE.Mesh(quad(), artMaterial(tex, pick.tint ? new THREE.Color(pick.tint) : null, sat));
+    art.scale.set(w, h, 1);
+    art.onBeforeRender = faceViewer as THREE.Object3D['onBeforeRender'];
+    shadow.scale.set(w * 0.8, 1, w * 0.45);
+    root.add(art);
+    if (opts.grounded !== false) root.add(shadow);
+  }, () => buildPrimitive(root, id, color));
   return root;
 }

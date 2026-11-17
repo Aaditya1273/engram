@@ -4,53 +4,253 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0e1a15" />
+    <meta name="description" content="Atrium is a VR memory palace for Meta Quest. Your hands write it, your palace keeps it, and you never fall behind." />
     <title>Atrium</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23173D32%27/%3E%3Cpath d=%27M16 7l6 9-6 9-6-9z%27 fill=%27%23B99A62%27/%3E%3C/svg%3E" />
+    <link rel="preload" as="image" href="/art/site/hero.webp" />
     <style>
-      /* Tokens and fonts come from src/shared/theme.css (imported by main.ts). The doorway uses the palace's dusk. */
-      html, body { height: 100%; overflow: hidden; background: #0e1a15; color: var(--ivory); color-scheme: dark; }
+      /* Tokens and fonts come from src/shared/theme.css (imported by main.ts). The site always wears the palace's dusk. */
+      :root { --dusk: #0e1a15; --deep: #12221b; --panel: #172a22; --hair: rgba(185, 154, 98, 0.32); --soft: #b9c7b6; }
+      html, body { height: 100%; overflow: hidden; background: var(--dusk); color: var(--ivory); color-scheme: dark; }
       #app canvas { display: block; }
-      #overlay {
-        position: fixed; inset: 0; display: grid; place-items: center; padding: 16px;
-        background: radial-gradient(60% 50% at 50% 38%, #193a30 0%, #0e1a15 100%);
-        transition: opacity 420ms var(--ease);
-      }
+
+      /* The whole site lives in the overlay: it scrolls over the palace, then fades away when you step in. */
+      #overlay { color: var(--ivory); position: fixed; inset: 0; overflow-y: auto; overflow-x: hidden; scroll-behavior: smooth; background: var(--dusk); transition: opacity 420ms var(--ease); }
       #overlay.leaving { opacity: 0; pointer-events: none; }
       #overlay[hidden] { display: none; }
-      .card { max-width: 30rem; text-align: center; }
-      .lantern {
-        width: 18px; height: 18px; margin: 0 auto 28px; transform: rotate(45deg);
-        background: #f6e7c1; border-radius: 3px;
-        box-shadow: 0 0 18px 6px rgba(185, 154, 98, 0.55), 0 0 60px 22px rgba(185, 154, 98, 0.18);
-        animation: breathe 4.5s ease-in-out infinite;
-      }
+      .wrap { max-width: 72rem; margin: 0 auto; padding: 0 16px; }
+      img { display: block; max-width: 100%; height: auto; }
+      a { color: inherit; }
+      .eyebrow { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); margin: 0 0 14px; }
+      h2 { font-size: clamp(1.9rem, 4.6vw, 2.9rem); font-weight: 400; line-height: 1.12; margin: 0 0 16px; color: var(--ivory); }
+      h3 { font-family: var(--font-display); font-size: 1.35rem; font-weight: 500; margin: 0 0 8px; color: var(--ivory); }
+      p { margin: 0; }
+      .lede { font-size: 1.12rem; line-height: 1.6; color: var(--soft); max-width: 36rem; }
+      .rule { width: 44px; height: 1px; background: var(--gold); margin: 22px 0; opacity: 0.8; }
+
+      /* Buttons: gold primary, ivory-outline secondary. */
+      .buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+      #overlay button, .btn { color: var(--ivory); border: 1px solid rgba(244, 240, 230, 0.32); background: rgba(14, 26, 21, 0.35); }
+      #overlay button:hover, .btn:hover { border-color: var(--gold); background: rgba(23, 61, 50, 0.7); }
+      .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; font-weight: 600; text-decoration: none; transition: border-color 180ms var(--ease), background-color 180ms var(--ease); }
+      #overlay button.primary, #overlay [data-vr][hidden] + [data-desktop] { background: var(--gold); border-color: var(--gold); color: var(--charcoal); }
+      #overlay button.primary:hover, #overlay [data-vr][hidden] + [data-desktop]:hover { background: #c7aa74; box-shadow: none; }
+
+      /* Top bar */
+      .nav { position: absolute; top: 0; left: 0; right: 0; z-index: 2; }
+      .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 18px; padding-bottom: 18px; }
+      .brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 1.25rem; text-decoration: none; }
+      .brand i { width: 10px; height: 10px; transform: rotate(45deg); background: #f6e7c1; border-radius: 2px; box-shadow: 0 0 12px 3px rgba(185, 154, 98, 0.55); }
+      .nav nav { display: flex; gap: 22px; align-items: center; font-size: 0.95rem; }
+      .nav nav a { text-decoration: none; color: var(--soft); }
+      .nav nav a:hover { color: var(--ivory); }
+      .nav .btn { min-height: 38px; padding: 0 16px; font-size: 0.92rem; }
+      @media (max-width: 720px) { .nav nav a:not(.btn) { display: none; } }
+
+      /* Hero: the rotunda behind a soft dusk scrim, text over the dark left side. */
+      .hero { position: relative; min-height: 100svh; display: grid; align-items: end; isolation: isolate; }
+      .hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; z-index: -2; }
+      .hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(14, 26, 21, 0.78) 0%, rgba(14, 26, 21, 0.35) 45%, transparent 70%), linear-gradient(180deg, rgba(14, 26, 21, 0.55) 0%, transparent 30%, rgba(14, 26, 21, 0.45) 65%, var(--dusk) 100%); }
+      .hero .wrap { width: 100%; padding-top: 120px; padding-bottom: clamp(48px, 9vh, 96px); }
+      .lantern { width: 16px; height: 16px; margin: 0 0 26px 4px; transform: rotate(45deg); background: #f6e7c1; border-radius: 3px; box-shadow: 0 0 18px 6px rgba(185, 154, 98, 0.55), 0 0 60px 22px rgba(185, 154, 98, 0.18); animation: breathe 4.5s ease-in-out infinite; }
       @keyframes breathe { 50% { box-shadow: 0 0 22px 8px rgba(185, 154, 98, 0.62), 0 0 72px 28px rgba(185, 154, 98, 0.22); } }
-      h1 { font-size: clamp(2.6rem, 8vw, 3.6rem); font-weight: 400; letter-spacing: 0.02em; margin: 0; color: var(--ivory); }
-      .rule { width: 44px; height: 1px; background: var(--gold); margin: 18px auto 16px; opacity: 0.8; }
-      .tagline { font-family: var(--font-display); font-size: 1.15rem; line-height: 1.5; color: var(--sage); margin: 0; }
-      .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
-      #overlay button { color: var(--ivory); border-color: rgba(244, 240, 230, 0.28); }
-      #overlay button:hover { border-color: var(--gold); background: rgba(23, 61, 50, 0.6); }
-      /* Primary is gold on the doorway; when VR isn't available, "Try on desktop" takes the primary role. */
-      #overlay button.primary, #enter-vr[hidden] + #desktop { background: var(--gold); border-color: var(--gold); color: var(--charcoal); }
-      #overlay button.primary:hover, #enter-vr[hidden] + #desktop:hover { background: #c7aa74; box-shadow: none; }
-      .hint { font-size: 0.92rem; line-height: 1.55; color: #9fb09f; margin: 28px auto 0; max-width: 26rem; }
+      .hero h1 { font-size: clamp(3.2rem, 11vw, 6.5rem); font-weight: 400; letter-spacing: 0.01em; line-height: 1; margin: 0; color: var(--ivory); text-shadow: 0 2px 30px rgba(0, 0, 0, 0.45); }
+      .tagline { font-family: var(--font-display); font-size: clamp(1.2rem, 2.6vw, 1.55rem); line-height: 1.45; color: var(--sage); margin: 0; text-shadow: 0 1px 18px rgba(0, 0, 0, 0.6); }
+      .hero .buttons { margin-top: 30px; }
+      .hint { font-size: 0.92rem; line-height: 1.55; color: #a9b9a8; margin-top: 22px; max-width: 30rem; }
+
+      section.band { padding: clamp(64px, 11vw, 120px) 0; }
+      .head { margin-bottom: clamp(32px, 5vw, 52px); }
+
+      /* How it works: three steps, art on top. */
+      .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+      .step { background: var(--panel); border: 1px solid var(--hair); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+      .step figure { margin: 0 0 6px; height: 200px; display: grid; place-items: center; border-radius: 12px; background: radial-gradient(60% 60% at 50% 55%, rgba(185, 154, 98, 0.16), transparent 70%); }
+      .step figure img { max-height: 190px; width: auto; }
+      .step .n { font-family: var(--font-display); color: var(--gold); font-size: 0.95rem; letter-spacing: 0.08em; }
+      .step p { color: var(--soft); }
+      @media (max-width: 880px) { .steps { grid-template-columns: 1fr; } }
+
+      /* The first six words, each with its painted prop on a pedestal. */
+      .deck { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+      .word { text-align: center; }
+      .word .stage { height: 180px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 22px; position: relative; }
+      .word .stage::after { content: ''; position: absolute; left: 15%; right: 15%; bottom: 12px; height: 18px; border-radius: 50%; background: radial-gradient(closest-side, rgba(185, 154, 98, 0.35), transparent); z-index: 0; }
+      .word img { position: relative; z-index: 1; max-height: 140px; max-width: 92%; width: auto; transition: transform 300ms var(--ease); }
+      .word:hover img { transform: translateY(-4px); }
+      .word b { display: block; font-family: var(--font-display); font-weight: 500; font-size: 1.4rem; }
+      .word span { color: var(--soft); font-size: 0.95rem; }
+      .cast { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 22px; margin-top: 44px; }
+      .cast img { height: 58px; width: auto; opacity: 0.92; }
+      .cast-note { text-align: center; color: var(--soft); margin-top: 16px; font-size: 0.95rem; }
+      @media (max-width: 880px) { .deck { grid-template-columns: repeat(3, 1fr); } .word .stage { height: 140px; } .word img { max-height: 104px; } }
+
+      /* Split rows: art one side, words the other. */
+      .split { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 6vw, 72px); align-items: center; }
+      .split.flip > :first-child { order: 2; }
+      .split figure { margin: 0; display: grid; place-items: center; }
+      .split figure img { max-height: 460px; width: auto; }
+      @media (max-width: 880px) { .split { grid-template-columns: 1fr; } .split.flip > :first-child { order: 0; } .split figure img { max-height: 320px; } }
+      .points { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 18px; }
+      .points li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; }
+      .points li::before { content: ''; width: 8px; height: 8px; margin: 9px 0 0 6px; transform: rotate(45deg); background: var(--gold); border-radius: 1px; }
+      .points b { color: var(--ivory); font-weight: 600; }
+      .points span { color: var(--soft); }
+      .tint { background: var(--deep); border-top: 1px solid rgba(185, 154, 98, 0.14); border-bottom: 1px solid rgba(185, 154, 98, 0.14); }
+
+      /* Closing call: the pedestal rotunda. */
+      .closing { position: relative; isolation: isolate; text-align: center; padding: clamp(90px, 14vw, 160px) 0; }
+      .closing > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+      .closing::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, var(--dusk) 0%, rgba(14, 26, 21, 0.62) 35%, rgba(14, 26, 21, 0.72) 100%); }
+      .closing .buttons { justify-content: center; margin-top: 28px; }
+      .closing .lede { margin: 0 auto; }
+      footer { padding: 28px 0 40px; color: #8fa08f; font-size: 0.9rem; }
+      footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     </style>
   </head>
   <body>
     <div id="app"></div>
     <div id="overlay">
-      <div class="card">
-        <div class="lantern" aria-hidden="true"></div>
-        <h1>Atrium</h1>
-        <div class="rule" aria-hidden="true"></div>
-        <p class="tagline">Your hands write it. Your palace keeps it.<br />You never fall behind.</p>
-        <div class="buttons">
-          <button id="enter-vr" class="primary" hidden>Enter VR</button>
-          <button id="desktop">Try on desktop</button>
+      <header class="nav">
+        <div class="wrap">
+          <a class="brand" href="#top"><i aria-hidden="true"></i>Atrium</a>
+          <nav aria-label="Site">
+            <a href="#how">How it works</a>
+            <a href="#words">The palace</a>
+            <a href="#never-behind">Never behind</a>
+            <a class="btn" href="/companion.html">Companion</a>
+          </nav>
         </div>
-        <p class="hint">Sit down, put the controllers away and raise your hands. On desktop: point with the mouse, click to select, arrow keys to turn, Esc to pause.</p>
-      </div>
+      </header>
+
+      <section class="hero" id="top">
+        <img src="/art/site/hero.webp" alt="A moss-covered stone rotunda at golden hour: lantern-lit alcoves hold a cat, a pagoda, a torii gate, a mountain and a stack of books around a glowing pedestal." fetchpriority="high" />
+        <div class="wrap">
+          <div class="lantern" aria-hidden="true"></div>
+          <p class="eyebrow">A VR memory palace for Meta Quest</p>
+          <h1>Atrium</h1>
+          <div class="rule" aria-hidden="true"></div>
+          <p class="tagline">Your hands write it. Your palace keeps it.<br />You never fall behind.</p>
+          <div class="buttons">
+            <button data-vr class="primary" hidden>Enter VR</button>
+            <button data-desktop id="desktop">Try on desktop</button>
+          </div>
+          <p class="hint">Sit down, put the controllers away and raise your hands. On desktop: point with the mouse, click to select, arrow keys to turn, Esc to pause.</p>
+        </div>
+      </section>
+
+      <section class="band" id="how">
+        <div class="wrap">
+          <div class="head">
+            <p class="eyebrow">How it works</p>
+            <h2>A room that remembers for you</h2>
+            <p class="lede">Each thing you learn gets its own alcove, its own little scene and its own lantern. You build it once. Your palace shows you what is slipping.</p>
+          </div>
+          <div class="steps">
+            <article class="step">
+              <figure><img src="/art/site/cards.webp" alt="Three painted scene cards: a mountain in cherry blossom, a torii gate at night, a bamboo shrine." loading="lazy" /></figure>
+              <span class="n">01</span>
+              <h3>Choose a scene</h3>
+              <p>Every word arrives with three vivid scenes. Pick the one that sticks, then twist it out loud: “make the cat wear a hat.”</p>
+            </article>
+            <article class="step">
+              <figure><img src="/art/props/cat-orange.webp" alt="A cheerful orange cat in a forest-green scarf." loading="lazy" /></figure>
+              <span class="n">02</span>
+              <h3>Write it with your hands</h3>
+              <p>Stroke the cat, pat the dog. A gesture of your own, made twice, becomes part of the memory and part of the recall.</p>
+            </article>
+            <article class="step">
+              <figure><img src="/art/site/lantern.webp" alt="A golden lantern wrapped in a ribbon of light." loading="lazy" /></figure>
+              <span class="n">03</span>
+              <h3>Keep the lanterns lit</h3>
+              <p>Each lantern shows how well you remember. As it fades, the scene turns grey. Say the word and it blooms back to gold.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band tint" id="words">
+        <div class="wrap">
+          <div class="head">
+            <p class="eyebrow">Your first five minutes</p>
+            <h2>Six Japanese words, six alcoves</h2>
+            <p class="lede">The palace opens with a starter deck, so you feel it work before you add your own. Offline, no account, no typing.</p>
+          </div>
+          <div class="deck">
+            <div class="word"><div class="stage"><img src="/art/props/cat-white.webp" alt="White cat" loading="lazy" /></div><b>neko</b><span>ねこ · cat</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/dog.webp" alt="Golden puppy" loading="lazy" /></div><b>inu</b><span>いぬ · dog</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/drop.webp" alt="Water drop" loading="lazy" /></div><b>mizu</b><span>みず · water</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/mountain.webp" alt="Snow-capped mountain" loading="lazy" /></div><b>yama</b><span>やま · mountain</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/book.webp" alt="Stack of books" loading="lazy" /></div><b>hon</b><span>ほん · book</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/umbrella.webp" alt="Red sakura umbrella" loading="lazy" /></div><b>kasa</b><span>かさ · umbrella</span></div>
+          </div>
+          <div class="cast" aria-label="More of the cast">
+            <img src="/art/props/cat-black.webp" alt="Black cat" loading="lazy" />
+            <img src="/art/props/bird.webp" alt="Bluebird" loading="lazy" />
+            <img src="/art/props/house.webp" alt="Cottage" loading="lazy" />
+            <img src="/art/props/tree.webp" alt="Tree" loading="lazy" />
+            <img src="/art/props/fountain.webp" alt="Fountain" loading="lazy" />
+            <img src="/art/props/cloud.webp" alt="Cloud" loading="lazy" />
+            <img src="/art/props/sun.webp" alt="Sun" loading="lazy" />
+            <img src="/art/props/star.webp" alt="Star" loading="lazy" />
+            <img src="/art/props/ball.webp" alt="Ball" loading="lazy" />
+            <img src="/art/props/hat.webp" alt="Straw hat" loading="lazy" />
+            <img src="/art/props/glasses.webp" alt="Glasses" loading="lazy" />
+            <img src="/art/props/shoe.webp" alt="Boots" loading="lazy" />
+          </div>
+          <p class="cast-note">And a cast of painted props for everything you add yourself.</p>
+        </div>
+      </section>
+
+      <section class="band" id="never-behind">
+        <div class="wrap split">
+          <figure><img src="/art/site/lotus.webp" alt="A glowing golden lotus: the bloom of a relit memory." loading="lazy" /></figure>
+          <div>
+            <p class="eyebrow">The promise</p>
+            <h2>You never fall behind</h2>
+            <p class="lede">Most study apps punish a missed week with a mountain of reviews. Atrium does the opposite.</p>
+            <ul class="points">
+              <li><div><b>Seven minutes, always.</b> <span>Each session picks what is fading most and what matters most to your goals. The rest can wait.</span></div></li>
+              <li><div><b>A comeback walk, not a backlog.</b> <span>Away for days? You get a short, gentle walk through your palace. The count stays hidden.</span></div></li>
+              <li><div><b>An ember, not a guilt streak.</b> <span>Freezes cover the busy days, and a missed day can be repaired within 48 hours.</span></div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="band tint" id="companion">
+        <div class="wrap split flip">
+          <figure><img src="/art/site/boy-cat.webp" alt="A smiling boy in a forest-green jacket with an orange cat hugging his shoulders." loading="lazy" /></figure>
+          <div>
+            <p class="eyebrow">Off the headset</p>
+            <h2>Your palace, in your pocket</h2>
+            <p class="lede">The companion app pairs with a six-letter code.</p>
+            <ul class="points">
+              <li><div><b>Capture anything.</b> <span>Paste notes or a word list. Atrium drafts the scenes; they wait in your headset inbox until you co-create them.</span></div></li>
+              <li><div><b>Walk it from memory.</b> <span>A mental walk on the bus keeps your ember alive.</span></div></li>
+              <li><div><b>Bring your AI agent.</b> <span>Give a study assistant its own key over MCP. It can add to your inbox and ask what you already know. Revoke it any time.</span></div></li>
+            </ul>
+            <div class="buttons" style="margin-top: 28px"><a class="btn" href="/companion.html">Open the companion</a></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="closing">
+        <img src="/art/site/rotunda.webp" alt="" loading="lazy" />
+        <div class="wrap">
+          <p class="eyebrow">Ready when you are</p>
+          <h2>Your palace is waiting</h2>
+          <p class="lede">Five minutes, six words, and the first lanterns are yours.</p>
+          <div class="buttons">
+            <button data-vr class="primary" hidden>Enter VR</button>
+            <button data-desktop>Try on desktop</button>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div class="wrap"><span>Atrium · MIT licensed</span><span>Built for Meta Quest 3 with WebXR</span></div>
+      </footer>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

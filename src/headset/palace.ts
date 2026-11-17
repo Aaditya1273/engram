@@ -22,7 +22,6 @@ const MAT = {
   trim: stone(SCENE.trim),
   pedestal: stone(SCENE.pedestal),
   chain: stone(PALETTE.charcoal),
-  cap: new THREE.MeshLambertMaterial({ color: PALETTE.gold, emissive: PALETTE.gold, emissiveIntensity: 0.15, flatShading: true }),
   veil: new THREE.MeshLambertMaterial({ color: SCENE.veil, emissive: SCENE.veilSheen, emissiveIntensity: 0.35, side: THREE.DoubleSide, flatShading: true }),
 };
 const GEO = {
@@ -32,13 +31,15 @@ const GEO = {
   pedestal: new THREE.CylinderGeometry(0.13, 0.15, SCENE_Y, 8),
   pedestalTop: new THREE.CylinderGeometry(0.15, 0.15, 0.02, 12),
   chain: new THREE.CylinderGeometry(0.004, 0.004, 0.1, 4),
-  core: new THREE.OctahedronGeometry(0.028, 0),
-  cap: new THREE.ConeGeometry(0.03, 0.025, 6),
+  lantern: new THREE.PlaneGeometry(0.067, 0.14),
   veil: new THREE.CylinderGeometry(0.24, 0.26, 0.5, 10, 1, true),
   hit: new THREE.BoxGeometry(0.55, 1.2, 0.35),
   wash: new THREE.PlaneGeometry(0.5, 0.8),
 };
-const UNLIT = new THREE.Color(LANTERN.unlit), LIT = new THREE.Color(LANTERN.lit);
+// The painted lantern is multiplied by these: a dark bronze silhouette when unlit, warm gold-ivory when lit.
+const UNLIT = new THREE.Color(LANTERN.unlitArt), LIT = new THREE.Color(LANTERN.lit);
+const lanternTex = new THREE.TextureLoader().load(`${import.meta.env.BASE_URL}art/props/lantern.webp`);
+lanternTex.colorSpace = THREE.SRGBColorSpace;
 
 /** Golden motes rising from a relit lantern: the reward made visible. */
 const MOTES = 14, MOTE_S = 1.6;
@@ -48,7 +49,7 @@ export class Alcove {
   readonly group = new THREE.Group();
   private scene: BuiltScene | null = null;
   private sceneHolder = new THREE.Group();
-  private core: THREE.Mesh<THREE.OctahedronGeometry, THREE.MeshBasicMaterial>;
+  private core: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   private glow: THREE.Sprite;
   /** The lantern's light spilling onto its niche wall: a fading memory darkens its whole alcove. */
   private wash: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -80,14 +81,13 @@ export class Alcove {
     add(GEO.lintel, MAT.trim, 0, 1.68, -0.16);
     add(GEO.pedestal, MAT.trim, 0, SCENE_Y / 2, 0);
     add(GEO.pedestalTop, MAT.pedestal, 0, SCENE_Y - 0.01, 0);
-    add(GEO.chain, MAT.chain, 0, LANTERN_Y + 0.07, 0.04);
-    add(GEO.cap, MAT.cap, 0, LANTERN_Y + 0.035, 0.04);
+    add(GEO.chain, MAT.chain, 0, LANTERN_Y + 0.115, 0.04); // hangs from the painted ring at the lantern top
 
     this.sceneHolder.position.set(0, SCENE_Y, 0);
     this.sceneHolder.scale.setScalar(SCENE_SCALE);
     this.group.add(this.sceneHolder);
 
-    this.core = add(GEO.core, new THREE.MeshBasicMaterial({ color: LANTERN.unlit }), 0, LANTERN_Y, 0.04) as typeof this.core;
+    this.core = add(GEO.lantern, new THREE.MeshBasicMaterial({ map: lanternTex, color: UNLIT, alphaTest: 0.35, alphaToCoverage: true }), 0, LANTERN_Y, 0.04) as typeof this.core;
     this.glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
     this.glow.position.set(0, LANTERN_Y, 0.05);
     this.glow.scale.setScalar(0.3);

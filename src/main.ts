@@ -246,8 +246,9 @@ function applyUrlParams(s: Store) {
 
 // Landing overlay: one tap unlocks audio and speech, then either enter VR or stay on desktop.
 const overlay = document.getElementById('overlay')!;
-const enterVr = document.getElementById('enter-vr') as HTMLButtonElement;
-const desktop = document.getElementById('desktop') as HTMLButtonElement;
+// The page has a pair of doorway buttons in the hero and again at the close; every pair works the same.
+const vrButtons = document.querySelectorAll<HTMLButtonElement>('[data-vr]');
+const desktopButtons = document.querySelectorAll<HTMLButtonElement>('[data-desktop]');
 let started = false;
 const start = () => {
   if (started) return;
@@ -257,19 +258,22 @@ const start = () => {
   setTimeout(() => (overlay.hidden = true), 450);
   void run();
 };
-desktop.onclick = () => {
-  unlockAudio();
-  start();
-};
-void navigator.xr?.isSessionSupported('immersive-vr').then((ok) => {
-  if (!ok) return;
-  enterVr.hidden = false;
-  enterVr.onclick = async () => {
+for (const b of desktopButtons)
+  b.onclick = () => {
     unlockAudio();
-    const session = await navigator.xr!.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
-    await renderer.xr.setSession(session);
     start();
   };
+void navigator.xr?.isSessionSupported('immersive-vr').then((ok) => {
+  if (!ok) return;
+  for (const b of vrButtons) {
+    b.hidden = false;
+    b.onclick = async () => {
+      unlockAudio();
+      const session = await navigator.xr!.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
+      await renderer.xr.setSession(session);
+      start();
+    };
+  }
 });
 
 // Dev-only handle for automated walkthroughs (stripped from production builds).

@@ -123,7 +123,7 @@ flowchart LR
 **A memory is born in about 20 seconds:**
 
 1. **Capture.** Say *"remember this…"* in the headset, scan a QR code to send text from your phone, or let an agent send it.
-2. **Draft.** Atrium's agent extracts the facts and proposes **three vivid scenes** built from a pre-made 3D prop kit, each with a one-line mnemonic.
+2. **Draft.** Atrium's agent extracts the facts and proposes **three vivid scenes** built from the painted prop kit, each with a one-line mnemonic.
 3. **Co-create.** Pinch the scene you like and add one personal detail by voice (*"make the cat wear my grandmother's glasses"*).
 4. **Encode.** A ghost hand suggests a gesture that matches the meaning. You perform your own version twice, and Atrium records it as that memory's **gesture signature**.
 5. **Place.** The scene settles into the next free alcove and its lantern lights at full brightness.
@@ -222,7 +222,7 @@ flowchart LR
     end
 
     subgraph Headset["Headset app · IWSDK"]
-        REN[Palace renderer<br/>low-poly prop kit · 60 fps]
+        REN[Palace renderer<br/>painted prop kit · 60 fps]
         GM[Gesture matcher<br/>DTW on hand-joint paths]
         FS[FSRS scheduler<br/>drives lantern brightness]
     end
@@ -251,7 +251,7 @@ flowchart LR
 | Gesture matching | Custom recogniser (DTW) | Grades your gesture against your own recording |
 | Speech | Web Speech API (recognition in `ja-JP`, narration via speech synthesis) | Spoken answers and twists; pinchable fallback when missing |
 | Audio | Web Audio, synthesised | No audio files to download |
-| 3D assets | Procedural low-poly prop kit (three.js primitives) | Zero downloads, so the first five minutes work offline. Swap in a CC0 glTF kit later; the scene JSON doesn't change. |
+| 3D assets | Painted cut-out props (WebP, about 45 KB each) that turn to face the viewer, with three.js primitives as the fallback | Seated in the centre, you always see an alcove from the front, so a cut-out reads as a storybook diorama at a fraction of a mesh's size. A glTF can replace any prop later; the scene JSON doesn't change. |
 | AI pipeline | Gemini (`gemini-3.8-flash`) or NVIDIA (`meta/llama-3.3-70b-instruct`) through their OpenAI-compatible chat APIs, JSON-schema output, no SDK | One call drafts every item and its three scenes; output is validated with Zod and clamped to the prop kit. Without a key, an offline line-based drafter takes over. |
 | Hosting | Cloudflare Pages: static app + one Pages Function for `/api/*` (Web-standard `fetch` handler) | One deploy, one URL, edge-served |
 | Database | Postgres: Neon in production, PGlite (Postgres in WASM) locally and in tests | Same SQL everywhere; no ORM |
@@ -263,7 +263,9 @@ flowchart LR
 
 ```
 atrium/
-├── index.html                  # landing overlay: Enter VR / Try on desktop
+├── index.html                  # the website (hero, how it works, the cast, companion); fades into the palace
+├── public/art/                 # shipped WebP art: props/ (cut-outs) and site/ (page art)
+├── scripts/art.sh              # regenerates public/art from the source renders in design/ (gitignored)
 ├── src/
 │   ├── main.ts                 # renderer, XR session, loop, home screen, settings
 │   ├── core/                   # pure logic, no DOM; all unit-tested
@@ -290,7 +292,7 @@ atrium/
 │   ├── companion/main.ts       # phone page: pair, capture, mental walk, goals, agents, data
 │   └── shared/
 │       ├── types.ts            # Memory, Review, SceneSpec, InboxItem, Goal
-│       ├── props.ts            # procedural prop kit (three.js)
+│       ├── props.ts            # painted prop kit: colour variants, tint, billboarding, primitive fallback
 │       ├── props-catalog.ts    # prop ids only (server-safe)
 │       └── deck-ja.ts          # preset 6-word Japanese deck (ships offline)
 ├── companion.html              # phone companion page
@@ -490,6 +492,7 @@ One design system across the headset, the landing page and the companion. Tokens
 
 - **Type:** Fraunces (titles, editorial) and Source Sans 3 (body, VR-legible), bundled locally so the first five minutes stay offline.
 - **The lantern is the signature:** muted gold, it washes its own niche wall, so a fading memory visibly darkens its alcove. A successful recall makes it bloom and releases rising gold motes.
+- **Painted props:** every prop is a cut-out painting on a soft contact shadow. It turns only about the vertical axis to face you, so it never tilts and never shows its edge. A colour close to a painted variant (orange, black or white cat; water or honey drop) uses that painting; any other colour tints it, and a fading memory greys it in the shader.
 - **Motion:** panels ease in when their content changes and buttons ease on hover (180 ms); the doorway fades into the palace; `prefers-reduced-motion` is respected on the pages.
 
 ---
@@ -608,7 +611,7 @@ Issues and pull requests are welcome after the judging period ends. Until then t
 ## License and credits
 
 - **Code:** MIT *(LICENSE file to be added)*.
-- **3D props:** procedural, made in code; no third-party assets.
+- **Art:** the painted props, palace and site art are the team's own renders, cut out with [rembg](https://github.com/danielgatis/rembg) by `scripts/art.sh`. The primitive fallbacks are made in code.
 - **Scheduling:** the open-source FSRS algorithm via `ts-fsrs`.
 
 ### Team

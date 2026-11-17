@@ -8,7 +8,7 @@ import { parseTwist, applyTwist } from '../src/core/twist';
 import { cardFrom, recallProbability } from '../src/core/model';
 import { lanternLook } from '../src/core/lantern';
 import { JA_STARTER } from '../src/shared/deck-ja';
-import { PROP_IDS } from '../src/shared/props';
+import { PROP_IDS, pickVariant } from '../src/shared/props';
 
 // Deterministic noise so tests never flake.
 let seed = 7;
@@ -210,5 +210,16 @@ describe('twist + deck schema', () => {
         expect(s.props[s.focus ?? 0]).toBeDefined();
       }
     }
+  });
+});
+
+describe('painted prop variants', () => {
+  it('uses the closest painting, tints anything else, and falls back when there is no art', () => {
+    expect(pickVariant('cat')).toEqual({ file: 'cat-orange', tint: null });
+    expect(pickVariant('cat', '#444444')).toEqual({ file: 'cat-black', tint: null });
+    expect(pickVariant('cat', '#f2f2f2')).toEqual({ file: 'cat-white', tint: null });
+    expect(pickVariant('drop', '#e0a628')).toEqual({ file: 'drop-honey', tint: null });
+    expect(pickVariant('umbrella', '#2f6fd1')).toEqual({ file: 'umbrella', tint: '#2f6fd1' });
+    expect(pickVariant('person')).toBeNull();
   });
 });

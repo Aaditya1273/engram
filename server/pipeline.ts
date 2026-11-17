@@ -40,7 +40,7 @@ const Placement = z.object({
   y: num(0).describe('metres, 0..0.25, height above the pedestal'),
   z: num(0).describe('metres, -0.08..0.08, depth'),
   scale: num(1).describe('0.4..1.2, 1 is about 10 cm tall'),
-  color: z.string().catch('').describe('hex colour like #d94848'),
+  color: z.string().catch('').describe('empty string keeps the prop\'s painted colours (preferred); a hex colour like #d94848 only when the mnemonic names a colour'),
 });
 const Scene = z.object({
   mnemonic: z.string().describe('one vivid sentence linking the cue to the answer, under 20 words'),

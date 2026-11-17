@@ -36,6 +36,8 @@ export const SCENE = {
 /** The lantern: Atrium's signature. Unlit charcoal → muted gold → warm ivory-gold at full. */
 export const LANTERN = {
   unlit: '#2C3832',
+  /** Multiplies the painted lantern: unlit reads as dark bronze, still clearly a lantern. */
+  unlitArt: '#59645C',
   lit: '#F6E7C1',
   glowCore: 'rgba(246, 231, 193, 1)',
   glowMid: 'rgba(185, 154, 98, 0.55)',
