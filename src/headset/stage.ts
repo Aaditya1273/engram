@@ -51,10 +51,11 @@ export class Stage {
     this.cards.add(this.backdrop);
     this.hud.add(this.caption, this.topRow, this.cards, this.arrows, this.pauseLayer);
 
+    // Browse arrows ride on the caption card's left and right edges, so they never cover the palace.
     for (const dir of [-1, 1] as const) {
-      const b = makeButton(dir < 0 ? '‹' : '›', () => this.flick(dir), 0.1, 0.1, { frame: 'round' });
-      b.position.set(dir * 0.34, 1.2, -1.1);
-      b.lookAt(0, 1.2, 0);
+      const b = makeButton(dir < 0 ? '‹' : '›', () => this.flick(dir), 0.066, 0.066, { frame: 'round' });
+      b.position.set(dir * 0.352, this.caption.position.y, this.caption.position.z + 0.002);
+      b.lookAt(0, 1.0, 0); // the caption's tilt
       this.arrows.add(b);
     }
     this.arrows.visible = false;
