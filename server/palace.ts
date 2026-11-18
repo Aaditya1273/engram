@@ -96,8 +96,8 @@ export async function buildPalace(material: string, nameHint?: string): Promise<
   // Models sometimes stop a canonical list early (9 of the 12 cranial nerves). If the topic names its count and the
   // draft falls short, ask once more with the count spelled out, and keep the fuller journey.
   const want = promisedCount(`${nameHint ?? ''} ${text.slice(0, 200)}`);
-  if (out && want && items.length < want) {
-    const again = await ask(`This list has exactly ${want} items. Include all ${want}, one stop each, in order.\n`);
+  for (let tries = 0; out && want && items.length < want && tries < 2; tries++) {
+    const again = await ask(`This list has exactly ${want} items, and the last draft had only ${items.length}. Include all ${want}, one stop each, in order; do not stop early.\n`);
     const more = itemsOf(again);
     if (more.length > items.length) [out, items] = [again, more];
   }
