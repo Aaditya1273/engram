@@ -15,11 +15,11 @@ import { chatJson, offlineDraft, provider, Scene, toScene } from './pipeline';
 export const MAX_STOPS = 20;
 export const MAX_MATERIAL = 40_000;
 /**
- * What the model reads: about 3k tokens. Fits a free-tier per-minute token allowance (Groq: 8k) with room for the
+ * What the model reads: about 4k tokens. Fits a free-tier per-minute token allowance (Groq: 8k) with room for the
  * reply, and lists in notes, chapters and articles almost always come early.
  * ponytail: head-only; chunk and merge rooms if long documents need their later sections.
  */
-export const MODEL_MATERIAL = 12_000;
+export const MODEL_MATERIAL = 16_000;
 
 const Stop = z.object({
   cue: z.string().describe('short label for the stop, under 24 characters'),
