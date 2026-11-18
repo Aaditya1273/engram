@@ -35,7 +35,7 @@ const SYSTEM = `You build memory palaces for Atrium, a seated VR memory palace, 
 Turn the material into ONE ordered journey of at most ${MAX_STOPS} stops, grouped into 1 to 5 rooms in order.
 - A list or sequence (nerves, elements, steps, a timeline): one stop per item, in its original order.
 - Prose, a chapter or a talk: one stop per key point, in the order they appear; the answer is a 2-5 word summary.
-- A bare topic: the canonical ordered list for it, if there is one, from well-established knowledge.
+- A bare topic: the canonical ordered list for it, if there is one, from well-established knowledge. Never cut a canonical list short: include every item (up to ${MAX_STOPS}).
 For every stop, draft a vivid, concrete keyword scene for a small diorama on a pedestal, using only these props: ${PROP_IDS.join(', ')}.
 Sound-alike keywords work well. Use 1 to 3 props (x -0.12..0.12, y 0..0.25 metres, scale 0.4..1.2; empty colour keeps the painted colours).
 Then write "link": one short, vivid sentence that carries this stop's image into the next stop's image, so the whole journey is one story.
@@ -76,12 +76,14 @@ function toItem(s: z.infer<typeof Stop>, room: string): (DeckItem & { room: stri
 export async function buildPalace(material: string, nameHint?: string): Promise<PalaceResult> {
   const text = material.slice(0, MAX_MATERIAL);
   const out = await chatJson(PalaceDraft, 'atrium_palace', SYSTEM,
-    `${nameHint ? `Name: ${nameHint}\n` : ''}<material>\n${text}\n</material>`, 90_000);
+    `${nameHint ? `Name: ${nameHint}\n` : ''}<material>\n${text}\n</material>`, 90_000, 0.3); // completeness over flair
   const items = out?.rooms.flatMap((r) => r.stops.map((s) => toItem(s, r.title))).filter((i): i is DeckItem & { room: string } => !!i).slice(0, MAX_STOPS) ?? [];
   if (out && items.length) {
     items[items.length - 1].link = '';
     return { name: (nameHint || out.name).slice(0, 80), items, drafter: provider()!.name };
   }
+  // A bare topic needs the AI; never turn "Topic: …" itself into a one-stop palace.
+  if (/^Topic: /.test(text.trim()) && !text.trim().includes('\n')) return { name: nameHint ?? 'My palace', items: [], drafter: 'unavailable' };
   // No AI (or it failed): an ordered journey from term – definition lines, one plain scene each.
   const off = offlineDraft(text, nameHint);
   return {

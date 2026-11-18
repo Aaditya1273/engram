@@ -309,6 +309,11 @@ describe('World Builder', () => {
     expect(mine[0].item.scenes).toHaveLength(1);
   });
 
+  it('never turns a bare topic into a one-stop palace when the AI is unavailable', async () => {
+    const r = await call('POST', '/api/palace', dev, { name: 'The planets in order' });
+    expect(r.status).toBe(503);
+  });
+
   it('needs material, refuses private addresses, and needs a token', async () => {
     expect((await call('POST', '/api/palace', undefined, { text: 'a - b' })).status).toBe(401);
     expect((await call('POST', '/api/palace', dev, {})).status).toBe(400);

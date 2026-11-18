@@ -81,6 +81,17 @@ describe('AI drafting via an OpenAI-compatible provider', () => {
     expect(provider()).toMatchObject({ name: 'gemini', model: 'gemini-3.5-flash-lite' });
   });
 
+  it('on a Groq rate limit, retries once on the smaller model', async () => {
+    process.env.GROQ_API_KEY = 'q';
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response('rate limited', { status: 429 }))
+      .mockResolvedValueOnce(ok(JSON.stringify(reply)));
+    vi.stubGlobal('fetch', fetch);
+    const r = await draft('CN X - vagus');
+    expect(r.drafter).toBe('groq');
+    expect(JSON.parse((fetch.mock.calls[1][1] as RequestInit).body as string).model).toBe('openai/gpt-oss-20b');
+  });
+
   it('uses Groq when it is the only key (either spelling)', () => {
     process.env.GORQ_API_KEY = 'q';
     process.env.NVIDIA_API_KEY = 'n';

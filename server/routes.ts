@@ -166,6 +166,7 @@ export async function handle(req: Request): Promise<Response> {
       }
       if (!material.trim()) throw new HttpError(400, 'Give some text, a web address, a PDF, or a topic');
       const r = await buildPalace(material, name);
+      if (!r.items.length && r.drafter === 'unavailable') throw new HttpError(503, 'The palace builder is busy right now. Try again in a minute, or paste a list.');
       if (!r.items.length) throw new HttpError(422, 'Nothing to remember was found in that. Try a list, notes, or a topic.');
       const filed = await fileJourney(who.userId, 'phone', r);
       return json({ ...filed, name: r.name, count: r.items.length, drafter: r.drafter, stops: r.items.map((i) => ({ room: i.room, question: i.question, answer: i.display })) }, 201);
