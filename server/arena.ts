@@ -5,6 +5,8 @@ import { DESIRED_RETENTION } from '../src/core/model';
 import { newId } from './auth';
 import { db } from './db';
 import { getStreak, loadKnowledge } from './ops';
+import { fileJourney } from './palace';
+import type { DeckItem, Memory } from '../src/shared/types';
 
 /**
  * The social layer, built to reward remembering, not grinding: friends see streaks and lanterns relit, never
@@ -176,3 +178,40 @@ export async function league(userId: string, now = Date.now()) {
   return { week, members: rows.sort((a, b) => b.kept - a.kept).map((r, i) => ({ rank: i + 1, ...r })) };
 }
 
+
+// ---------------------------------------------------------------- creator palaces
+
+/**
+ * Publish one of your journeys as a read-only template: the stops, scenes and story links, never your twists,
+ * gestures or generated objects. Anyone with the code can copy it into their inbox and walk it in.
+ */
+export async function publishTemplate(userId: string, journeyId: string): Promise<{ code: string; name: string; stops: number } | null> {
+  const q = await db();
+  const rows = await q<{ data: Memory }>(`select data from memories where user_id = $1 and data->'journey'->>'id' = $2`, [userId, journeyId]);
+  if (!rows.length) return null;
+  const stops = rows.map((r) => r.data).sort((x, y) => x.journey!.index - y.journey!.index);
+  const items: (DeckItem & { room?: string })[] = stops.map((m) => ({
+    id: '', cue: m.cue, question: m.question, lang: m.lang, answers: m.answers, display: m.display, gestureHint: 'Trace the scene in the air',
+    scenes: [{ ...m.scene, props: m.scene.props.filter((p) => !p.model).map(({ model: _m, ...p }) => p) }],
+    link: m.journey!.link, room: undefined,
+  }));
+  const c = code(6);
+  await q('insert into templates (code, user_id, name, items) values ($1, $2, $3, $4)', [c, userId, stops[0].journey!.name, JSON.stringify(items)]);
+  return { code: c, name: stops[0].journey!.name, stops: items.length };
+}
+
+export async function templateInfo(c: string) {
+  const q = await db();
+  const [t] = await q<{ name: string; items: unknown[]; copies: number; creator: string }>(
+    'select t.name, t.items, t.copies, coalesce(p.name, \'A learner\') as creator from templates t left join profiles p on p.user_id = t.user_id where t.code = $1', [c.toUpperCase()]);
+  return t ? { name: t.name, stops: t.items.length, copies: t.copies, creator: t.creator } : null;
+}
+
+/** Copy a template into your inbox as a fresh journey (new ids), ready to walk in. */
+export async function copyTemplate(userId: string, c: string) {
+  const q = await db();
+  const [t] = await q<{ name: string; items: (DeckItem & { room?: string })[] }>('select name, items from templates where code = $1', [c.toUpperCase()]);
+  if (!t) return null;
+  await q('update templates set copies = copies + 1 where code = $1', [c.toUpperCase()]);
+  return fileJourney(userId, 'phone', { name: t.name, drafter: 'template', items: t.items.map((i) => ({ ...i, id: crypto.randomUUID(), room: i.room ?? t.name })) });
+}

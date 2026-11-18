@@ -10,7 +10,7 @@ import {
 import { db } from './db';
 import { MAX_AUDIO_BYTES, sttEnabled, transcribe } from './speech';
 import { buildPalace, fetchPage, fileJourney, MAX_MATERIAL, pdfToText } from './palace';
-import { addFriend, board, challengeKey, cheer, createDuel, finishRun, joinLeague, league, listFriends, myProfile, startRun, updateProfile } from './arena';
+import { addFriend, board, challengeKey, cheer, copyTemplate, createDuel, finishRun, joinLeague, league, listFriends, myProfile, publishTemplate, startRun, templateInfo, updateProfile } from './arena';
 import { advanceModel, createModel, exportModel, lux3dEnabled, MODEL_PROMPT_MAX, modelFile } from './lux3d';
 
 /** The whole API as one fetch handler: deployed as a single Vercel function, mounted in Vite for dev. */
@@ -289,6 +289,26 @@ export async function handle(req: Request): Promise<Response> {
       if (!key) throw new HttpError(404, 'No duel with that code.');
       return json({ key, rows: await board(who.userId, key, url.searchParams.get('scope') === 'friends' ? 'friends' : 'global') });
     }
+    // ---- creator palaces
+    if (path === '/api/templates' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      if (!(await rateLimit(who.tokenId, 20))) throw new HttpError(429, 'Too many published this hour');
+      const { journeyId } = await body(req, z.object({ journeyId: z.string().max(80) }));
+      const t = await publishTemplate(who.userId, journeyId);
+      return t ? json(t, 201) : json({ error: 'That journey has not synced yet. Try again in a moment.' }, 404);
+    }
+    const tpl = path.match(/^\/api\/templates\/([A-Za-z0-9]{4,8})(\/copy)?$/);
+    if (tpl && m === 'GET' && !tpl[2]) {
+      await need(req, 'device');
+      const t = await templateInfo(tpl[1]);
+      return t ? json(t) : json({ error: 'No palace with that code.' }, 404);
+    }
+    if (tpl && m === 'POST' && tpl[2]) {
+      const who = await need(req, 'device', 'write');
+      const r = await copyTemplate(who.userId, tpl[1]);
+      return r ? json({ ...r, name: r.journey.name }, 201) : json({ error: 'No palace with that code.' }, 404);
+    }
+
     if (path === '/api/league' && m === 'GET') return json(await league((await need(req, 'device')).userId));
     if (path === '/api/league' && m === 'POST') return json(await joinLeague((await need(req, 'device', 'write')).userId));
 

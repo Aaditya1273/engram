@@ -384,9 +384,21 @@ async function journeysMenu() {
   const pick = await stage.ask<string | null>([
     ...mine.slice(0, 4).map((j) => ({ label: `${j.name} (${j.length})`, value: j.id })),
     ...(store.data.memories.some((m) => m.id === 'ja-neko') ? [] : [{ label: 'Japanese words', value: 'ja' }]),
+    ...(cloud.online && !input.xr ? [{ label: 'Copy a shared palace', value: 'copy' }] : []),
     { label: 'Back', value: null },
   ]);
   if (pick === 'ja') await languageDemo(ctx);
+  else if (pick === 'copy') {
+    stage.show('Copy a shared palace', 'Type the code someone shared with you, then press Enter.');
+    const code = (await stage.typeText('e.g. K7QX2M')).toUpperCase();
+    if (!code) return;
+    try {
+      const r = await cloud.copyTemplate(code);
+      await inboxFlow(ctx, (await cloud.inbox()).filter((e) => r.inboxIds.includes(e.id)));
+    } catch (e) {
+      await stage.say(`That code didn't work. ${(e as Error).message}`, 'Copy a shared palace');
+    }
+  }
   else if (pick) await walkJourney(ctx, pick);
 }
 

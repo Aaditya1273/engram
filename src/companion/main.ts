@@ -424,6 +424,16 @@ $('pair-btn').onclick = () => pair($<HTMLInputElement>('pair-code').value);
 $('pair-code').onkeydown = (e) => e.key === 'Enter' && pair($<HTMLInputElement>('pair-code').value);
 $('cap-btn').onclick = capture;
 $('pal-btn').onclick = buildPalace;
+$('tpl-btn').onclick = async () => {
+  const c = $<HTMLInputElement>('tpl-code').value.trim().toUpperCase();
+  if (!c) return;
+  try {
+    const r = await api<{ name: string }>(`/templates/${encodeURIComponent(c)}/copy`, { method: 'POST' });
+    status('tpl-status', `"${r.name}" is in your headset inbox.`, 'ok');
+  } catch (e) {
+    status('tpl-status', (e as Error).message, 'bad');
+  }
+};
 $('walk-start').onclick = startWalk;
 $('walk-check').onclick = checkWalk;
 $('walk-a').onkeydown = (e) => e.key === 'Enter' && checkWalk();

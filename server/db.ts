@@ -115,6 +115,14 @@ create table if not exists leagues (
   grp       int not null,
   primary key (week, user_id)
 );
+create table if not exists templates (
+  code        text primary key,
+  user_id     text not null references users(id) on delete cascade,
+  name        text not null,
+  items       jsonb not null,
+  copies      int not null default 0,
+  created_at  timestamptz not null default now()
+);
 create table if not exists rate_limits (
   token_id      text not null,
   window_start  bigint not null,

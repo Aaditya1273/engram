@@ -417,3 +417,29 @@ describe('arena', () => {
     expect(l.members[0]).toMatchObject({ rank: 1, you: true, kept: 0 });
   });
 });
+
+describe('creator palaces', () => {
+  it('publishes a journey without the personal bits, and copies it into another inbox', async () => {
+    const maker = (await call('POST', '/api/device', undefined, { name: 'Maker' })).data.token;
+    const learner = (await call('POST', '/api/device', undefined, { name: 'Learner' })).data.token;
+    const stop = (i: number, display: string) => ({
+      id: `cn-${i}`, cue: `CN ${i + 1}`, question: `Cranial nerve ${i + 1}?`, lang: 'en-US', answers: [display], display, mnemonic: 'm',
+      scene: { mnemonic: 'm', props: [{ prop: 'star', pos: [0, 0, 0] }, { prop: 'star', pos: [0.1, 0, 0], model: { id: 'private', ready: true } }] },
+      twist: 'my secret twist', topic: 'Nerves', goalWeight: 1, slot: i, createdAt: 0,
+      journey: { id: 'j-nerves', name: 'Cranial nerves', index: i, link: i === 0 ? 'and then…' : undefined },
+    });
+    await call('POST', '/api/sync', maker, { memories: [stop(1, 'Optic'), stop(0, 'Olfactory')], reviews: [] });
+    const t = (await call('POST', '/api/templates', maker, { journeyId: 'j-nerves' })).data;
+    expect(t).toMatchObject({ name: 'Cranial nerves', stops: 2 });
+    expect((await call('GET', `/api/templates/${t.code}`, learner)).data).toMatchObject({ name: 'Cranial nerves', stops: 2, copies: 0 });
+    const copied = await call('POST', `/api/templates/${t.code}/copy`, learner);
+    expect(copied.status).toBe(201);
+    const inbox = (await call('GET', '/api/inbox', learner)).data as { item: { display: string; twist?: string; scenes: { props: { model?: unknown }[] }[]; journey: { index: number; name: string } } }[];
+    const mine = inbox.filter((e) => e.item.journey?.name === 'Cranial nerves').sort((a, b) => a.item.journey.index - b.item.journey.index);
+    expect(mine.map((e) => e.item.display)).toEqual(['Olfactory', 'Optic']);
+    expect(mine[0].item.scenes[0].props).toHaveLength(1); // the maker's generated object stays theirs
+    expect(JSON.stringify(mine)).not.toContain('secret');
+    expect((await call('GET', `/api/templates/${t.code}`, learner)).data.copies).toBe(1);
+    expect((await call('POST', '/api/templates/NOPE99/copy', learner)).status).toBe(404);
+  });
+});

@@ -169,6 +169,14 @@ export class Cloud {
     if (this.online) await this.api('/profile', { method: 'PATCH', body: JSON.stringify({ rushBest: best }) }).catch(() => {});
   }
 
+  /** Creator palaces: publish a journey as a template (its code), or copy one into the inbox. */
+  publishJourney(journeyId: string) {
+    return this.api<{ code: string; name: string; stops: number }>('/templates', { method: 'POST', body: JSON.stringify({ journeyId }) });
+  }
+  copyTemplate(code: string) {
+    return this.api<{ name: string; inboxIds: string[] }>(`/templates/${encodeURIComponent(code)}/copy`, { method: 'POST' });
+  }
+
   /** World Builder: text, a web page or a topic becomes an ordered journey, filed in the inbox. */
   buildPalace(input: { text?: string; url?: string; name?: string }) {
     return this.api<{ journey: { id: string; name: string }; inboxIds: string[]; name: string; count: number }>('/palace', { method: 'POST', body: JSON.stringify(input) });

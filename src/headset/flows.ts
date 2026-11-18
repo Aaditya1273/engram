@@ -484,15 +484,27 @@ export async function walkJourney(ctx: Ctx, id: string) {
   if (!stops.length) return;
   const name = stops[0].journey!.name;
   stage.show(name, `${stops.length} stops. How do you want to walk it?`);
-  const mode = await stage.ask<RecallMode | 'rehearse' | null>([
+  const mode = await stage.ask<RecallMode | 'rehearse' | 'share' | null>([
     { label: 'Forwards', value: 'forwards' },
     { label: 'Backwards', value: 'backwards' },
     { label: 'By number', value: 'position' },
     ...(speechAvailable() ? [{ label: 'Rehearse it', value: 'rehearse' as const }] : []),
+    ...(ctx.cloud.online ? [{ label: 'Share it', value: 'share' as const }] : []),
     { label: 'Back', value: null },
   ]);
   if (!mode) return;
   if (mode === 'rehearse') return rehearse(ctx, stops);
+  if (mode === 'share') {
+    // Publish as a template: the stops, scenes and story links; never twists, gestures or generated objects.
+    await ctx.cloud.sync();
+    try {
+      const t = await ctx.cloud.publishJourney(id);
+      await stage.say(`Shared. Anyone can copy "${t.name}" with the code ${t.code.split('').join(' ')}, from the palace or the phone companion.`, `Code ${t.code}`);
+    } catch (e) {
+      await stage.say(`Couldn't share it just now. ${(e as Error).message}`, name);
+    }
+    return;
+  }
   const right = await journeyRecall(ctx, stops, mode, Math.min(5, stops.length));
   const asked = mode === 'position' ? Math.min(5, stops.length) : stops.length;
   void ctx.cloud.sync();
