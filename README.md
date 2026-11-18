@@ -3,10 +3,10 @@
 
 # Atrium
 
-### Your hands write it. Your palace keeps it. You never fall behind.
+### Paste anything. Walk through it. Never forget it.
 
-**A seated, hands-only memory palace for Meta VR Glasses and Meta Quest.**
-You co-create every memory with an AI agent, write it with your own gesture, and watch it fade and come back as you review.
+**A memory superpower for Meta Quest, Meta VR Glasses and the browser.**
+Atrium's AI turns anything you need to remember (a chapter, a talk, a list, a PDF) into an ordered journey through a 3D memory palace, the method memory champions use. Walk it forwards, backwards, or straight to number seven. Every memory is a real 3D object; the things you name become objects of their own.
 
 `Productivity track` · `New Experience division` · `Meta VR Start Developer Competition 2026`
 
@@ -14,7 +14,7 @@ You co-create every memory with an AI agent, write it with your own gesture, and
 
 </div>
 
-> **Build status (Nov 2026):** headset, real 3D prop library (Aholo Lux3D), twist-to-3D, server speech for the Quest browser, cloud API, sync, AI scene drafting, the built-in study agent, MCP server and phone companion are built and tested end to end on desktop (48 unit/integration tests plus browser walkthroughs). **Not yet:** a Quest 3 device pass (frame timing with 3D props, hand-tracking thresholds), the production database, room mode. Anything still unbuilt is marked *(planned)*.
+> **Build status (18 Nov 2026):** journeys and the elements onboarding, the World Builder, Lumen, Recall Rush, the collection, the arena (daily challenge, duels, friends, leagues), Memory Athlete, creator palaces, Chinese/English and the Aholo Lux3D 3D pipeline are built and tested on desktop: **87 unit and integration tests** plus scripted browser walkthroughs. **Not yet:** a Meta Quest device pass, the production database (cloud features are off on the live site), themed worlds and home reconstruction, study rooms. The full, honest table is in **[docs/STATUS.md](docs/STATUS.md)**; Aholo timings and credit costs are in **[docs/AHOLO_API_NOTES.md](docs/AHOLO_API_NOTES.md)**.
 
 ---
 
@@ -68,6 +68,8 @@ AI agents now find and summarise everything for us. That multiplies what we're e
 
 | | Atrium | Flashcard apps | Other VR memory palaces |
 | --- | :---: | :---: | :---: |
+| Remembers **order**: lists, steps, talks, forwards, backwards and by position | ✅ | ❌ | ✅ (hand-built) |
+| AI builds the palace from your own material | ✅ | ❌ | ❌ |
 | You co-create each mnemonic (AI drafts, you decide) | ✅ | ❌ | ❌ |
 | A gesture you invent, graded against your own recording | ✅ | ❌ | ❌ |
 | Memories visibly dim as you forget them | ✅ | ❌ | ❌ |
@@ -126,7 +128,7 @@ flowchart LR
 1. **Capture.** Say *"remember this…"* in the headset, scan a QR code to send text from your phone, or let an agent send it.
 2. **Draft.** Atrium's agent extracts the facts and proposes **three vivid scenes** built from the prop kit, each with a one-line mnemonic.
 3. **Co-create.** Pinch the scene you like and add one personal detail by voice (*"make the cat wear my grandmother's glasses"*).
-4. **Encode.** A ghost hand suggests a gesture that matches the meaning. You perform your own version twice, and Atrium records it as that memory's **gesture signature**.
+4. **Encode.** The narrator suggests a gesture that matches the meaning. You perform your own version twice, and Atrium records it as that memory's **gesture signature**.
 5. **Place.** The scene settles into the next free alcove and its lantern lights at full brightness.
 
 From then on the lantern dims along the memory's forgetting curve. A daily **7-minute session** relights the memories that are fading fastest and matter most for your goal.
@@ -137,7 +139,7 @@ From then on the lantern dims along the memory's forgetting curve. A daily **7-m
 
 | Action | Hands | Gaze-only mode | Voice |
 | --- | --- | --- | --- |
-| Select | Look + pinch | Look + dwell 1 s | "Select" |
+| Select | Look + pinch | Look + dwell 1 s | *(planned)* |
 | Next arc of alcoves | Pinch + flick sideways | Dwell on edge arrow | *(planned)* |
 | Answer a recall | Say the answer + perform your gesture | Say the answer | Say the answer |
 | Reveal | Pinch "Show me" | Dwell "Show me" | |
@@ -189,12 +191,12 @@ Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium gives two honest numbers
 | **Milestones** | 7 / 30 / 100 / 365 days unlock new wings and palace themes |
 | **Wings** | Every 20 memories open a new wing of 20 alcoves; step between wings from the home menu (the room re-fills inside the snap fade) |
 
-**Guardrails:** no paid streak protection, no loot boxes, at most one notification a day, and a gentle stop after 20 minutes.
+**Guardrails:** no paid streak protection, no loot boxes, no notifications, and a gentle stop after 20 minutes. Leagues rank by memories kept, not reviews done; they are opt-in, with an anonymous mode and no demotion.
 
 ### 7. Phone companion
 `/companion.html`, paired with the headset by a 6-letter code. Capture text into the inbox (optionally for a goal), keep the streak alive with a 60-second **mental walk** (a top-down map of one wing; type each answer and Atrium grades it against the stored answers, never self-rated), see goals with readiness, manage connected agents, and export or delete your data.
 
-### 8. Room mode *(planned, optional)*
+### 8. Room mode *(built; untested on a device)*
 Pin memories to real objects you can see from your chair (a lamp, a shelf, the window) using spatial anchors, so your real room can cue recall after the headset comes off. The virtual palace stays the default.
 
 ### 9. Wind-down mode *(optional)*
@@ -309,7 +311,7 @@ atrium/
 ├── companion.html              # phone companion page
 ├── server/
 │   ├── routes.ts               # the whole REST API as one fetch handler
-│   ├── mcp.ts                  # MCP server: 6 tools, per-agent keys and scopes
+│   ├── mcp.ts                  # MCP server: 8 tools (incl. build_palace, get_journey), per-agent keys and scopes
 │   ├── pipeline.ts             # Gemini/Groq/NVIDIA drafting (JSON schema) + offline drafter
 │   ├── lux3d.ts                # twist-to-3D: Lux3D text-to-3D → retopology → stored GLB; STL export
 │   ├── speech.ts               # speech-to-text for the Quest browser (Whisper on Groq, Gemini fallback)
@@ -624,7 +626,7 @@ Every core feature rests on published work. These are the studies' own results, 
 
 ## Contributing
 
-Issues and pull requests are welcome after the judging period ends. Until then the `main` branch is frozen to match the submitted build.
+Issues and pull requests are welcome after the judging period ends.
 
 1. Fork the repo and create a branch: `git checkout -b feature/your-idea`
 2. Run `npm run lint && npm run test` before you push
@@ -634,7 +636,7 @@ Issues and pull requests are welcome after the judging period ends. Until then t
 
 ## License and credits
 
-- **Code:** MIT *(LICENSE file to be added)*.
+- **Code:** MIT (see `LICENSE`).
 - **Art:** the painted props, palace, site art and cursors are the team's own renders, cut out with [rembg](https://github.com/danielgatis/rembg) by `scripts/art.sh`. The primitive fallbacks are made in code.
 - **3D models:** generated from those paintings with [Aholo Lux3D](https://labs.aholo3d.com) (Manycore) by `scripts/lux3d.mjs`, then optimised with [glTF-Transform](https://gltf-transform.dev).
 - **Speech:** Whisper (`whisper-large-v3-turbo`) on [Groq](https://groq.com).

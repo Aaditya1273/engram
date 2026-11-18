@@ -185,5 +185,29 @@
       "seconds": 181,
       "bytes": 207496
     }
+  },
+  "summit": {
+    "silver": {
+      "taskId": 8271067,
+      "seconds": 239,
+      "bytes": 268404
+    },
+    "gold": {
+      "taskId": 8271070,
+      "seconds": 256,
+      "bytes": 176952
+    }
+  },
+  "sun": {
+    "gold": {
+      "taskId": 8271233,
+      "seconds": 166,
+      "bytes": 144140
+    },
+    "silver": {
+      "taskId": 8271230,
+      "seconds": 175,
+      "bytes": 204752
+    }
   }
 }

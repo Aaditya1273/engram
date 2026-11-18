@@ -1,0 +1,20 @@
+{
+  "source": "Aholo Lux3D text-to-3D (task 8270966) then articulation-animation (task 8271125): a URDF with body and lid on a revolute hinge",
+  "hinge": {
+    "origin": [
+      -0.029577,
+      0.155638,
+      -0.11257
+    ],
+    "axis": [
+      -0.999905,
+      0.013703,
+      0.001345
+    ],
+    "limit": [
+      0,
+      1.57
+    ]
+  },
+  "bodyHeight": 0.155638
+}

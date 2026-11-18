@@ -5,6 +5,7 @@ import type { SceneSpec } from '../shared/types';
 import type { Theme } from '../core/streak';
 import { buildDecor } from './decor';
 import { buildScene, type BuiltScene } from './scene-builder';
+import { Chest } from './chest';
 import { glowTexture, Panel, type Selectable } from './ui';
 
 import { EYE_Y, LANTERN_HOOP_Y, RADIUS, SCENE_Y, SLOT_COUNT, SLOT_DEG, SNAP_SLOTS } from './layout';
@@ -86,6 +87,9 @@ export class Alcove {
   private sway = { x: 0, z: 0, vx: 0, vz: 0 };
   /** Set by the palace when the frame guard trims far scenes; the lantern stays, only the scene is hidden. */
   distant = false;
+  private chest = new Chest();
+  /** Seconds since the chest began to open (-1 when not revealing). */
+  private reveal = -1;
 
   constructor(readonly slot: number, onSelect: (slot: number) => void) {
     const a = THREE.MathUtils.degToRad(slot * SLOT_DEG);
@@ -122,6 +126,8 @@ export class Alcove {
     hang(this.glow);
     this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 0.006, 0.05) as typeof this.wash;
 
+    this.chest.group.position.set(0, SCENE_Y, 0.02);
+    this.group.add(this.chest.group);
     this.veil = new Panel(0.16, 0.16, { frame: 'round', size: 0.08 }).set({ body: '?' });
     this.veil.position.set(0, SCENE_Y + 0.17, 0.02);
     this.veil.visible = false;
@@ -187,10 +193,25 @@ export class Alcove {
     if (text) this.label.set({ body: text });
   }
 
+  /**
+   * Veiled while being recalled: a closed chest stands on the pedestal (or the "?" medallion if the chest isn't
+   * loaded). Unveiling after the answer opens the lid and the scene rises out of it: open to remember.
+   */
   setVeiled(v: boolean) {
-    this.veil.visible = v;
-    this.sceneHolder.visible = !v;
-    if (v) this.label.visible = false;
+    if (v) {
+      const chest = this.chest.ready;
+      if (chest) this.chest.close();
+      this.veil.visible = !chest;
+      this.sceneHolder.visible = false;
+      this.label.visible = false;
+      this.reveal = -1;
+      return;
+    }
+    this.veil.visible = false;
+    if (this.chest.group.visible) {
+      this.chest.open();
+      this.reveal = 0;
+    } else this.sceneHolder.visible = true;
   }
 
   /** Recall probability drives the lantern; pass instant to skip easing (e.g. during a time-lapse). */
@@ -241,6 +262,21 @@ export class Alcove {
   update(dt: number, t: number, pointer: THREE.Ray | null = null) {
     this.swingToward(pointer, dt);
     if (this.scene) this.scene.group.visible = !this.distant;
+    this.chest.update(dt);
+    if (this.reveal >= 0) {
+      // The lid opens; at 0.35 s the scene rises out of the chest; at 1.3 s the chest is gone.
+      this.reveal += dt;
+      if (this.reveal >= 0.35) {
+        this.sceneHolder.visible = true;
+        const k = Math.min(1, (this.reveal - 0.35) / 0.35);
+        this.sceneHolder.scale.setScalar(SCENE_SCALE * (0.2 + 0.8 * (1 - (1 - k) ** 3)));
+        this.sceneHolder.position.y = SCENE_Y + 0.08 * (1 - k);
+      }
+      if (this.reveal >= 1.3) {
+        this.chest.hide();
+        this.reveal = -1;
+      }
+    }
     const target = this.target ?? 0;
     this.shown += (target - this.shown) * (1 - Math.exp(-dt / 0.35));
     this.bloom = Math.max(0, this.bloom - dt / 1.4);
