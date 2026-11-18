@@ -6,6 +6,9 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { setModelEnvironment, setPreferPaintings } from './shared/props';
 import { FrameGuard } from './core/frame-guard';
 import { journeys } from './core/journey';
+import { dayKey, MILESTONES, milestoneAt, unlockedThemes, weeklyStreak } from './core/streak';
+
+const THEME_NAME: Record<string, string> = { garden: 'Garden', ...Object.fromEntries(MILESTONES.map((m) => [m.theme, m.name])) };
 import { recallRush } from './headset/rush';
 import { Lumen } from './headset/lumen';
 import { dailyChallenge } from './headset/challenge';
@@ -150,6 +153,7 @@ async function run() {
     }
   }).then(() => cloud.online);
   const { missedDays } = arrive(store);
+  palace.setTheme(store.data.settings.theme ?? 'garden');
   if (!store.data.onboarded) {
     try {
       await firstFive(ctx);
@@ -190,6 +194,18 @@ async function home(missedDays: number) {
   for (;;) {
     const msg = arrivalMessage(store, missedDays);
     const lines = readinessLines(store);
+    if (store.data.settings.weeklyStreak) {
+      const weeks = weeklyStreak(new Set(store.data.reviews.map((r) => dayKey(r.at))), dayKey(store.now()));
+      lines.push(`Week streak: ${weeks} ${weeks === 1 ? 'week' : 'weeks'} of five active days`);
+    }
+    // A milestone reached: celebrate once, and unlock its theme.
+    const reached = milestoneAt(store.data.streak.count);
+    if (reached && store.data.settings.celebrated !== reached.days) {
+      store.data.settings.celebrated = reached.days;
+      store.save();
+      play('relight');
+      await stage.say(`${reached.days} days of ember! You've unlocked the ${reached.name} theme. Find it in Settings.`, 'Milestone');
+    }
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
@@ -394,6 +410,7 @@ async function settings() {
     stage.show('Settings', `Gaze-only: dwell 1 s to select, no gestures.${cloud.online ? '' : ' Cloud: offline.'}`);
     const pick = await stage.ask([
       { label: 'Connect phone', value: 'pair' },
+      { label: `Theme: ${THEME_NAME[s.theme ?? 'garden']}`, value: 'theme' },
       { label: `Gaze-only: ${s.gazeOnly ? 'on' : 'off'}`, value: 'gaze' },
       { label: `Narration: ${s.narration ? 'on' : 'off'}`, value: 'narration' },
       { label: 'More…', value: 'more' },
@@ -402,17 +419,31 @@ async function settings() {
     if (pick === 'back') return;
     if (pick === 'pair') await pairFlow(ctx, showQr);
     if (pick === 'gaze') input.gazeOnly = s.gazeOnly = !s.gazeOnly;
+    if (pick === 'theme') {
+      // Cycle through the themes this learner's best streak has unlocked.
+      const open = unlockedThemes(store.data.streak.best);
+      s.theme = open[(open.indexOf(s.theme ?? 'garden') + 1) % open.length];
+      palace.setTheme(s.theme);
+      store.save();
+      if (open.length === 1) await stage.say('More themes unlock at 7, 30, 100 and 365 days of ember.', 'Theme');
+    }
     if (pick === 'narration') setNarration((s.narration = !s.narration));
     if (pick === 'more') {
       const more = await stage.ask([
         { label: 'Wind-down walk', value: 'wind' },
         { label: 'Larger text', value: 'text' },
+        { label: `Streak: ${store.data.settings.weeklyStreak ? 'weekly' : 'daily'}`, value: 'weekly' },
         { label: 'About', value: 'about' },
         { label: 'Erase everything', value: 'reset' },
         { label: 'Back', value: 'back' },
       ]);
       if (more === 'wind') return void (await windDown(ctx));
       if (more === 'text') setTextScale(1.2);
+      if (more === 'weekly') {
+        store.data.settings.weeklyStreak = !store.data.settings.weeklyStreak;
+        store.save();
+        await stage.say(store.data.settings.weeklyStreak ? 'Weekly mode: any week with five active days keeps your streak going.' : 'Daily mode: one recall a day keeps your ember lit.', 'Streak');
+      }
       if (more === 'about') {
         stage.show('About Atrium', [
           'A memory palace that keeps what you learn, with spaced recall (FSRS), your own gestures, and scenes you co-create.',

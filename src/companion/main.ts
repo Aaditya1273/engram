@@ -3,6 +3,7 @@ import { answerMatches } from '../core/answer';
 import { dayKey } from '../core/streak';
 import { SLOT_DEG } from '../headset/layout';
 import type { Goal, Memory, Review } from '../shared/types';
+import { MEMORISE_S } from '../core/challenge';
 
 /** Phone companion: pair with the headset, capture, a typed mental walk, goals, agents, data. */
 
@@ -298,8 +299,111 @@ async function deleteAccount() {
 
 // ---------------------------------------------------------------- shell
 
+// ---------------------------------------------------------------- arena
+
+interface Profile { name: string; color: string; code: string; anonymous: boolean; rushBest: number; heatmap: Record<string, number>; badges: string[]; kept: number; relitWeek: number; streak: number; best: number; total: number }
+const COLORS = ['#D9B76E', '#7FB685', '#E89F71', '#8FB3D9', '#C79BD1', '#E6C35C'];
+
+async function renderArena() {
+  const p = await api<Profile>('/profile');
+  $<HTMLInputElement>('pro-name').value = p.name;
+  $<HTMLInputElement>('pro-anon').checked = p.anonymous;
+  $('pro-code').textContent = p.code;
+  $('pro-colors').innerHTML = COLORS.map((c) => `<button data-color="${c}" aria-label="Colour ${c}" aria-pressed="${c === p.color}" style="background:${c}"></button>`).join('');
+  $('pro-stats').innerHTML = [
+    [p.kept, 'memories kept'], [p.streak, 'day ember'], [p.relitWeek, 'relit this week'], [p.rushBest, 'Recall Rush best'],
+  ].map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('');
+  $('pro-badges').innerHTML = p.badges.map((b) => `<span>${esc(b)}</span>`).join('');
+  drawHeatmap(p.heatmap);
+  await Promise.all([renderFriends(), renderBoard('global'), renderLeague()]);
+}
+
+/** A year of reviews, one square a day, weeks as columns: the GitHub-style consistency view. */
+function drawHeatmap(days: Record<string, number>) {
+  const cell = 10, gap = 0.6, today = new Date();
+  const start = new Date(today);
+  start.setUTCDate(start.getUTCDate() - 364 - start.getUTCDay());
+  let out = '';
+  for (let i = 0; i <= 371; i++) {
+    const d = new Date(start);
+    d.setUTCDate(d.getUTCDate() + i);
+    if (d > today) break;
+    const n = days[d.toISOString().slice(0, 10)] ?? 0;
+    const shade = n === 0 ? 'rgba(127,140,130,0.18)' : `rgba(185,154,98,${Math.min(1, 0.3 + n / 30)})`;
+    out += `<rect x="${Math.floor(i / 7) * cell + gap}" y="${(i % 7) * cell + gap + 10}" width="${cell - gap * 2}" height="${cell - gap * 2}" rx="2" fill="${shade}"><title>${d.toISOString().slice(0, 10)}: ${n}</title></rect>`;
+  }
+  $('heatmap').innerHTML = out;
+}
+
+async function renderFriends() {
+  const list = await api<{ name: string; color: string; code: string; streak: number; relitWeek: number; kept: number }[]>('/friends');
+  $('fr-list').innerHTML = list.length ? list.map((f) => `<li><span><i class="dot" style="background:${f.color}"></i><b>${esc(f.name)}</b><br><span class="muted">${f.streak}-day ember · ${f.relitWeek} relit this week · ${f.kept} kept</span></span><button data-cheer="${f.code}">Cheer</button></li>`).join('')
+    : '<li class="muted">No friends yet. Share your code, or add theirs.</li>';
+}
+
+async function renderBoard(scope: 'global' | 'friends', duel?: string) {
+  const b = await api<{ rows: { rank: number; name: string; correct: number; score: number; you: boolean }[] }>(`/challenge/board?scope=${scope}${duel ? `&duel=${duel}` : ''}`);
+  $('ch-board').innerHTML = b.rows.length ? b.rows.map((r) => `<li class="${r.you ? 'you' : ''}">${esc(r.you ? 'You' : r.name)}: ${r.correct}/20 · ${r.score}</li>`).join('') : '<li class="muted">No runs yet. Be the first.</li>';
+}
+
+async function renderLeague() {
+  const l = await api<{ week: string; members: { rank: number; name: string; kept: number; you: boolean }[] } | null>('/league');
+  $('lg-join').hidden = !!l;
+  $('lg-list').innerHTML = l ? l.members.map((m) => `<li class="${m.you ? 'you' : ''}">${esc(m.you ? 'You' : m.name)}: ${m.kept} kept</li>`).join('') : '';
+}
+
+/** The challenge on a phone or laptop: the words for MEMORISE_S seconds, then write them back in order. */
+async function playChallenge(duel?: string) {
+  let run: { runId: string; items: string[] };
+  try {
+    run = await api('/challenge/start', { method: 'POST', body: JSON.stringify({ duel }) });
+  } catch (e) {
+    status('ch-status', (e as Error).message, 'bad');
+    return renderBoard('global', duel);
+  }
+  $('ch-setup').hidden = true;
+  $('ch-run').hidden = false;
+  $('ch-words').hidden = false;
+  $('ch-answers').hidden = true;
+  $('ch-words').innerHTML = run.items.map((w) => `<span>${esc(w)}</span>`).join('');
+  const until = Date.now() + MEMORISE_S * 1000;
+  await new Promise<void>((res) => {
+    const timer = setInterval(() => {
+      const left = Math.ceil((until - Date.now()) / 1000);
+      $('ch-timer').textContent = `${left} s to memorise`;
+      if (left <= 0) done();
+    }, 250);
+    const done = () => {
+      clearInterval(timer);
+      res();
+    };
+    $('ch-next').textContent = "I'm ready";
+    $('ch-next').onclick = done;
+  });
+  $('ch-words').hidden = true;
+  $('ch-answers').hidden = false;
+  $('ch-timer').textContent = 'Write them back, in order.';
+  $('ch-answers').innerHTML = run.items.map((_, i) => `<input aria-label="Word ${i + 1}" placeholder="${i + 1}" autocomplete="off" autocapitalize="off" />`).join('');
+  ($('ch-answers').querySelector('input') as HTMLInputElement).focus();
+  await new Promise<void>((res) => {
+    $('ch-next').textContent = 'Score it';
+    $('ch-next').onclick = () => res();
+  });
+  const answers = [...$('ch-answers').querySelectorAll('input')].map((i) => (i as HTMLInputElement).value.trim());
+  try {
+    const r = await api<{ correct: number; score: number; seconds: number }>('/challenge/finish', { method: 'POST', body: JSON.stringify({ runId: run.runId, answers }) });
+    status('ch-status', `${r.correct} of 20 in order: ${r.score} points.`, 'ok');
+  } catch (e) {
+    status('ch-status', (e as Error).message, 'bad');
+  }
+  $('ch-run').hidden = true;
+  $('ch-setup').hidden = false;
+  await renderBoard('global', duel);
+}
+
 function showTab(tab: string) {
-  for (const t of ['capture', 'walk', 'goals', 'agents']) $(`tab-${t}`).hidden = t !== tab;
+  for (const t of ['capture', 'walk', 'arena', 'goals', 'agents']) $(`tab-${t}`).hidden = t !== tab;
+  if (tab === 'arena') void renderArena().catch((e) => status('pro-status', (e as Error).message, 'bad'));
   for (const b of document.querySelectorAll<HTMLButtonElement>('#nav button')) b.setAttribute('aria-current', b.dataset.tab === tab ? 'page' : 'false');
 }
 
@@ -308,7 +412,7 @@ function render() {
   $('pair').hidden = signedIn;
   $('nav').hidden = !signedIn;
   if (!signedIn) {
-    for (const t of ['capture', 'walk', 'goals', 'agents']) $(`tab-${t}`).hidden = true;
+    for (const t of ['capture', 'walk', 'arena', 'goals', 'agents']) $(`tab-${t}`).hidden = true;
     $('ember').textContent = '';
     return;
   }
@@ -332,8 +436,45 @@ document.querySelector('#nav')!.addEventListener('click', (e) => {
   const tab = (e.target as HTMLElement).closest('button')?.dataset.tab;
   if (tab) showTab(tab);
 });
+$('pro-save').onclick = () => api('/profile', { method: 'PATCH', body: JSON.stringify({ name: $<HTMLInputElement>('pro-name').value }) })
+  .then(() => status('pro-status', 'Saved.', 'ok'), (e) => status('pro-status', (e as Error).message, 'bad'));
+$('pro-anon').onchange = () => void api('/profile', { method: 'PATCH', body: JSON.stringify({ anonymous: $<HTMLInputElement>('pro-anon').checked }) });
+$('ch-start').onclick = () => void playChallenge();
+$('ch-duel-new').onclick = async () => {
+  try {
+    const { code: c } = await api<{ code: string }>('/duels', { method: 'POST' });
+    $<HTMLInputElement>('ch-duel').value = c;
+    status('ch-status', `Duel ${c}: send this code to a friend, then both play it.`, 'ok');
+  } catch (e) {
+    status('ch-status', (e as Error).message, 'bad');
+  }
+};
+$('ch-duel-join').onclick = () => {
+  const c = $<HTMLInputElement>('ch-duel').value.trim().toUpperCase();
+  if (c) void playChallenge(c);
+};
+$('ch-board-g').onclick = () => void renderBoard('global', $<HTMLInputElement>('ch-duel').value.trim().toUpperCase() || undefined);
+$('ch-board-f').onclick = () => void renderBoard('friends', $<HTMLInputElement>('ch-duel').value.trim().toUpperCase() || undefined);
+$('fr-add').onclick = async () => {
+  try {
+    const f = await api<{ name: string }>('/friends', { method: 'POST', body: JSON.stringify({ code: $<HTMLInputElement>('fr-code').value }) });
+    status('fr-status', `${f.name} is now your friend.`, 'ok');
+    await renderFriends();
+  } catch (e) {
+    status('fr-status', (e as Error).message, 'bad');
+  }
+};
+$('lg-join').onclick = () => void api('/league', { method: 'POST' }).then(renderLeague);
 document.body.addEventListener('click', async (e) => {
   const el = e.target as HTMLElement;
+  if (el.dataset.color) {
+    await api('/profile', { method: 'PATCH', body: JSON.stringify({ color: el.dataset.color }) });
+    for (const b of $('pro-colors').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b === el));
+  }
+  if (el.dataset.cheer) {
+    const r = await api<{ result: string }>(`/friends/${el.dataset.cheer}/cheer`, { method: 'POST' }).catch(() => ({ result: 'error' }));
+    status('fr-status', r.result === 'sent' ? 'Cheer sent: they get a free streak repair.' : r.result === 'already' ? 'You already cheered them today.' : 'Could not send.', r.result === 'sent' ? 'ok' : 'bad');
+  }
   if (el.dataset.goal) {
     await api(`/goals/${el.dataset.goal}`, { method: 'DELETE' });
     await refresh();

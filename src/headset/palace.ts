@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { lanternLook } from '../core/lantern';
 import { LANTERN, PALETTE, SCENE } from '../shared/theme';
 import type { SceneSpec } from '../shared/types';
+import type { Theme } from '../core/streak';
 import { buildDecor } from './decor';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { glowTexture, Panel, type Selectable } from './ui';
@@ -22,6 +23,14 @@ const NEAR_SLOTS = 3;
 const FADE_MS = 75;
 /** Hemisphere light range: the room warms from dusk to sunlit as you work, but is never black. */
 const WARMTH_MIN = 1.1, WARMTH_MAX = 2.6;
+
+const THEMES: Record<Theme, [sky: string, ground: string]> = {
+  garden: [SCENE.lightSky, SCENE.lightGround],
+  moonlit: ['#B9CCF2', '#1C2A3E'],
+  autumn: ['#FFC98E', '#4A2E18'],
+  golden: ['#FFE08A', '#5A4618'],
+  sakura: ['#FFD2E2', '#3E2A33'],
+};
 
 const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 // The architecture lives in decor.ts; these are the live, per-alcove parts.
@@ -302,6 +311,16 @@ export class Palace {
   onAlcoveSelect: (slot: number) => void = () => {};
   /** Per-frame callbacks for things animating outside an alcove (Recall Rush lanterns, Lumen). dt in seconds. */
   readonly tickers = new Set<(dt: number, t: number) => void>();
+  /**
+   * Palace themes, unlocked by streak milestones: the oculus light changes colour (sky and ground of the
+   * hemisphere light), which every marble, gold and leaf surface picks up. One light, no extra cost.
+   */
+  setTheme(theme: Theme) {
+    const [sky, ground] = THEMES[theme];
+    this.hemi.color.set(sky);
+    this.hemi.groundColor.set(ground);
+  }
+
   /** True while a flow borrows the alcoves for a display (the collection): background redraws must wait. */
   borrowed = false;
   /** Frame guard level 1: only scenes within NEAR_SLOTS of the one in front are drawn. */

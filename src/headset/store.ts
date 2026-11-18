@@ -1,6 +1,6 @@
 import type { Card } from 'ts-fsrs';
 import { cardFrom, dueAt, recallProbability } from '../core/model';
-import { newStreak, recordFullSession, recordRecall, type StreakState } from '../core/streak';
+import { newStreak, recordFullSession, recordRecall, type StreakState, type Theme } from '../core/streak';
 import { applyTwist, parseTwist } from '../core/twist';
 import { JA_STARTER } from '../shared/deck-ja';
 import type { Goal, Memory, Review } from '../shared/types';
@@ -15,6 +15,12 @@ export interface Settings {
   twistLang: string;
   /** Demo/testing: shifts the clock forward (ms). Set with ?skip=3d. */
   clockOffset: number;
+  /** Palace theme (unlocked by streak milestones). */
+  theme?: Theme;
+  /** Count the streak in weeks of 5 active days instead of every day. */
+  weeklyStreak?: boolean;
+  /** The last milestone celebrated, so it's only celebrated once. */
+  celebrated?: number;
 }
 
 interface CloudState {

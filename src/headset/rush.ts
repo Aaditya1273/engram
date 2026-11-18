@@ -45,8 +45,11 @@ export async function recallRush(ctx: Ctx) {
 
   let combo = 0, best = 0, score = 0, right = 0, total = 0, step = 0;
   let flight = { from: 0, ms: 1 }, sinceBeat = 0, elapsed = 0;
+  // Share clip (computer only): the canvas records the final 15 seconds, the climax of the run.
+  const clip = startClipAt(RUSH_MS - 15_000, !ctx.input.xr);
   const tick = (dt: number) => {
     elapsed += dt * 1000;
+    clip.at(elapsed);
     const p = Math.min(1, (elapsed - flight.from) / flight.ms);
     flyer.position.lerpVectors(FROM, TO, p * p * (3 - 2 * p));
     glow.material.opacity = 0.5 + 0.5 * p;
@@ -110,6 +113,42 @@ export async function recallRush(ctx: Ctx) {
     `${score} points. ${right} of ${total} right, best combo ${best}.${newBest ? ' A new personal best!' : ` Your best is ${prev.best}.`}`,
     newBest ? 'New best' : 'Recall Rush',
   );
+  const video = await clip.stop();
+  if (video && (await stage.ask([{ label: 'Save the clip', value: true }, { label: 'Done', value: false }]))) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(video);
+    a.download = `atrium-recall-rush-${score}.webm`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+  }
+}
+
+/** Records the palace canvas from `fromMs` into the run until stop(); a no-op where recording isn't possible. */
+function startClipAt(fromMs: number, enabled: boolean) {
+  const canvas = document.querySelector<HTMLCanvasElement>('#app canvas');
+  let rec: MediaRecorder | null = null;
+  const chunks: Blob[] = [];
+  const ok = enabled && !!canvas?.captureStream && typeof MediaRecorder !== 'undefined';
+  return {
+    at(elapsed: number) {
+      if (!ok || rec || elapsed < fromMs) return;
+      try {
+        const type = ['video/webm;codecs=vp9', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t));
+        rec = new MediaRecorder(canvas!.captureStream(30), type ? { mimeType: type, videoBitsPerSecond: 4_000_000 } : undefined);
+        rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+        rec.start(500);
+      } catch {
+        rec = null;
+      }
+    },
+    stop(): Promise<Blob | null> {
+      if (!rec || rec.state === 'inactive') return Promise.resolve(null);
+      return new Promise((res) => {
+        rec!.onstop = () => res(chunks.length ? new Blob(chunks, { type: 'video/webm' }) : null);
+        rec!.stop();
+      });
+    },
+  };
 }
 
 /** The first of: a picked answer, a spoken one, or the lantern arriving (null). */

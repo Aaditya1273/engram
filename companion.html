@@ -46,6 +46,25 @@
       #map { display: block; margin: 8px auto 4px; width: 100%; max-width: 240px; }
       .pair-art { display: block; margin: 0 auto 12px; height: auto; filter: drop-shadow(0 8px 18px rgba(23, 61, 50, 0.18)); }
       .answer-big { font-family: var(--font-display); font-size: 1.45rem; font-weight: 500; margin: 8px 0 0; }
+      .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: 10px; margin-top: 14px; }
+      .stats div { background: var(--surface-sunk); border-radius: 10px; padding: 10px 12px; }
+      .stats b { display: block; font-family: var(--font-display); font-size: 1.4rem; font-weight: 500; }
+      .stats span { font-size: 0.8rem; color: var(--fg-soft); }
+      #heatmap { display: block; width: 100%; height: auto; margin-top: 12px; }
+      .swatches { display: flex; gap: 8px; margin-top: 8px; }
+      .swatches button { width: 32px; height: 32px; min-height: 32px; border-radius: 50%; padding: 0; border: 2px solid transparent; }
+      .swatches button[aria-pressed="true"] { border-color: var(--fg); }
+      .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+      .badges span { font-size: 0.82rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--gold); color: var(--fg); }
+      ol.board { padding-left: 1.4rem; margin: 10px 0 0; }
+      ol.board li { padding: 6px 0; border-top: 1px solid var(--line); }
+      ol.board li.you { font-weight: 700; }
+      .words { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 8px; margin-top: 12px; counter-reset: w; }
+      .words span { background: var(--surface-sunk); border-radius: 8px; padding: 8px 10px; font-weight: 600; }
+      .words span::before { counter-increment: w; content: counter(w) ". "; color: var(--fg-soft); font-weight: 400; }
+      .answers { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 8px; margin-top: 12px; }
+      .answers input { padding: 8px 10px; }
+      .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 8px; }
     </style>
   </head>
   <body>
@@ -88,6 +107,48 @@
         <input id="pal-pdf" type="file" accept="application/pdf" />
         <div class="row"><button class="primary" id="pal-btn">Build my palace</button></div>
         <div class="status" id="pal-status" role="status"></div>
+      </section>
+
+      <section id="tab-arena" hidden>
+        <h2>You</h2>
+        <p class="muted">Friends see how you're doing, never what you've memorised.</p>
+        <label for="pro-name">Display name</label>
+        <div class="row" style="margin-top:0"><input id="pro-name" maxlength="32" /><button id="pro-save">Save</button></div>
+        <div class="swatches" id="pro-colors" role="group" aria-label="Your colour"></div>
+        <label><input type="checkbox" id="pro-anon" style="width:auto;margin-right:8px" />Show me as Anonymous on boards and leagues</label>
+        <p class="muted">Your friend code: <b id="pro-code" style="letter-spacing:0.12em"></b></p>
+        <div class="stats" id="pro-stats"></div>
+        <div class="badges" id="pro-badges"></div>
+        <svg id="heatmap" viewBox="0 0 540 84" role="img" aria-label="Reviews per day over the last year"></svg>
+        <div class="status" id="pro-status" role="status"></div>
+
+        <h2 style="margin-top:28px">Daily challenge</h2>
+        <p class="muted">Twenty words, the same for everyone today. Two and a half minutes to memorise them in order, then write them back. Scored on the server.</p>
+        <div id="ch-setup" class="row">
+          <button class="primary" id="ch-start">Play today's</button>
+          <button id="ch-duel-new">Start a duel</button>
+          <input id="ch-duel" maxlength="8" placeholder="Duel code" aria-label="Duel code" style="max-width:9rem" />
+          <button id="ch-duel-join">Join</button>
+        </div>
+        <div id="ch-run" hidden>
+          <p class="answer-big" id="ch-timer"></p>
+          <div class="words" id="ch-words"></div>
+          <div class="answers" id="ch-answers" hidden></div>
+          <div class="row"><button class="primary" id="ch-next">I'm ready</button></div>
+        </div>
+        <div class="row"><button id="ch-board-g">Today: everyone</button><button id="ch-board-f">Today: friends</button></div>
+        <ol class="board" id="ch-board"></ol>
+        <div class="status" id="ch-status" role="status"></div>
+
+        <h2 style="margin-top:28px">Friends</h2>
+        <div class="row"><input id="fr-code" maxlength="8" placeholder="Friend's code" aria-label="Friend's code" /><button id="fr-add">Add</button></div>
+        <ul class="list" id="fr-list"></ul>
+        <div class="status" id="fr-status" role="status"></div>
+
+        <h2 style="margin-top:28px">League</h2>
+        <p class="muted">Opt in for the week: about twenty learners, ranked by memories kept (what you'd recall today), not by reviews done. No demotion, ever.</p>
+        <div class="row"><button id="lg-join">Join this week's league</button></div>
+        <ol class="board" id="lg-list"></ol>
       </section>
 
       <section id="tab-walk" hidden>
@@ -150,6 +211,7 @@
     <nav id="nav" hidden aria-label="Sections">
       <button data-tab="capture" aria-current="page">Capture</button>
       <button data-tab="walk">Walk</button>
+      <button data-tab="arena">Arena</button>
       <button data-tab="goals">Goals</button>
       <button data-tab="agents">Agents</button>
     </nav>

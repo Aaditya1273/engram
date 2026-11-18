@@ -113,5 +113,29 @@
       "seconds": 236,
       "bytes": 282388
     }
+  },
+  "glasses": {
+    "gold": {
+      "taskId": 8270045,
+      "seconds": 222,
+      "bytes": 156584
+    },
+    "silver": {
+      "taskId": 8270034,
+      "seconds": 239,
+      "bytes": 231244
+    }
+  },
+  "hat": {
+    "silver": {
+      "taskId": 8270267,
+      "seconds": 250,
+      "bytes": 216236
+    },
+    "gold": {
+      "taskId": 8270272,
+      "seconds": 255,
+      "bytes": 150804
+    }
   }
 }
