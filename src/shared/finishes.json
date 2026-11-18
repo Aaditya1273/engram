@@ -209,5 +209,29 @@
       "seconds": 175,
       "bytes": 204752
     }
+  },
+  "tree": {
+    "silver": {
+      "taskId": 8271412,
+      "seconds": 234,
+      "bytes": 404388
+    },
+    "gold": {
+      "taskId": 8271442,
+      "seconds": 233,
+      "bytes": 336068
+    }
+  },
+  "umbrella": {
+    "silver": {
+      "taskId": 8271538,
+      "seconds": 233,
+      "bytes": 315516
+    },
+    "gold": {
+      "taskId": 8271541,
+      "seconds": 233,
+      "bytes": 225976
+    }
   }
 }
