@@ -133,7 +133,7 @@ export class Lumen {
           const key = `${tex.uuid} ${theme}`;
           if (cloak && !made.has(key)) {
             const t = tex.clone();
-            t.source = new THREE.Source(recolour(tex.image as ImageBitmap, cloak)); // its own image: a clone shares the original's
+            t.source = new THREE.TextureSource(recolour(tex.image as ImageBitmap, cloak)); // its own image: a clone shares the original's
             made.set(key, t);
           }
           m.map = cloak ? made.get(key)! : tex;

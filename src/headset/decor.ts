@@ -227,14 +227,15 @@ function canopyTexture() {
 interface Scenery {
   backdrop: string; tiles: number; centred?: boolean; vines: string; canopy: string; rays: number;
   /** The room itself: stone tints a neutral marble (absent = the garden's green marble), floor and banner colours, ferns. */
-  stone?: string; /** How much the stone glows, relative to the garden's marble (a pale stone needs more). */ stoneGlow?: number; floor?: [light: string, dark: string]; banner?: [mid: string, dark: string]; ferns: boolean;
+  stone?: string; /** The neutral marble to tint: pale for light stone, high-contrast (dark, bright veins) for dark stone. */ stoneMap?: string;
+  /** How much the stone glows, relative to the garden's marble (a pale stone needs more). */ stoneGlow?: number; floor?: [light: string, dark: string]; banner?: [mid: string, dark: string]; ferns: boolean;
 }
 const SCENERY: Record<'garden' | 'moonlit' | 'sakura', Scenery> = {
   garden: { backdrop: 'palace/forest.webp', tiles: 1, vines: 'palace/vines.webp', canopy: DECOR.canopyShade, rays: 0.3, ferns: true },
   // Midnight-blue stone and torii-red banners under the moon.
   moonlit: {
     backdrop: 'palace/moonlit.webp', tiles: 1, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#2c3552', rays: 0.07,
-    stone: '#2a3260', floor: ['#2b335f', '#11152c'], banner: ['#a32b36', '#5c141c'], ferns: false,
+    stone: '#6f7fd6', stoneMap: 'palace/marble-veined.webp', stoneGlow: 1.5, floor: ['#2b335f', '#11152c'], banner: ['#a32b36', '#5c141c'], ferns: false,
   },
   // Pale blush marble, a petal-pink floor and banners.
   sakura: {
@@ -404,7 +405,8 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D): (theme: 
     // The room: marble (green, or the neutral marble in the theme's tint), floor, banners, ferns.
     for (const m of stoneMats) {
       const green = (m.userData.green ??= m.map!) as THREE.Texture;
-      const grey = s.stone ? ((m.userData.grey ??= texture('palace/marble-grey.webp', [green.repeat.x, green.repeat.y])) as THREE.Texture) : green;
+      const file = s.stoneMap ?? 'palace/marble-grey.webp';
+      const grey = s.stone ? ((m.userData[file] ??= texture(file, [green.repeat.x, green.repeat.y])) as THREE.Texture) : green;
       m.map = m.emissiveMap = grey;
       m.color.set(s.stone ?? '#ffffff');
       m.emissive.set(s.stone ?? '#ffffff');
