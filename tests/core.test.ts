@@ -13,6 +13,7 @@ import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 import { migrate } from '../src/headset/store';
 import { FrameGuard } from '../src/core/frame-guard';
+import { freeRecallScore, planDay, programmeDay } from '../src/core/athlete';
 import { rarityOf } from '../src/core/rarity';
 import { beatMs, flightMs, musicLevel, nextPick, rushPoints, weekKey } from '../src/core/rush';
 import { isLandmark, journeys, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt } from '../src/core/journey';
@@ -482,5 +483,23 @@ describe('daily challenge', () => {
     expect(scoreChallenge(items, swapped, 300).correct).toBe(18);
     expect(scoreChallenge(items, items.slice(0, 5), 60)).toEqual({ correct: 5, score: 500 });
     expect(scoreChallenge(items, items, 300).score).toBe(2000 + 200);
+  });
+});
+
+describe('Memory Athlete', () => {
+  it('starts with a baseline, benchmarks every seventh day, and builds the method between', () => {
+    expect(planDay(1).activity).toBe('baseline');
+    expect(planDay(2).activity).toBe('journey');
+    expect([8, 15, 22, 29, 36].map((d) => planDay(d).activity)).toEqual(['benchmark', 'benchmark', 'benchmark', 'benchmark', 'benchmark']);
+    expect(planDay(10).title).toBe('Vivid images');
+    expect(planDay(99).day).toBe(40);
+    expect(programmeDay(0, 0)).toBe(1);
+    expect(programmeDay(0, 7.5 * 86_400_000)).toBe(8);
+  });
+
+  it('scores free recall in any order, ignoring filler and repeats', () => {
+    const words = ['anchor', 'violin', 'tiger', 'teapot'];
+    expect(freeRecallScore(words, 'um tiger, then anchor... anchor again, and a violin')).toBe(3);
+    expect(freeRecallScore(words, '')).toBe(0);
   });
 });

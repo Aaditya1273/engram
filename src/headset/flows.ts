@@ -187,7 +187,9 @@ export const labelOf = (m: Memory) => (m.journey ? `${m.journey.index + 1} · ${
 export function showMemory(ctx: Ctx, m: Memory) {
   if (Palace.wingOf(m.slot) !== ctx.palace.wing || ctx.palace.borrowed) return;
   const a = ctx.palace.alcove(m.slot);
-  a.setScene(m.scene);
+  // The palace blooms with what you keep: a mastered memory stands in its earned finish (bronze, silver, gold),
+  // while a fading one loses its colour (the lantern does the rest).
+  a.setScene(m.scene, { finish: rarityFor(ctx.store, m) ?? undefined });
   a.setLabel(labelOf(m));
   a.setLandmark(m.journey && isLandmark(m.journey.index) ? m.journey.index + 1 : null);
   a.setRecall(ctx.store.recall(m), true);
@@ -418,12 +420,16 @@ export async function quizMe(ctx: Ctx) {
 
 // ---------------------------------------------------------------- collection
 
-/** Each memory's rarity from its FSRS card and review log (null: not mastered yet). */
-export function collectibles(store: Store): { m: Memory; rarity: Rarity }[] {
+/** A memory's rarity from its FSRS card and review log (null: not mastered yet). */
+export function rarityFor(store: Store, m: Memory): Rarity | null {
   const now = store.now();
+  const first = store.data.reviews.reduce((t, r) => (r.memoryId === m.id ? Math.min(t, r.at) : t), Infinity);
+  return rarityOf({ stabilityDays: store.card(m).stability, recall: store.recall(m, now), firstReviewAt: first, now });
+}
+
+export function collectibles(store: Store): { m: Memory; rarity: Rarity }[] {
   return store.data.memories.flatMap((m) => {
-    const first = store.data.reviews.reduce((t, r) => (r.memoryId === m.id ? Math.min(t, r.at) : t), Infinity);
-    const rarity = rarityOf({ stabilityDays: store.card(m).stability, recall: store.recall(m, now), firstReviewAt: first, now });
+    const rarity = rarityFor(store, m);
     return rarity ? [{ m, rarity }] : [];
   }).sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity]);
 }

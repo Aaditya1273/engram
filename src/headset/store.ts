@@ -43,6 +43,8 @@ interface SaveData {
   cloud: CloudState;
   /** Recall Rush records: all-time and this week's best score, best combo. */
   rush?: { best: number; bestCombo: number; week: string; weekBest: number };
+  /** Memory Athlete: when the 40 days began, and every word test (day 1 baseline, then benchmarks). */
+  athlete?: { startedAt: number; tests: { day: number; score: number; at: number }[] };
 }
 
 const KEY = 'atrium:v1';

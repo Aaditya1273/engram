@@ -185,14 +185,21 @@ export class Stage {
     });
   }
 
-  /** Centres a row of buttons of differing widths, evenly gapped. */
+  /**
+   * Centres buttons of differing widths, evenly gapped, at most five to a row (more would leave the central
+   * view in a headset); extra rows stack downward.
+   */
   private layoutRow(buttons: Panel[]) {
-    const gap = 0.016, total = buttons.reduce((s, b) => s + b.w, 0) + gap * (buttons.length - 1);
-    let x = -total / 2;
-    for (const b of buttons) {
-      b.position.x = x + b.w / 2;
-      x += b.w + gap;
-      this.topRow.add(b);
+    const gap = 0.016, perRow = 5;
+    for (let r = 0; r * perRow < buttons.length; r++) {
+      const row = buttons.slice(r * perRow, r * perRow + perRow);
+      const total = row.reduce((s, b) => s + b.w, 0) + gap * (row.length - 1);
+      let x = -total / 2;
+      for (const b of row) {
+        b.position.set(x + b.w / 2, -r * (BUTTON_H + 0.014), 0);
+        x += b.w + gap;
+        this.topRow.add(b);
+      }
     }
   }
 

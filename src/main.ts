@@ -12,6 +12,7 @@ const THEME_NAME: Record<string, string> = { garden: 'Garden', ...Object.fromEnt
 import { recallRush } from './headset/rush';
 import { Lumen } from './headset/lumen';
 import { dailyChallenge } from './headset/challenge';
+import { athleteFlow } from './headset/athlete';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
@@ -209,7 +210,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz' | 'collection' | 'challenge';
+    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz' | 'collection' | 'challenge' | 'athlete';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -255,6 +256,7 @@ async function home(missedDays: number) {
     }
     if (action === 'more') {
       action = await stage.ask<Action>([
+        { label: 'Memory Athlete', value: 'athlete' },
         ...(cloud.online ? [{ label: 'Daily challenge', value: 'challenge' as const }] : []),
         ...(store.data.memories.length ? [{ label: 'Quiz me', value: 'quiz' as const }, { label: 'Collection', value: 'collection' as const }] : []),
         { label: 'Remember this', value: 'capture' },
@@ -273,6 +275,16 @@ async function home(missedDays: number) {
       else if (action === 'rush') await recallRush(ctx);
       else if (action === 'quiz') await quizMe(ctx);
       else if (action === 'collection') await collectionFlow(ctx);
+      else if (action === 'athlete') {
+        await athleteFlow(ctx, async (activity) => {
+          if (activity === 'journey') await journeysMenu();
+          else if (activity === 'build' && cloud.online) await buildFlow();
+          else if (activity === 'challenge' && cloud.online) await dailyChallenge(ctx);
+          else if (activity === 'quiz') await quizMe(ctx);
+          else if (store.data.memories.length >= 3) await recallRush(ctx);
+          else await journeysMenu();
+        });
+      }
       else if (action === 'challenge') {
         // A duel code (from a friend, via the companion) plays their seed instead of today's.
         const which = input.xr ? 'daily' : await stage.ask([{ label: "Today's challenge", value: 'daily' }, { label: 'Join a duel', value: 'duel' }, { label: 'Back', value: '' }]);

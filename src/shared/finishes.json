@@ -137,5 +137,17 @@
       "seconds": 255,
       "bytes": 150804
     }
+  },
+  "house": {
+    "silver": {
+      "taskId": 8270343,
+      "seconds": 244,
+      "bytes": 353016
+    },
+    "gold": {
+      "taskId": 8270345,
+      "seconds": 245,
+      "bytes": 297240
+    }
   }
 }
