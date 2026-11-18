@@ -1,0 +1,5 @@
+node_modules/
+out/
+capture/clips/
+public/clips/
+public/audio/

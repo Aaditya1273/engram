@@ -4,7 +4,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { useMemoryDb } from '../server/db';
 import { handle } from '../server/routes';
 import { offlineDraft } from '../server/pipeline';
-import { htmlToText, looksLikeList, safeUrl, settle } from '../server/palace';
+import { htmlToText, looksLikeList, promisedCount, safeUrl, settle } from '../server/palace';
 import type { Memory, Review } from '../src/shared/types';
 
 // Real Postgres (PGlite, in memory), real routes, offline drafter (no AI keys in tests).
@@ -334,6 +334,22 @@ describe('World Builder', () => {
     expect(new Set(mine.map((e) => e.item.journey.id)).size).toBe(1);
     expect(mine[0].item.journey.name).toBe('Cranial nerves');
     expect(mine[0].item.scenes).toHaveLength(1);
+  });
+
+  it('asks again when the AI cuts a counted list short, and keeps the full journey', async () => {
+    process.env.GEMINI_API_KEY = 'g';
+    const stop = (n: number) => ({ cue: `CN ${n}`, question: `Cranial nerve ${n}?`, answer: `nerve ${n}`, alternates: [], lang: 'en-US', scene: { mnemonic: 'm', focus: 0, props: [{ id: 'cat', x: 0, y: 0, scale: 1, color: '' }] }, link: 'l' });
+    const draft = (n: number) => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ name: 'The 12 cranial nerves', rooms: [{ title: 'All', stops: Array.from({ length: n }, (_, i) => stop(i + 1)) }] }) } }] }));
+    const f = vi.fn().mockResolvedValueOnce(draft(9)).mockResolvedValueOnce(draft(12));
+    vi.stubGlobal('fetch', f);
+    const r = await call('POST', '/api/palace', dev, { name: 'The 12 cranial nerves' });
+    vi.unstubAllGlobals();
+    delete process.env.GEMINI_API_KEY;
+    expect(r.status).toBe(201);
+    expect(r.data.count).toBe(12);
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(promisedCount('The 12 cranial nerves')).toBe(12);
+    expect(promisedCount('Revolution of 1848 lasted 2 years')).toBeNull();
   });
 
   it('never turns a bare topic into a one-stop palace when the AI is unavailable', async () => {

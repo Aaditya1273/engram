@@ -79,11 +79,28 @@ function toItem(s: z.infer<typeof Stop>, room: string): (DeckItem & { room: stri
   };
 }
 
+/** A count the material promises ("the 12 cranial nerves", "7 steps"): the journey must have that many stops. */
+export const promisedCount = (s: string): number | null => {
+  const n = Number(s.match(/\b(?:the\s+)?([2-9]|1\d|20)\s+(?!%|years?\b|days?\b|minutes?\b)[a-z]/i)?.[1]);
+  return n >= 2 && n <= MAX_STOPS ? n : null;
+};
+
 export async function buildPalace(material: string, nameHint?: string): Promise<PalaceResult> {
   const text = material.slice(0, MAX_MATERIAL);
-  const out = await chatJson(PalaceDraft, 'atrium_palace', SYSTEM,
-    `${nameHint ? `Name: ${nameHint}\n` : ''}<material>\n${text.slice(0, MODEL_MATERIAL)}\n</material>`, 90_000, 0.3); // completeness over flair
-  const items = out?.rooms.flatMap((r) => r.stops.map((s) => toItem(s, r.title))).filter((i): i is DeckItem & { room: string } => !!i).slice(0, MAX_STOPS) ?? [];
+  const ask = (extra = '') => chatJson(PalaceDraft, 'atrium_palace', SYSTEM,
+    `${nameHint ? `Name: ${nameHint}\n` : ''}${extra}<material>\n${text.slice(0, MODEL_MATERIAL)}\n</material>`, 90_000, 0.3); // completeness over flair
+  const itemsOf = (o: Awaited<ReturnType<typeof ask>>) =>
+    o?.rooms.flatMap((r) => r.stops.map((s) => toItem(s, r.title))).filter((i): i is DeckItem & { room: string } => !!i).slice(0, MAX_STOPS) ?? [];
+  let out = await ask();
+  let items = itemsOf(out);
+  // Models sometimes stop a canonical list early (9 of the 12 cranial nerves). If the topic names its count and the
+  // draft falls short, ask once more with the count spelled out, and keep the fuller journey.
+  const want = promisedCount(`${nameHint ?? ''} ${text.slice(0, 200)}`);
+  if (out && want && items.length < want) {
+    const again = await ask(`This list has exactly ${want} items. Include all ${want}, one stop each, in order.\n`);
+    const more = itemsOf(again);
+    if (more.length > items.length) [out, items] = [again, more];
+  }
   if (out && items.length) {
     items[items.length - 1].link = '';
     return { name: (nameHint || out.name).slice(0, 80), items, drafter: provider()!.name };
