@@ -4,7 +4,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { useMemoryDb } from '../server/db';
 import { handle } from '../server/routes';
 import { offlineDraft } from '../server/pipeline';
-import { htmlToText, safeUrl, settle } from '../server/palace';
+import { htmlToText, looksLikeList, safeUrl, settle } from '../server/palace';
 import type { Memory, Review } from '../src/shared/types';
 
 // Real Postgres (PGlite, in memory), real routes, offline drafter (no AI keys in tests).
@@ -337,6 +337,12 @@ describe('World Builder', () => {
     expect((await call('POST', '/api/palace', dev, {})).status).toBe(400);
     expect((await call('POST', '/api/palace', dev, { url: 'http://localhost:5179/secret' })).status).toBe(400);
     expect((await call('POST', '/api/palace', dev, { url: 'http://192.168.1.4/' })).status).toBe(400);
+  });
+
+  it('only treats real term – definition lists as lists when the AI is unavailable', () => {
+    expect(looksLikeList('CN I - olfactory\nCN II - optic\nCN III - oculomotor')).toBe(true);
+    expect(looksLikeList('Topic: The planets')).toBe(false);
+    expect(looksLikeList('The cranial nerves are twelve pairs of nerves.\nThey emerge from the brain.\nSee also: anatomy')).toBe(false);
   });
 
   it('gives every drafted scene a footing and keeps painted colours', () => {

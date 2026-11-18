@@ -160,8 +160,9 @@ export interface DraftResult {
 
 export async function draft(text: string, topicHint?: string): Promise<DraftResult> {
   const material = text.slice(0, MAX_INPUT_CHARS);
+  // The model reads the first ~3k tokens (free-tier per-minute allowances); the offline drafter still sees it all.
   const out = await chatJson(Draft, 'atrium_draft', SYSTEM,
-    `${topicHint ? `Topic: ${topicHint}\n` : ''}At most ${MAX_ITEMS} items.\n<material>\n${material}\n</material>`);
+    `${topicHint ? `Topic: ${topicHint}\n` : ''}At most ${MAX_ITEMS} items.\n<material>\n${material.slice(0, 12_000)}\n</material>`);
   const items = out?.items.map(toItem).filter((i): i is DeckItem => !!i).slice(0, MAX_ITEMS) ?? [];
   if (out && items.length) return { topic: (topicHint || out.topic).slice(0, 60), items, drafter: provider()!.name };
   return offlineDraft(material, topicHint);

@@ -14,6 +14,12 @@ import { chatJson, offlineDraft, provider, Scene, toScene } from './pipeline';
 
 export const MAX_STOPS = 20;
 export const MAX_MATERIAL = 40_000;
+/**
+ * What the model reads: about 3k tokens. Fits a free-tier per-minute token allowance (Groq: 8k) with room for the
+ * reply, and lists in notes, chapters and articles almost always come early.
+ * ponytail: head-only; chunk and merge rooms if long documents need their later sections.
+ */
+export const MODEL_MATERIAL = 12_000;
 
 const Stop = z.object({
   cue: z.string().describe('short label for the stop, under 24 characters'),
@@ -76,14 +82,15 @@ function toItem(s: z.infer<typeof Stop>, room: string): (DeckItem & { room: stri
 export async function buildPalace(material: string, nameHint?: string): Promise<PalaceResult> {
   const text = material.slice(0, MAX_MATERIAL);
   const out = await chatJson(PalaceDraft, 'atrium_palace', SYSTEM,
-    `${nameHint ? `Name: ${nameHint}\n` : ''}<material>\n${text}\n</material>`, 90_000, 0.3); // completeness over flair
+    `${nameHint ? `Name: ${nameHint}\n` : ''}<material>\n${text.slice(0, MODEL_MATERIAL)}\n</material>`, 90_000, 0.3); // completeness over flair
   const items = out?.rooms.flatMap((r) => r.stops.map((s) => toItem(s, r.title))).filter((i): i is DeckItem & { room: string } => !!i).slice(0, MAX_STOPS) ?? [];
   if (out && items.length) {
     items[items.length - 1].link = '';
     return { name: (nameHint || out.name).slice(0, 80), items, drafter: provider()!.name };
   }
-  // A bare topic needs the AI; never turn "Topic: …" itself into a one-stop palace.
-  if (/^Topic: /.test(text.trim()) && !text.trim().includes('\n')) return { name: nameHint ?? 'My palace', items: [], drafter: 'unavailable' };
+  // Without the AI, only a real list can become a journey: a bare topic or prose (a web page, a PDF chapter) would
+  // turn into junk stops, so say the builder is busy instead.
+  if (!looksLikeList(text)) return { name: nameHint ?? 'My palace', items: [], drafter: 'unavailable' };
   // No AI (or it failed): an ordered journey from term – definition lines, one plain scene each.
   const off = offlineDraft(text, nameHint);
   return {
@@ -91,6 +98,13 @@ export async function buildPalace(material: string, nameHint?: string): Promise<
     items: off.items.slice(0, MAX_STOPS).map((i) => ({ ...i, scenes: [i.scenes[0] as SceneSpec], link: '', room: off.topic })),
     drafter: 'offline',
   };
+}
+
+/** Most non-empty lines are "term – definition" (what the offline drafter understands). */
+export function looksLikeList(text: string): boolean {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const pairs = lines.filter((l) => /^(?:[-*•]|\d+[.)])?\s*.{1,80}?(?:\s+[-–—]\s+|\s*[:=]\s*).{1,80}$/.test(l) && l.length < 170);
+  return pairs.length >= 2 && pairs.length >= lines.length * 0.6;
 }
 
 /** Readable text from a web page: scripts, styles and markup out, entities decoded, whitespace collapsed. */
