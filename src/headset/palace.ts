@@ -3,6 +3,9 @@ import { lanternLook } from '../core/lantern';
 import { LANTERN, PALETTE, SCENE } from '../shared/theme';
 import type { SceneSpec } from '../shared/types';
 import type { Theme } from '../core/streak';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { modelEnvironment } from '../shared/props';
 import { buildDecor } from './decor';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { Chest } from './chest';
@@ -56,6 +59,24 @@ const LOTUS = {
   mat: new THREE.MeshBasicMaterial({ map: lotusTex, alphaTest: 0.35, color: '#9c8f6a' }),
 };
 
+/**
+ * The moonlit theme's lantern: Aholo Lux3D's model of the painted sakura pagoda lantern (scripts/sakura-lantern.mjs),
+ * fitted to the painted lantern's place: its top on the chain, 17 cm tall. Loaded the first time it's needed.
+ */
+const SAKURA_H = 0.17;
+let sakuraLantern: Promise<THREE.Object3D> | null = null;
+function loadSakuraLantern() {
+  sakuraLantern ??= new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${import.meta.env.BASE_URL}art/models/sakura-lantern.glb`).then((g) => {
+    const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
+    const s = SAKURA_H / size.y;
+    g.scene.scale.setScalar(s);
+    g.scene.position.set(-mid.x * s, 0.07 - box.max.y * s, -mid.z * s);
+    return g.scene;
+  });
+  sakuraLantern.catch(() => (sakuraLantern = null));
+  return sakuraLantern;
+}
+
 /** Golden motes rising from a relit lantern: the reward made visible. */
 const MOTES = 14, MOTE_S = 1.6;
 let moteMat: THREE.PointsMaterial | null = null; // created lazily: the soft dot texture needs a canvas
@@ -68,6 +89,9 @@ export class Alcove {
   private sceneHolder = new THREE.Group();
   private lotus = new THREE.Mesh(LOTUS.geo, LOTUS.mat);
   private core: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+  /** The 3D lantern shown instead of the painted one in some themes; its materials are this alcove's own (own light). */
+  private model = new THREE.Group();
+  private modelMats: THREE.MeshStandardMaterial[] = [];
   private glow: THREE.Sprite;
   /** The lantern's light pooling on the floor round its pedestal: a fading memory darkens its patch of floor. */
   private wash: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
@@ -119,6 +143,8 @@ export class Alcove {
     this.group.add(this.lotus);
 
     this.core = hang(add(GEO.lantern, new THREE.MeshBasicMaterial({ map: lanternTex, color: UNLIT, alphaTest: 0.35, alphaToCoverage: true }), 0, LANTERN_Y, 0.04)) as typeof this.core;
+    this.model.position.set(0, LANTERN_Y, 0.04);
+    hang(this.model);
     this.glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
     this.glow.position.set(0, LANTERN_Y, 0.05);
     this.glow.scale.setScalar(0.3);
@@ -214,6 +240,33 @@ export class Alcove {
     } else this.sceneHolder.visible = true;
   }
 
+  /** Show a 3D lantern (a template shared by every alcove) instead of the painted one; null puts the painting back. */
+  setLanternModel(template: THREE.Object3D | null) {
+    if (template && !this.modelMats.length) {
+      const m = template.clone();
+      m.traverse((o) => {
+        if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) {
+          const mat = (o.material = o.material.clone());
+          mat.envMap = modelEnvironment();
+          mat.emissive.set('#ffffff');
+          mat.emissiveMap = mat.map; // a lit lantern glows in its own colours
+          this.modelMats.push(mat);
+        }
+      });
+      this.model.add(m);
+    }
+    this.model.visible = !!template;
+    this.core.visible = !template;
+  }
+
+  /** Unlit: a dim silhouette; lit: its paper and roof glow. */
+  private lightModel(lit: number) {
+    for (const m of this.modelMats) {
+      m.color.setScalar(0.35 + 0.65 * lit);
+      m.emissiveIntensity = 0.9 * lit;
+    }
+  }
+
   /** Recall probability drives the lantern; pass instant to skip easing (e.g. during a time-lapse). */
   setRecall(r: number | null, instant = false) {
     this.target = r;
@@ -285,6 +338,7 @@ export class Alcove {
       this.glow.material.opacity = 0;
       this.wash.material.opacity = 0;
       this.core.material.color.copy(UNLIT);
+      this.lightModel(0);
     } else {
       const look = lanternLook(this.shown);
       let k = look.intensity;
@@ -297,6 +351,7 @@ export class Alcove {
       this.glow.material.opacity = Math.min(1, k + 0.4 * b);
       this.glow.scale.setScalar((0.18 + 0.22 * k) * breath * (1 + 0.9 * b));
       this.core.material.color.copy(UNLIT).lerp(LIT, Math.min(1, k + b));
+      this.lightModel(Math.min(1, k + b));
       this.wash.material.opacity = 0.32 * k + 0.25 * b;
       this.scene?.setSaturation(look.saturation);
     }
@@ -355,7 +410,15 @@ export class Palace {
     const [sky, ground] = THEMES[theme];
     this.hemi.color.set(sky);
     this.hemi.groundColor.set(ground);
+    this.theme = theme;
+    this.dress(theme);
+    // The moonlit night hangs 3D sakura lanterns; if the model can't load, the painted ones simply stay.
+    if (theme === 'moonlit') void loadSakuraLantern().then((t) => this.theme === 'moonlit' && this.alcoves.forEach((a) => a.setLanternModel(t)), () => {});
+    else this.alcoves.forEach((a) => a.setLanternModel(null));
   }
+  private theme: Theme = 'garden';
+  /** Repaints the view through the arches and the vines (from buildDecor). */
+  private dress: (theme: Theme) => void = () => {};
 
   /** True while a flow borrows the alcoves for a display (the collection): background redraws must wait. */
   borrowed = false;
@@ -397,7 +460,8 @@ export class Palace {
 
   private buildRoom() {
     const before = new Set([...this.ring.children, ...this.root.children]);
-    buildDecor(this.ring, this.root);
+    this.dress = buildDecor(this.ring, this.root);
+    this.dress('garden');
     this.decor = [...this.ring.children, ...this.root.children].filter((o) => !before.has(o));
   }
 

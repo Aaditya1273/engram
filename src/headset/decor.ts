@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { Theme } from '../core/streak';
 import { DECOR } from '../shared/theme';
 import { LANTERN_HOOP_Y, RADIUS, SCENE_Y, SLOT_COUNT, SLOT_DEG } from './layout';
 import { glowTexture } from './ui';
@@ -218,10 +219,22 @@ function canopyTexture() {
   });
 }
 
+/**
+ * What each theme paints through the arches and over the piers. `tiles` paintings sit side by side in the
+ * backdrop image, one per bay; `centred` puts each painting's middle in an arch and repeats them unmirrored (the
+ * seams hide behind the piers), for paintings that aren't symmetric. Themes not listed keep the garden's forest and only tint the light.
+ */
+const SCENERY: Record<'garden' | 'moonlit' | 'sakura', { backdrop: string; tiles: number; centred?: boolean; vines: string; canopy: string; rays: number }> = {
+  garden: { backdrop: 'palace/forest.webp', tiles: 1, vines: 'palace/vines.webp', canopy: DECOR.canopyShade, rays: 0.3 },
+  moonlit: { backdrop: 'palace/moonlit.webp', tiles: 1, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#2c3552', rays: 0.07 },
+  sakura: { backdrop: 'palace/sakura.webp', tiles: 2, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#f0c8d4', rays: 0.3 },
+};
+
 /** Arcade dimensions: ten wide bays, the opening an arch on tall jambs. */
 const ARCADE = { r: 2.75, bays: 10, depth: 0.32, height: 2.9, archHalf: 0.6, spring: 1.8 };
 
-export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
+/** Builds the room; returns the function that dresses it for a theme. */
+export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D): (theme: Theme) => void {
   const glowing = (map: THREE.Texture, color = '#ffffff', glow = 0.45) =>
     new THREE.MeshLambertMaterial({ map, color, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: glow });
   const marble = texture('palace/marble.webp', [3, 1]);
@@ -287,10 +300,7 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
   const fern = new THREE.PlaneGeometry(0.62, 0.55).translate(0, 0.27, 0);
   // The vine painting hangs from its top edge (303×1024 px), just under the cornice.
   const vineH = 1.25, vine = new THREE.PlaneGeometry(vineH * (303 / 1024), vineH).translate(0, -vineH / 2, 0);
-  const vineMat = (() => {
-    const t = texture('palace/vines.webp');
-    return new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.4, side: THREE.DoubleSide, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.45 });
-  })();
+  const vineMat = new THREE.MeshLambertMaterial({ alphaTest: 0.4, side: THREE.DoubleSide, emissive: '#ffffff', emissiveIntensity: 0.45 });
   for (let k = 0; k < A.bays; k++) {
     const deg = (k * 360) / A.bays;
     b.at(ringFrame(deg, A.r));
@@ -339,28 +349,46 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D) {
     m.position.y = y;
     return m;
   });
-  const forestMap = (repeatY: number, offsetY: number) => {
-    const t = texture('palace/forest.webp');
-    t.wrapS = THREE.MirroredRepeatWrapping;
-    t.repeat.set(A.bays, repeatY);
-    t.offset.y = offsetY;
-    return t;
+  // Textures load the first time a theme is shown, then are kept (switching back is instant).
+  const loaded = new Map<string, THREE.Texture>();
+  const paint = (file: string, tiles = 1, centred = false, repeatY = 1, offsetY = 0) => {
+    const key = `${file} ${repeatY}`;
+    if (!loaded.has(key)) {
+      const t = texture(file);
+      t.wrapS = centred ? THREE.RepeatWrapping : THREE.MirroredRepeatWrapping;
+      t.repeat.set(A.bays / tiles, repeatY);
+      t.offset.set(centred ? 0.5 / tiles : 0, offsetY);
+      loaded.set(key, t);
+    }
+    return loaded.get(key)!;
   };
   const canopyWall = new THREE.Mesh(new THREE.CylinderGeometry(A.r + 0.6, A.r + 0.6, 1.2, 64, 1, true),
-    new THREE.MeshBasicMaterial({ map: forestMap(0.25, 0.75), side: THREE.BackSide, fog: false }));
+    new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false }));
   canopyWall.position.y = A.height + 0.75;
-  const canopy = new THREE.Mesh(new THREE.CircleGeometry(A.r + 0.6, 64), new THREE.MeshBasicMaterial({ map: canopyTexture(), fog: false, color: DECOR.canopyShade }));
+  const canopy = new THREE.Mesh(new THREE.CircleGeometry(A.r + 0.6, 64), new THREE.MeshBasicMaterial({ map: canopyTexture(), fog: false }));
   canopy.rotation.x = Math.PI / 2;
   canopy.position.y = A.height + 1.35;
   // 5 m away, each bay's slice is 3.1 m wide; 4.6 m tall stays close to the painting's 3:4 shape. It reaches
   // below the floor so every sightline through an arch, high or low, lands on the painting (no flat ground band).
-  const forest = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 4.6, 64, 1, true), new THREE.MeshBasicMaterial({ map: forestMap(1, 0), side: THREE.BackSide, fog: false }));
+  const forest = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 4.6, 64, 1, true), new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false }));
   forest.position.y = 1.1;
   // The lanterns hang on chains from a gold hoop under the canopy.
   const hoop = new THREE.Mesh(new THREE.TorusGeometry(RADIUS - 0.04, 0.012, 6, 160), M.gold); // lanterns hang 4 cm in front of centre
   hoop.rotation.x = Math.PI / 2;
   hoop.position.y = LANTERN_HOOP_Y;
-  room.add(floor, ...glowRings, steps, cornice, ...corniceGold, canopyWall, canopy, forest, hoop, sunRays());
+  const rays = sunRays();
+  room.add(floor, ...glowRings, steps, cornice, ...corniceGold, canopyWall, canopy, forest, hoop, rays);
+
+  return (theme) => {
+    const s = SCENERY[theme as keyof typeof SCENERY] ?? SCENERY.garden;
+    forest.material.map = paint(s.backdrop, s.tiles, s.centred);
+    canopyWall.material.map = paint(s.backdrop, s.tiles, s.centred, 0.25, 0.75); // the top of the painting, above the cornice
+    if (!loaded.has(s.vines)) loaded.set(s.vines, texture(s.vines));
+    vineMat.map = vineMat.emissiveMap = loaded.get(s.vines)!;
+    canopy.material.color.set(s.canopy);
+    ((rays.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = s.rays;
+    for (const m of [forest.material, canopyWall.material, vineMat]) m.needsUpdate = true;
+  };
 }
 
 /** Soft sunbeams falling from the canopy. Fixed to the room (not the turning ring), ahead of you. */
