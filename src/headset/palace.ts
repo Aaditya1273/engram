@@ -31,7 +31,6 @@ const WARMTH_MIN = 1.1, WARMTH_MAX = 2.6;
 const THEMES: Record<Theme, [sky: string, ground: string]> = {
   garden: [SCENE.lightSky, SCENE.lightGround],
   moonlit: ['#B9CCF2', '#1C2A3E'],
-  autumn: ['#FFC98E', '#4A2E18'],
   golden: ['#FFE08A', '#5A4618'],
   sakura: ['#FFD2E2', '#3E2A33'],
 };
@@ -407,7 +406,7 @@ export class Palace {
    * hemisphere light), which every marble, gold and leaf surface picks up. One light, no extra cost.
    */
   setTheme(theme: Theme) {
-    const [sky, ground] = THEMES[theme];
+    const [sky, ground] = THEMES[theme] ?? THEMES.garden; // a theme saved by an older version may be gone
     this.hemi.color.set(sky);
     this.hemi.groundColor.set(ground);
     this.theme = theme;

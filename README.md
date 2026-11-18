@@ -14,7 +14,7 @@ Atrium's AI turns anything you need to remember (a chapter, a talk, a list, a PD
 
 </div>
 
-> **Build status (18 Nov 2026):** journeys and the elements onboarding, the World Builder, Lumen, Recall Rush, the collection, the arena (daily challenge, duels, friends, leagues), Memory Athlete, creator palaces, Chinese/English and the Aholo Lux3D 3D pipeline are built and tested on desktop: **87 unit and integration tests** plus scripted browser walkthroughs. **Not yet:** a Meta Quest device pass, the production database (cloud features are off on the live site), themed worlds and home reconstruction, study rooms. The full, honest table is in **[docs/STATUS.md](docs/STATUS.md)**; Aholo timings and credit costs are in **[docs/AHOLO_API_NOTES.md](docs/AHOLO_API_NOTES.md)**.
+> **Build status (18 Nov 2026):** journeys and the elements onboarding, the World Builder, Lumen, Recall Rush, the collection, the arena (daily challenge, duels, friends, leagues), Memory Athlete, creator palaces, Chinese/English and the Aholo Lux3D 3D pipeline are built and tested on desktop: **93 unit and integration tests** plus scripted browser walkthroughs; the live site runs on a Neon Postgres database with every cloud feature on. **Not yet:** a Meta Quest device pass, Aholo-generated worlds and home reconstruction, study rooms. The full, honest table is in **[docs/STATUS.md](docs/STATUS.md)**; Aholo timings and credit costs are in **[docs/AHOLO_API_NOTES.md](docs/AHOLO_API_NOTES.md)**.
 
 ---
 
@@ -188,7 +188,7 @@ Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium gives two honest numbers
 | **Freezes** | Each full headset session earns one freeze (bank up to 3) |
 | **Repair** | Restore a broken streak within 48 hours by completing a double session |
 | **Weekly mode** | Optional: 5 of 7 days counts as a streak week |
-| **Milestones** | 7 / 30 / 100 / 365 days unlock new wings and palace themes |
+| **Worlds** | On day one you choose your world: Garden, Moonlit (a shrine lake with 3D sakura pagoda lanterns) or Sakura (blossom valleys). The other two open at 7 days of ember, Golden hour at 365. A world still closed can be yours now by starting over: the streak goes back to day 1, every memory stays |
 | **Wings** | Every 20 memories open a new wing of 20 alcoves; step between wings from the home menu (the room re-fills inside the snap fade) |
 
 **Guardrails:** no paid streak protection, no loot boxes, no notifications, and a gentle stop after 20 minutes. Leagues rank by memories kept, not reviews done; they are opt-in, with an anonymous mode and no demotion.

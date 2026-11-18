@@ -1,6 +1,6 @@
 # Atrium build status
 
-How every feature was checked. **Tests** are in `tests/` (`npm run test`, 87 passing). **Walkthrough** means a scripted browser run of the real app on desktop (Playwright scripts kept outside the repo), at the stated date. **Live API** means a real call to the named service, not a mock. Nothing here has been run on a Meta Quest yet; every VR-only path says so.
+How every feature was checked. **Tests** are in `tests/` (`npm run test`, 93 passing). **Walkthrough** means a scripted browser run of the real app on desktop (Playwright scripts kept outside the repo), at the stated date. **Live API** means a real call to the named service, not a mock. Nothing here has been run on a Meta Quest yet; every VR-only path says so.
 
 Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 
@@ -14,6 +14,7 @@ Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 | Co-created scenes, spoken or typed twists, gesture signature (DTW), graded recall, FSRS lanterns | ✅ | Tests `gesture matcher`, `grading`, `FSRS model`, `answer matching`; walkthroughs |
 | No-backlog sessions, comeback walk, 20-minute stop | ✅ | Tests `session triage` |
 | Streaks, freezes, 48-hour repair, weekly mode, milestones and themes | ✅ | Tests `ember streak`, `can repair for 48 hours…`, `milestones and weekly mode` |
+| Choose your world on day one (Garden, Moonlit, Sakura); the other two open at 7 days, Golden hour at 365; start over in a closed world (streak back to day 1, memories kept, synced to the server) | ✅ | Tests `opens your own world…`, `starts the streak over at day 1…`; walkthrough (18 Nov): first-run choice and preview, free switching at 12 days, start over at 3 days |
 | Readiness and goals | 🟡 | MCP `get_readiness` test; the headset shows "if you stop today" only (reviews per day via MCP) |
 | Wind-down, gaze-only, captions, larger text | 🟡 | Desktop only; gaze dwell never tried in a headset |
 

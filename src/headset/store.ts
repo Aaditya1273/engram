@@ -15,8 +15,10 @@ export interface Settings {
   twistLang: string;
   /** Demo/testing: shifts the clock forward (ms). Set with ?skip=3d. */
   clockOffset: number;
-  /** Palace theme (unlocked by streak milestones). */
+  /** Palace theme shown now: the learner's world, or one they've unlocked. */
   theme?: Theme;
+  /** The world chosen on day one (or on starting over); the other two open at 7 days. Absent before the choice. */
+  world?: Theme;
   /** Count the streak in weeks of 5 active days instead of every day. */
   weeklyStreak?: boolean;
   /** The last milestone celebrated, so it's only celebrated once. */
@@ -30,6 +32,8 @@ interface CloudState {
   dirtyMemories: string[];
   pendingReviews: string[];
   streakEvents: { type: 'recall' | 'session'; day: string }[];
+  /** Started over in a new world; tell the server on the next sync so its streak restarts too. */
+  restart?: boolean;
   goals: Goal[];
 }
 
@@ -181,6 +185,17 @@ export class Store {
   streakSession(day: string) {
     this.data.streak = recordFullSession(this.data.streak, day);
     this.data.cloud.streakEvents.push({ type: 'session', day });
+    this.save();
+  }
+
+  /** Start over in a new world: the streak goes back to day 1 (every memory stays). Synced on the next sync. */
+  restartIn(world: Theme) {
+    const s = this.data.settings;
+    this.data.streak = newStreak();
+    this.data.cloud.streakEvents = [];
+    this.data.cloud.restart = true;
+    s.world = s.theme = world;
+    s.celebrated = undefined;
     this.save();
   }
 

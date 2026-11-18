@@ -34,6 +34,17 @@ export function setLang(l: Lang) {
 export const speechLocale = () => (lang === 'zh' ? 'zh-CN' : 'en-US');
 
 const ZH: Record<string, string> = {
+  // Worlds and themes
+  'Choose your world': '选择你的世界', 'Begin here': '从这里开始', Garden: '花园', Moonlit: '月夜', Sakura: '樱花', 'Golden hour': '黄金时刻',
+  Theme: '主题', 'start over': '重新开始', '365 days': '365 天', 'Start over': '重新开始', Cancel: '取消', 'Start over in': '重新开始于', 'Day 1 in': '第 1 天：',
+  'The other two open after 7 days of ember.': '连续 7 天后，另外两个世界将开放。',
+  'The other two worlds open after 7 days of ember.': '连续 7 天后，另外两个世界将开放。',
+  'A sunlit forest garden: green marble, golden light, fireflies.': '阳光下的森林花园：绿色大理石、金色光芒、萤火虫。',
+  'A shrine lake under the full moon, with sakura pagoda lanterns over your memories.': '满月下的神社湖，樱花宝塔灯笼照亮你的记忆。',
+  'Cherry-blossom valleys under snowy mountains.': '雪山下的樱花山谷。',
+  'Your world and every theme you have opened. A world still closed can be yours now if you start over at day 1.': '你的世界和已开放的主题。尚未开放的世界，可以从第 1 天重新开始来获得。',
+  'Golden hour opens at 365 days of ember.': '连续 365 天后开放黄金时刻。',
+  'Your streak goes back to day 1 and this becomes your world. Every memory stays in your palace.': '连续天数回到第 1 天，这里成为你的世界。所有记忆都会留在宫殿里。',
   // Menus and buttons
   Start: '开始', Practise: '练习', Journeys: '记忆之旅', 'Recall Rush': '记忆冲刺', 'Build a palace': '建造宫殿', 'More…': '更多…',
   'Remember this': '记住这个', 'Ask an agent': '让助手发送', Settings: '设置', Back: '返回', 'Quiz me': '考考我', Collection: '收藏',

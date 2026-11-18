@@ -79,11 +79,12 @@ export class Cloud {
         const d = this.store.data, c = d.cloud;
         const memories = d.memories.filter((m) => c.dirtyMemories.includes(m.id));
         const reviews = d.reviews.filter((r) => c.pendingReviews.includes(r.id));
-        const events = c.streakEvents.slice();
+        const events = c.streakEvents.slice(), restart = !!c.restart;
         const res = await this.api<Parameters<Store['merge']>[0]>('/sync', {
           method: 'POST',
-          body: JSON.stringify({ memories, reviews, streakEvents: events, since: c.cursor, streak: d.streak }),
+          body: JSON.stringify({ memories, reviews, streakEvents: events, since: c.cursor, streak: d.streak, restart }),
         });
+        if (restart) c.restart = false;
         this.store.merge(res, { memories: memories.map((m) => m.id), reviews: reviews.map((r) => r.id), events: events.length });
         this.online = true;
       } catch {

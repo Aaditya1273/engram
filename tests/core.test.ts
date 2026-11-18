@@ -461,11 +461,13 @@ describe('collection rarity', () => {
 });
 
 describe('milestones and weekly mode', () => {
-  it('unlocks themes at 7, 30, 100 and 365 days', () => {
-    expect(unlockedThemes(3)).toEqual(['garden']);
-    expect(unlockedThemes(30)).toEqual(['garden', 'moonlit', 'autumn']);
-    expect(milestoneAt(100)?.name).toBe('Golden hour');
-    expect(milestoneAt(8)).toBeNull();
+  it('opens your own world, the other two at 7 days, and Golden hour at 365', () => {
+    expect(unlockedThemes('sakura', 6)).toEqual(['sakura']);
+    expect(unlockedThemes('sakura', 7)).toEqual(['sakura', 'garden', 'moonlit']);
+    expect(unlockedThemes('moonlit', 365)).toEqual(['moonlit', 'garden', 'sakura', 'golden']);
+    expect(milestoneAt(7)?.name).toBe('Every world');
+    expect(milestoneAt(365)?.name).toBe('Golden hour');
+    expect(milestoneAt(30)).toBeNull();
   });
 
   it('counts runs of weeks with five active days, never breaking on the current week', () => {

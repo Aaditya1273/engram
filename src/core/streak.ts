@@ -68,17 +68,23 @@ export function canRepair(s: StreakState, today: string): boolean {
   return !!s.broken && daysBetween(s.broken.day, today) <= REPAIR_WINDOW_DAYS;
 }
 
-/** Streak milestones; each unlocks a palace theme. */
-export const MILESTONES = [
-  { days: 7, theme: 'moonlit', name: 'Moonlit' },
-  { days: 30, theme: 'autumn', name: 'Autumn' },
-  { days: 100, theme: 'golden', name: 'Golden hour' },
-  { days: 365, theme: 'sakura', name: 'Sakura' },
-] as const;
-export type Theme = 'garden' | (typeof MILESTONES)[number]['theme'];
+/** The three worlds a learner chooses between on day one. */
+export const WORLDS = ['garden', 'moonlit', 'sakura'] as const;
+export type Theme = (typeof WORLDS)[number] | 'golden';
+export const THEME_NAME: Record<Theme, string> = { garden: 'Garden', moonlit: 'Moonlit', sakura: 'Sakura', golden: 'Golden hour' };
 
-/** Themes unlocked by the best streak ever reached (the garden is always there). */
-export const unlockedThemes = (best: number): Theme[] => ['garden', ...MILESTONES.filter((m) => best >= m.days).map((m) => m.theme)];
+/** Streak milestones: at 7 days the two worlds you didn't choose open; at 365, Golden hour. */
+export const MILESTONES = [
+  { days: 7, name: 'Every world', says: 'The other two worlds are open' },
+  { days: 365, name: 'Golden hour', says: 'Golden hour is open' },
+] as const;
+
+/** Themes open to a learner: their own world, the other two from 7 days, Golden hour from 365 (best streak ever). */
+export const unlockedThemes = (world: Theme, best: number): Theme[] => [
+  world,
+  ...(best >= 7 ? WORLDS.filter((w) => w !== world) : []),
+  ...(best >= 365 && world !== 'golden' ? ['golden' as const] : []),
+];
 
 /** The milestone just reached, if `count` is exactly one of them (for the celebration). */
 export const milestoneAt = (count: number) => MILESTONES.find((m) => m.days === count) ?? null;

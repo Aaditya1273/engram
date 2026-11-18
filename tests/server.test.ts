@@ -97,6 +97,15 @@ describe('capture → inbox → sync', () => {
     expect(r2.data.streak.count).toBe(5);
   });
 
+  it('starts the streak over at day 1 when the learner restarts in a new world', async () => {
+    const t = (await call('POST', '/api/device', undefined, {})).data.token;
+    const local = { count: 12, best: 12, lastDay: '2026-11-15', freezes: 1, broken: null, sessionsToday: { day: '', n: 0 } };
+    expect((await call('POST', '/api/sync', t, { streak: local })).data.streak.best).toBe(12);
+    const r = await call('POST', '/api/sync', t, { restart: true, streakEvents: [{ type: 'recall', day: '2026-11-16' }] });
+    expect(r.data.streak).toMatchObject({ count: 1, best: 1, freezes: 0 });
+    expect((await call('POST', '/api/sync', t, {})).data.streak.best).toBe(1); // stays restarted
+  });
+
   it('keeps users apart', async () => {
     const stranger = (await call('POST', '/api/device', undefined, {})).data.token;
     expect((await call('GET', '/api/inbox', stranger)).data).toHaveLength(0);

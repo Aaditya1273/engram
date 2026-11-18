@@ -67,7 +67,7 @@ export async function myProfile(userId: string, now = Date.now()) {
   }
   const s = await stats(userId, now);
   const badges = [
-    ...MILESTONES.filter((m) => s.best >= m.days).map((m) => `${m.days}-day ember · ${m.name} theme`),
+    ...MILESTONES.filter((m) => s.best >= m.days).map((m) => `${m.days}-day ember · ${m.name}`),
     ...(s.kept >= 10 ? [`${s.kept} memories kept`] : []),
     ...(p.rush_best >= 10_000 ? ['Recall Rush 10k'] : []),
   ];

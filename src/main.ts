@@ -8,9 +8,8 @@ import { FrameGuard } from './core/frame-guard';
 import { journeys } from './core/journey';
 import { applySite, getLang, setLang, t } from './shared/i18n';
 import { ENGLISH, ENGLISH_JOURNEY } from './shared/deck-english';
-import { dayKey, MILESTONES, milestoneAt, unlockedThemes, weeklyStreak } from './core/streak';
+import { dayKey, milestoneAt, THEME_NAME, unlockedThemes, weeklyStreak, WORLDS, type Theme } from './core/streak';
 
-const THEME_NAME: Record<string, string> = { garden: 'Garden', ...Object.fromEntries(MILESTONES.map((m) => [m.theme, m.name])) };
 import { recallRush } from './headset/rush';
 import { Lumen } from './headset/lumen';
 import { dailyChallenge } from './headset/challenge';
@@ -159,6 +158,7 @@ async function run() {
   const { missedDays } = arrive(store);
   palace.setTheme(store.data.settings.theme ?? 'garden');
   if (!store.data.onboarded) {
+    if (!store.data.settings.world) await chooseWorld();
     try {
       await firstFive(ctx);
     } catch (err) {
@@ -169,6 +169,54 @@ async function run() {
     }
   } else palace.setWarmth(1, 800);
   await home(missedDays);
+}
+
+const WORLD_BLURB: Record<Theme, string> = {
+  garden: 'A sunlit forest garden: green marble, golden light, fireflies.',
+  moonlit: 'A shrine lake under the full moon, with sakura pagoda lanterns over your memories.',
+  sakura: 'Cherry-blossom valleys under snowy mountains.',
+  golden: 'The light of a long, warm evening.',
+};
+
+/** Day one: pick the world your palace stands in (click one to look around it, then begin). */
+async function chooseWorld() {
+  let pick: Theme = 'garden';
+  for (;;) {
+    palace.setTheme(pick);
+    stage.show(t('Choose your world'), `${t(THEME_NAME[pick])}: ${t(WORLD_BLURB[pick])}\n${t('The other two open after 7 days of ember.')}`);
+    const a = await stage.ask<Theme | 'go'>([...WORLDS.map((w) => ({ label: t(THEME_NAME[w]), value: w })), { label: t('Begin here'), value: 'go' }]);
+    if (a === 'go') break;
+    pick = a;
+  }
+  store.data.settings.world = store.data.settings.theme = pick;
+  store.save();
+}
+
+/**
+ * Themes in Settings: anything unlocked switches at once. A world not yet open can be had now by starting over
+ * there: the streak goes back to day 1 (memories stay). Golden hour only opens at 365 days.
+ */
+async function themeMenu() {
+  const s = store.data.settings, world = s.world ?? 'garden';
+  const open = unlockedThemes(world, store.data.streak.best);
+  stage.show(t('Theme'), t('Your world and every theme you have opened. A world still closed can be yours now if you start over at day 1.'));
+  const th = await stage.ask<Theme | null>([
+    ...[...WORLDS, 'golden' as const].map((x) => ({ label: open.includes(x) ? t(THEME_NAME[x]) : `${t(THEME_NAME[x])} · ${t(x === 'golden' ? '365 days' : 'start over')}`, value: x })),
+    { label: t('Back'), value: null },
+  ]);
+  if (!th) return;
+  if (open.includes(th)) {
+    s.theme = th;
+    palace.setTheme(th);
+    return store.save();
+  }
+  if (th === 'golden') return void (await stage.say(t('Golden hour opens at 365 days of ember.'), t('Theme')));
+  palace.setTheme(th);
+  stage.show(`${t('Start over in')} ${t(THEME_NAME[th])}?`, t('Your streak goes back to day 1 and this becomes your world. Every memory stays in your palace.'));
+  if (!(await stage.ask([{ label: t('Start over'), value: true }, { label: t('Cancel'), value: false }]))) return void palace.setTheme(s.theme ?? world);
+  store.restartIn(th);
+  void cloud.sync();
+  await stage.say(`${t('Day 1 in')} ${t(THEME_NAME[th])}. ${t('The other two worlds open after 7 days of ember.')}`, t('Theme'));
 }
 
 /** Something threw inside a flow: say so plainly, tidy the stage, and go back to the palace. */
@@ -208,7 +256,7 @@ async function home(missedDays: number) {
       store.data.settings.celebrated = reached.days;
       store.save();
       play('relight');
-      await stage.say(`${reached.days} days of ember! You've unlocked the ${reached.name} theme. Find it in Settings.`, 'Milestone');
+      await stage.say(`${reached.days} days of ember! ${reached.says}. Find it in Settings.`, 'Milestone');
     }
     stage.browsing = true;
     stage.showArrows(true);
@@ -460,14 +508,7 @@ async function settings() {
       showLang();
       await stage.say(getLang() === 'zh' ? '已切换到中文。' : 'Switched to English.', t('Settings'));
     }
-    if (pick === 'theme') {
-      // Cycle through the themes this learner's best streak has unlocked.
-      const open = unlockedThemes(store.data.streak.best);
-      s.theme = open[(open.indexOf(s.theme ?? 'garden') + 1) % open.length];
-      palace.setTheme(s.theme);
-      store.save();
-      if (open.length === 1) await stage.say('More themes unlock at 7, 30, 100 and 365 days of ember.', 'Theme');
-    }
+    if (pick === 'theme') await themeMenu();
     if (pick === 'narration') setNarration((s.narration = !s.narration));
     if (pick === 'more') {
       const more = await stage.ask([

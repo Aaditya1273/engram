@@ -132,6 +132,8 @@ export const SyncInput = z.object({
   reviews: z.array(ReviewSchema).max(5000).default([]),
   streakEvents: z.array(z.object({ type: z.enum(['recall', 'session']), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).max(200).default([]),
   since: z.number().int().min(0).default(0),
+  /** The learner started over in a new world: the account's streak goes back to day 1 before these events. */
+  restart: z.boolean().optional(),
   /** The device's current streak; adopted only while the account's streak is still blank (first sync / migration). */
   streak: z.object({
     count: z.number().int().min(0), best: z.number().int().min(0), lastDay: z.string().nullable(), freezes: z.number().int().min(0).max(3),
@@ -159,7 +161,7 @@ export async function sync(userId: string, input: z.infer<typeof SyncInput>) {
       [userId, r.id, r.memoryId, r.at, JSON.stringify(r)],
     );
   }
-  let streak = await getStreak(userId);
+  let streak = input.restart ? newStreak() : await getStreak(userId);
   const blank = !streak.lastDay && streak.count === 0 && streak.best === 0;
   let changed = false;
   if (blank && input.streak && input.streak.best > 0) {
@@ -172,7 +174,7 @@ export async function sync(userId: string, input: z.infer<typeof SyncInput>) {
     streak = rollover(streak, e.day).state;
     streak = e.type === 'session' ? recordFullSession(streak, e.day) : recordRecall(streak, e.day);
   }
-  if (changed || input.streakEvents.length) await q('update users set streak = $2 where id = $1', [userId, JSON.stringify(streak)]);
+  if (changed || input.restart || input.streakEvents.length) await q('update users set streak = $2 where id = $1', [userId, JSON.stringify(streak)]);
 
   const memories = (await q<{ data: Memory }>('select data from memories where user_id = $1', [userId])).map((r) => r.data);
   const rows = await q<{ data: Review; seq: string }>('select data, seq from reviews where user_id = $1 and seq > $2 order by seq', [userId, input.since]);
