@@ -329,3 +329,26 @@ describe('World Builder', () => {
     for (const bad of ['file:///etc/passwd', 'http://127.0.0.1/', 'http://10.0.0.2/', 'http://169.254.169.254/latest', 'http://[::1]/', 'not a url']) expect(safeUrl(bad)).toBeNull();
   });
 });
+
+describe('Lumen quiz', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.GEMINI_API_KEY;
+  });
+
+  it('rewords questions, and drops any that give the answer away', async () => {
+    const dev = (await call('POST', '/api/device', undefined, { name: 'Quiz' })).data.token;
+    process.env.GEMINI_API_KEY = 'g';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ questions: [
+      { id: 'a', prompt: 'Which gas is most of the air?' },
+      { id: 'b', prompt: 'Is the vagus nerve number ten?' },
+      { id: 'zzz', prompt: 'Not one of ours' },
+    ] }) } }] }))));
+    const r = await call('POST', '/api/quiz', dev, { items: [
+      { id: 'a', question: 'Element 7?', answer: 'Nitrogen', cue: 'element 7' },
+      { id: 'b', question: 'CN X?', answer: 'Vagus', cue: 'CN X' },
+    ] });
+    expect(r.status).toBe(200);
+    expect(r.data.questions).toEqual([{ id: 'a', prompt: 'Which gas is most of the air?' }]);
+  });
+});

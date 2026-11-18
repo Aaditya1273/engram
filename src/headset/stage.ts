@@ -118,10 +118,18 @@ export class Stage {
     this.caption.set({ title, body });
   }
 
+  /** Told when narration starts and stops (Lumen talks while it speaks). */
+  onSpeaking: (on: boolean) => void = () => {};
+
   async say(text: string, title?: string, tone: 'default' | 'attention' = 'default') {
     await this.whilePaused();
     this.show(title, text, tone);
-    await narrate(text);
+    this.onSpeaking(true);
+    try {
+      await narrate(text);
+    } finally {
+      this.onSpeaking(false);
+    }
     await this.whilePaused();
   }
 

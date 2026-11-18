@@ -393,6 +393,28 @@ async function rehearse(ctx: Ctx, stops: Memory[]) {
   }
 }
 
+/**
+ * Lumen's quiz: your weakest few memories (lowest recall, most misses), each asked a fresh way, graded like any
+ * recall. Lumen says what it has noticed first, so the learner knows why these.
+ */
+export async function quizMe(ctx: Ctx) {
+  const { stage, store, palace, cloud } = ctx;
+  const misses = (id: string) => store.data.reviews.filter((r) => r.memoryId === id && !r.answerOk).length;
+  const weakest = [...store.data.memories].sort((a, b) => store.recall(a) - misses(a.id) * 0.1 - (store.recall(b) - misses(b.id) * 0.1)).slice(0, 5);
+  if (!weakest.length) return void (await stage.say('Nothing to quiz yet. Build a palace first.', 'Lumen'));
+  const slipping = weakest.filter((m) => misses(m.id) > 0).slice(0, 2).map((m) => m.display);
+  stage.show('Lumen', 'Thinking of good questions…');
+  const fresh = new Map((await cloud.quiz(weakest.map((m) => ({ id: m.id, question: m.question, answer: m.display, cue: m.cue })))).map((q) => [q.id, q.prompt]));
+  await stage.say(`${slipping.length ? `I've noticed ${slipping.join(' and ')} keep slipping.` : "Let's test the faintest few."} ${weakest.length} questions, asked a new way.`, 'Lumen');
+  let right = 0;
+  for (const m of weakest) {
+    await palace.focus(m.slot);
+    if (await recallOne(ctx, m, store.data.memories, { prompt: fresh.get(m.id) ?? m.question })) right++;
+  }
+  void cloud.sync();
+  await stage.say(`${right} of ${weakest.length}. ${right === weakest.length ? 'Nothing slipped today.' : "I'll bring the misses back soon."}`, 'Lumen');
+}
+
 /** Walk one of your journeys again: pick it, then the direction. */
 export async function walkJourney(ctx: Ctx, id: string) {
   const { stage, store } = ctx;
@@ -431,7 +453,7 @@ export async function firstFive(ctx: Ctx) {
 
   // 0:00 – a promise, one lantern, one pinch.
   stage.show('Atrium', `${pinch} the glowing lantern to light it.`);
-  void stage.say(`Welcome. I'll show you how memory champions remember anything. ${input.xr ? 'Look at' : 'Point at'} the glowing lantern, and ${pinch.toLowerCase()} to light it.`, 'Atrium');
+  void stage.say(`Welcome. I'm Lumen. I'll show you how memory champions remember anything. ${input.xr ? 'Look at' : 'Point at'} the glowing lantern, and ${pinch.toLowerCase()} to light it.`, 'Lumen');
   await stage.waitAlcove(0);
   play('light');
   palace.setWarmth(1, 1600);

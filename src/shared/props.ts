@@ -321,6 +321,7 @@ function withKnobs<M extends THREE.Material>(m: M, tint: THREE.Color | null, sat
 
 /** Image-based light for the 3D models only (set once by the app), so they shade without relighting the palace. */
 let envMap: THREE.Texture | null = null;
+export const modelEnvironment = () => envMap;
 export function setModelEnvironment(tex: THREE.Texture) {
   envMap = tex;
 }

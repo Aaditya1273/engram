@@ -7,10 +7,11 @@ import { setModelEnvironment, setPreferPaintings } from './shared/props';
 import { FrameGuard } from './core/frame-guard';
 import { journeys } from './core/journey';
 import { recallRush } from './headset/rush';
+import { Lumen } from './headset/lumen';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
-  arrivalMessage, arrive, captureFlow, languageDemo, walkJourney, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
+  arrivalMessage, arrive, captureFlow, languageDemo, quizMe, walkJourney, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
 } from './headset/flows';
 import { Input } from './headset/input';
 import { EYE_Y, Palace, SLOT_COUNT } from './headset/palace';
@@ -48,6 +49,8 @@ scene.add(camera);
 const palace = new Palace(scene, camera);
 const input = new Input(renderer, camera, scene);
 const stage = new Stage(palace, input);
+// Lumen, the coach: a Lux3D-generated, rigged and animated lantern spirit beside you.
+new Lumen(palace, stage, camera);
 const cloud = new Cloud(store);
 const ctx: Ctx = { stage, palace, input, store, cloud };
 input.gazeOnly = store.data.settings.gazeOnly;
@@ -189,7 +192,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back';
+    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -197,8 +200,14 @@ async function home(missedDays: number) {
       const timer = setInterval(async () => {
         const next = await cloud.inbox();
         if (next.length !== inbox.length) {
-          if (next.length > inbox.length) play('light');
+          const added = next.length - inbox.length;
           inbox = next;
+          if (added > 0) {
+            // Deliveries arrive through Lumen.
+            play('light');
+            const fromAgent = next.slice(-added).some((e) => e.source === 'agent');
+            void stage.say(`${fromAgent ? 'Your assistant left you' : 'You sent yourself'} ${added} new ${added === 1 ? 'thing' : 'things'} to remember. They're in your inbox.`, 'Lumen');
+          }
           res('refresh');
         }
       }, INBOX_POLL_MS);
@@ -229,6 +238,7 @@ async function home(missedDays: number) {
     }
     if (action === 'more') {
       action = await stage.ask<Action>([
+        ...(store.data.memories.length ? [{ label: 'Quiz me', value: 'quiz' as const }] : []),
         { label: 'Remember this', value: 'capture' },
         ...(cloud.online && cloud.ai ? [{ label: 'Ask an agent', value: 'agent' as const }] : []),
         ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
@@ -243,6 +253,7 @@ async function home(missedDays: number) {
       else if (action === 'settings') await settings();
       else if (action === 'journeys') await journeysMenu();
       else if (action === 'rush') await recallRush(ctx);
+      else if (action === 'quiz') await quizMe(ctx);
       else if (action === 'build') await buildFlow();
       else if (action === 'inbox') await inboxFlow(ctx, inbox);
       else if (action === 'capture') await captureFlow(ctx);

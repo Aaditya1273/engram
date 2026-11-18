@@ -144,6 +144,16 @@ export class Cloud {
     }
   }
 
+  /** Fresh wordings for a quiz (Lumen); empty when offline or without AI, and the stored questions are used. */
+  async quiz(items: { id: string; question: string; answer: string; cue: string }[]): Promise<{ id: string; prompt: string }[]> {
+    if (!this.online || !this.ai) return [];
+    try {
+      return (await this.api<{ questions: { id: string; prompt: string }[] }>('/quiz', { method: 'POST', body: JSON.stringify({ items }) })).questions;
+    } catch {
+      return [];
+    }
+  }
+
   /** World Builder: text, a web page or a topic becomes an ordered journey, filed in the inbox. */
   buildPalace(input: { text?: string; url?: string; name?: string }) {
     return this.api<{ journey: { id: string; name: string }; inboxIds: string[]; name: string; count: number }>('/palace', { method: 'POST', body: JSON.stringify(input) });

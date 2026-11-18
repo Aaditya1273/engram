@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { authenticate, clientKey, DEVICES_PER_IP_HOUR, globalCap, issueToken, rateLimit, type CapKind, type Principal, type Scope } from './auth';
 import { AGENT_WRITES_PER_HOUR, handleMcp } from './mcp';
 import { gaps, listDue, readiness } from './knowledge';
-import { aiEnabled, mapTwist, MAX_INPUT_CHARS } from './pipeline';
+import { aiEnabled, mapTwist, MAX_INPUT_CHARS, quizPrompts } from './pipeline';
 import {
   agentFacts, capture, claimPairing, createGoal, createPairing, createUser, deleteAccount, exportAll, GoalInput, getStreak,
   listAgents, listGoals, listInbox, loadKnowledge, revokeToken, setInboxStatus, sync, SyncInput,
@@ -178,6 +178,15 @@ export async function handle(req: Request): Promise<Response> {
       const r = await agentFacts(who.userId, topic);
       if (!r) throw new HttpError(502, 'The agent could not write facts just now');
       return json({ topic: r.topic, count: r.items.length }, 201);
+    }
+    if (path === '/api/quiz' && m === 'POST') {
+      const who = await need(req, 'device');
+      if (!(await rateLimit(who.tokenId, 60))) throw new HttpError(429, 'Too many quizzes this hour');
+      await cap('draft');
+      const { items } = await body(req, z.object({ items: z.array(z.object({
+        id: z.string().max(80), question: z.string().max(300), answer: z.string().max(100), cue: z.string().max(80),
+      })).min(1).max(8) }));
+      return json({ questions: await quizPrompts(items) ?? [] });
     }
     if (path === '/api/twist' && m === 'POST') {
       await need(req, 'device');

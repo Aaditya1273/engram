@@ -24,7 +24,11 @@ function tone(freq: number, start: number, dur: number, gain: number, type: Osci
 
 export type Sound = 'light' | 'relight' | 'miss' | 'tick' | 'record' | 'snap';
 
+/** Things that react to the palace's sounds (Lumen cheers at a relight, worries at a miss). */
+export const soundListeners = new Set<(s: Sound) => void>();
+
 export function play(s: Sound) {
+  for (const f of soundListeners) f(s);
   if (!ctx) return;
   switch (s) {
     case 'light':
