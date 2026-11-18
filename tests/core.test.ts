@@ -115,6 +115,7 @@ describe('FSRS model', () => {
     expect(lanternLook(0.99).flicker).toBe(false);
     expect(lanternLook(0.8).flicker).toBe(true);
     expect(lanternLook(0.65).saturation).toBeLessThan(1);
+    expect(lanternLook(0.1).saturation).toBeGreaterThanOrEqual(0.85); // a forgotten memory is still in colour
     expect(lanternLook(0.7).intensity).toBeLessThan(lanternLook(0.85).intensity);
   });
 });

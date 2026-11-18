@@ -9,17 +9,19 @@ export interface LanternLook {
   /** 0..1 emissive strength. */
   intensity: number;
   flicker: boolean;
-  /** 0..1, applied to the scene under the lantern. */
+  /** Applied to the scene under the lantern: 1 full colour, never below SATURATION_FLOOR (memories stay in colour). */
   saturation: number;
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+/** A fading memory's scene only softens a little: the lantern carries the warning, the objects keep their colour. */
+export const SATURATION_FLOOR = 0.85;
 
 export function lanternLook(r: number): LanternLook {
   return {
     // Squared: the eye reads brightness non-linearly, so a linear ramp makes early fading invisible.
     intensity: 0.08 + 0.92 * clamp01((r - BAND.floor) / (BAND.full - BAND.floor)) ** 2,
     flicker: r < BAND.flicker,
-    saturation: r >= BAND.grey ? 1 : clamp01((r - BAND.floor) / (BAND.grey - BAND.floor)),
+    saturation: r >= BAND.grey ? 1 : SATURATION_FLOOR + (1 - SATURATION_FLOOR) * clamp01((r - BAND.floor) / (BAND.grey - BAND.floor)),
   };
 }
