@@ -325,6 +325,10 @@ export function setModelEnvironment(tex: THREE.Texture) {
   envMap = tex;
 }
 
+/** Set by the frame guard when the headset can't keep up: new scenes use paintings, not models. */
+let preferPaintings = false;
+export const setPreferPaintings = (on: boolean) => (preferPaintings = on);
+
 /** Prop paintings that have a generated 3D model. */
 const HAS_MODEL = new Set(Object.keys(MODELS));
 export const modelUrl = (file: string) => `${import.meta.env.BASE_URL}art/models/${file}.glb`;
@@ -345,7 +349,26 @@ function dequantize(geo: THREE.BufferGeometry) {
   return geo;
 }
 
-interface ModelTemplate {
+/** Every mesh in a loaded glTF scene, baked to unit height, base at y = 0, centred on x and z. */
+export function bakeTemplate(scene: THREE.Object3D): ModelTemplate {
+  scene.updateMatrixWorld(true);
+  const parts: ModelTemplate['parts'] = [];
+  scene.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    const mat = mats[0] instanceof THREE.MeshStandardMaterial ? mats[0] : new THREE.MeshStandardMaterial({ map: (mats[0] as THREE.MeshBasicMaterial).map ?? null });
+    parts.push({ geo: dequantize(o.geometry.clone()).applyMatrix4(o.matrixWorld), mat });
+  });
+  if (!parts.length) throw new Error('no mesh in model');
+  const box = new THREE.Box3();
+  for (const p of parts) box.union(new THREE.Box3().setFromBufferAttribute(p.geo.getAttribute('position') as THREE.BufferAttribute));
+  const size = box.getSize(new THREE.Vector3()), k = 1 / size.y;
+  const centre = box.getCenter(new THREE.Vector3());
+  for (const p of parts) p.geo.translate(-centre.x, -box.min.y, -centre.z).scale(k, k, k);
+  return { parts, aspect: size.x / size.y };
+}
+
+export interface ModelTemplate {
   parts: { geo: THREE.BufferGeometry; mat: THREE.MeshStandardMaterial }[];
   /** Width ÷ height, from the model's bounds. */
   aspect: number;
@@ -359,23 +382,7 @@ const gltf = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
  */
 export function loadModel(url: string): Promise<ModelTemplate> {
   if (!models.has(url)) {
-    const p = gltf.loadAsync(url).then(({ scene }) => {
-      scene.updateMatrixWorld(true);
-      const parts: ModelTemplate['parts'] = [];
-      scene.traverse((o) => {
-        if (!(o instanceof THREE.Mesh)) return;
-        const mats = Array.isArray(o.material) ? o.material : [o.material];
-        const mat = mats[0] instanceof THREE.MeshStandardMaterial ? mats[0] : new THREE.MeshStandardMaterial({ map: (mats[0] as THREE.MeshBasicMaterial).map ?? null });
-        parts.push({ geo: dequantize(o.geometry.clone()).applyMatrix4(o.matrixWorld), mat });
-      });
-      if (!parts.length) throw new Error(`no mesh in ${url}`);
-      const box = new THREE.Box3();
-      for (const p of parts) box.union(new THREE.Box3().setFromBufferAttribute(p.geo.getAttribute('position') as THREE.BufferAttribute));
-      const size = box.getSize(new THREE.Vector3()), k = 1 / size.y;
-      const centre = box.getCenter(new THREE.Vector3());
-      for (const p of parts) p.geo.translate(-centre.x, -box.min.y, -centre.z).scale(k, k, k);
-      return { parts, aspect: size.x / size.y };
-    });
+    const p = gltf.loadAsync(url).then(({ scene }) => bakeTemplate(scene));
     p.catch(() => models.delete(url)); // retry on a later scene
     models.set(url, p);
   }
@@ -462,7 +469,7 @@ export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): T
     root.add(art);
     if (opts.grounded !== false) root.add(shadow);
   }, () => !modelled && buildPrimitive(root, id, color));
-  const url = opts.model ?? (HAS_MODEL.has(pick.file) ? modelUrl(pick.file) : null);
+  const url = preferPaintings ? null : opts.model ?? (HAS_MODEL.has(pick.file) ? modelUrl(pick.file) : null);
   if (url) {
     loadModel(url).then((t) => {
       modelled = true;

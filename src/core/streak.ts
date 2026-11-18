@@ -1,8 +1,8 @@
 /** Ember streak: forgiving by design. Day keys are local 'YYYY-MM-DD'. */
 
 export const MAX_FREEZES = 3;
-/** A broken streak can be repaired on the day you return or the day after (≈48 h). */
-export const REPAIR_WINDOW_DAYS = 1;
+/** A broken streak can be repaired within 48 hours of coming back: that day, or either of the next two. */
+export const REPAIR_WINDOW_DAYS = 2;
 
 export interface StreakState {
   count: number;

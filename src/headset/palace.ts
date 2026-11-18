@@ -17,6 +17,8 @@ const LANTERN_Y = 1.55;
  */
 const SWING = { reach: 0.3, maxPull: 0.15, stiffness: 55, damping: 3.2 } as const;
 const PENDULUM = LANTERN_HOOP_Y - LANTERN_Y;
+/** Scenes kept when the frame guard trims distant ones: the one in front and three either side. */
+const NEAR_SLOTS = 3;
 const FADE_MS = 75;
 /** Hemisphere light range: the room warms from dusk to sunlit as you work, but is never black. */
 const WARMTH_MIN = 1.1, WARMTH_MAX = 2.6;
@@ -74,6 +76,8 @@ export class Alcove {
   /** Everything that hangs: chain, lantern, glow. Pivots at the hoop. */
   private swing = new THREE.Group();
   private sway = { x: 0, z: 0, vx: 0, vz: 0 };
+  /** Set by the palace when the frame guard trims far scenes; the lantern stays, only the scene is hidden. */
+  distant = false;
 
   constructor(readonly slot: number, onSelect: (slot: number) => void) {
     const a = THREE.MathUtils.degToRad(slot * SLOT_DEG);
@@ -208,6 +212,7 @@ export class Alcove {
 
   update(dt: number, t: number, pointer: THREE.Ray | null = null) {
     this.swingToward(pointer, dt);
+    if (this.scene) this.scene.group.visible = !this.distant;
     const target = this.target ?? 0;
     this.shown += (target - this.shown) * (1 - Math.exp(-dt / 0.35));
     this.bloom = Math.max(0, this.bloom - dt / 1.4);
@@ -276,6 +281,8 @@ export class Palace {
   /** Each wing is another SLOT_COUNT alcoves; one wing is shown at a time. Memory slot = wing × SLOT_COUNT + alcove. */
   wing = 0;
   onAlcoveSelect: (slot: number) => void = () => {};
+  /** Frame guard level 1: only scenes within NEAR_SLOTS of the one in front are drawn. */
+  nearOnly = false;
   /** The mouse ray on a computer (null in the headset): lanterns lean toward it. */
   pointer: THREE.Ray | null = null;
   /** Called inside the fade when the palace switches wing, to re-fill the alcoves. */
@@ -367,6 +374,10 @@ export class Palace {
       w.t = Math.min(1, w.t + (dt * 1000) / w.ms);
       this.hemi.intensity = w.from + (w.to - w.from) * (1 - (1 - w.t) ** 3);
     }
-    for (const a of this.alcoves) a.update(dt, t, this.pointer);
+    for (const a of this.alcoves) {
+      const d = Math.abs(a.slot - this.focusSlot), around = Math.min(d, SLOT_COUNT - d);
+      a.distant = this.nearOnly && around > NEAR_SLOTS;
+      a.update(dt, t, this.pointer);
+    }
   }
 }

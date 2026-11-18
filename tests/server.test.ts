@@ -230,3 +230,58 @@ describe('twist-to-3D (Aholo Lux3D, mocked)', () => {
     expect(codes[12]).toBe(429);
   });
 });
+
+describe('speech, caps and abuse limits', () => {
+  let dev: string;
+  beforeAll(async () => {
+    dev = (await call('POST', '/api/device', undefined, { name: 'Quest STT' })).data.token;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    for (const k of ['GROQ_API_KEY', 'CAP_STT_DAY', 'CAP_LUX3D_DAY', 'AHOLO_API_KEY']) delete process.env[k];
+  });
+  const audio = (token: string | undefined, bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4])) =>
+    handle(new Request(`${BASE}/api/transcribe?lang=ja-JP`, {
+      method: 'POST', body: bytes, headers: { 'content-type': 'audio/webm;codecs=opus', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    }));
+
+  it('transcribes a short clip with Whisper on Groq, language hint and all', async () => {
+    process.env.GROQ_API_KEY = 'g';
+    const fetch = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ text: ' Neko. ' })));
+    vi.stubGlobal('fetch', fetch);
+    expect((await audio(undefined)).status).toBe(401);
+    const res = await audio(dev);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { alternatives: string[] }).alternatives).toEqual(['Neko.', 'Neko']);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toBe('https://api.groq.com/openai/v1/audio/transcriptions');
+    const form = init!.body as FormData;
+    expect(form.get('language')).toBe('ja');
+    expect(form.get('model')).toBe('whisper-large-v3-turbo');
+  });
+
+  it('refuses oversized clips and is off without a key', async () => {
+    expect((await audio(dev)).status).toBe(503);
+    process.env.GROQ_API_KEY = 'g';
+    expect((await audio(dev, new Uint8Array(1_600_000))).status).toBe(413);
+  });
+
+  it('stops at the deployment-wide daily cap', async () => {
+    process.env.GROQ_API_KEY = 'g';
+    process.env.CAP_STT_DAY = '2';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: 'x' }))));
+    const codes = [];
+    for (let i = 0; i < 4; i++) codes.push((await audio(dev)).status);
+    expect(codes.filter((c) => c === 429).length).toBeGreaterThan(0);
+  });
+
+  it('limits new devices per Cloudflare client IP', async () => {
+    const codes = [];
+    for (let i = 0; i < 12; i++) {
+      const res = await handle(new Request(`${BASE}/api/device`, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7' } }));
+      codes.push(res.status);
+    }
+    expect(codes.slice(0, 10).every((c) => c === 201)).toBe(true);
+    expect(codes[10]).toBe(429);
+  });
+});

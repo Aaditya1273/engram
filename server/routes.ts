@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { authenticate, issueToken, rateLimit, type Principal, type Scope } from './auth';
+import { authenticate, clientKey, DEVICES_PER_IP_HOUR, globalCap, issueToken, rateLimit, type CapKind, type Principal, type Scope } from './auth';
 import { AGENT_WRITES_PER_HOUR, handleMcp } from './mcp';
 import { gaps, listDue, readiness } from './knowledge';
 import { aiEnabled, mapTwist, MAX_INPUT_CHARS } from './pipeline';
@@ -36,6 +36,11 @@ async function body<T>(req: Request, schema: z.ZodType<T>): Promise<T> {
   const r = schema.safeParse(parsed);
   if (!r.success) throw new HttpError(400, r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
   return r.data;
+}
+
+/** Today's deployment-wide allowance; the client treats the 429 like any other failure and falls back. */
+async function cap(kind: CapKind) {
+  if (!(await globalCap(kind))) throw new HttpError(429, 'Atrium has reached today\'s limit for this. It works again tomorrow.');
 }
 
 async function need(req: Request, kind: Principal['kind'] | 'any', scope?: Scope): Promise<Principal> {
@@ -79,6 +84,8 @@ export async function handle(req: Request): Promise<Response> {
 
     // ---- devices & pairing
     if (path === '/api/device' && m === 'POST') {
+      const ip = await clientKey(req);
+      if (ip && !(await rateLimit(ip, DEVICES_PER_IP_HOUR))) throw new HttpError(429, 'Too many new devices from this network. Try again in an hour.');
       const { name } = await body(req, z.object({ name: z.string().max(40).default('Headset') }));
       const userId = await createUser();
       const { token } = await issueToken(userId, 'device', name, ['read', 'write']);
@@ -130,6 +137,7 @@ export async function handle(req: Request): Promise<Response> {
     if (path === '/api/capture' && m === 'POST') {
       const who = await need(req, 'device', 'write');
       if (!(await rateLimit(who.tokenId, AGENT_WRITES_PER_HOUR * 2))) throw new HttpError(429, 'Too many captures this hour');
+      await cap('draft');
       const input = await body(req, CaptureInput);
       const r = await capture(who.userId, input.source, input.text, input.topic, input.goal);
       return json({ topic: r.topic, drafter: r.drafter, count: r.items.length, items: r.items.map((i) => ({ question: i.question, answer: i.display })) }, 201);
@@ -138,6 +146,7 @@ export async function handle(req: Request): Promise<Response> {
       const who = await need(req, 'device', 'write');
       if (!aiEnabled()) throw new HttpError(503, 'The study agent needs an AI key on the server');
       if (!(await rateLimit(who.tokenId, AGENT_WRITES_PER_HOUR))) throw new HttpError(429, 'The agent has sent enough for this hour');
+      await cap('agent');
       const { topic } = await body(req, z.object({ topic: z.string().trim().min(2).max(60) }));
       const r = await agentFacts(who.userId, topic);
       if (!r) throw new HttpError(502, 'The agent could not write facts just now');
@@ -145,6 +154,7 @@ export async function handle(req: Request): Promise<Response> {
     }
     if (path === '/api/twist' && m === 'POST') {
       await need(req, 'device');
+      await cap('draft');
       const { text } = await body(req, z.object({ text: z.string().max(300) }));
       return json(await mapTwist(text));
     }
@@ -153,6 +163,7 @@ export async function handle(req: Request): Promise<Response> {
       const who = await need(req, 'device', 'write');
       if (!lux3dEnabled()) throw new HttpError(503, '3D generation is not configured');
       const { text } = await body(req, z.object({ text: z.string().trim().min(2).max(MODEL_PROMPT_MAX) }));
+      await cap('lux3d');
       const r = await createModel(who.userId, text);
       return 'error' in r ? json(r, 429) : json(r, 201);
     }
@@ -167,6 +178,7 @@ export async function handle(req: Request): Promise<Response> {
       await need(req, 'device');
       if (!lux3dEnabled()) throw new HttpError(503, '3D export is not configured');
       const format = url.searchParams.get('format') === '3mf' ? '3mf' : 'stl';
+      await cap('lux3d');
       const base = process.env.PUBLIC_BASE_URL || url.origin;
       return json(await exportModel(modelExport[1], `${base}/api/models/${modelExport[1]}.glb`, format));
     }
@@ -181,6 +193,7 @@ export async function handle(req: Request): Promise<Response> {
       const who = await need(req, 'device');
       if (!sttEnabled()) throw new HttpError(503, 'Speech-to-text is not configured');
       if (!(await rateLimit(who.tokenId, 600))) throw new HttpError(429, 'Too many recordings this hour');
+      await cap('stt');
       const audio = await req.arrayBuffer();
       if (audio.byteLength > MAX_AUDIO_BYTES) throw new HttpError(413, 'Recording too long');
       const lang = (url.searchParams.get('lang') ?? 'en-US').slice(0, 12);

@@ -3,7 +3,8 @@ import './shared/theme.css';
 import { SCENE } from './shared/theme';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { setModelEnvironment } from './shared/props';
+import { setModelEnvironment, setPreferPaintings } from './shared/props';
+import { FrameGuard } from './core/frame-guard';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
@@ -93,8 +94,18 @@ renderer.xr.addEventListener('sessionend', () => {
 
 // ---------------------------------------------------------------- loop
 
+// Sustained slow frames step quality down: first hide distant scenes, then swap 3D models for paintings.
+const guard = new FrameGuard((level) => {
+  if (level === 1) palace.nearOnly = true;
+  if (level === 2) {
+    setPreferPaintings(true);
+    for (const m of store.data.memories) showMemory(ctx, m);
+  }
+});
+
 let last = performance.now();
 renderer.setAnimationLoop((time, frame) => {
+  guard.sample(time - last, time, renderer.xr.isPresenting);
   const dt = Math.min((time - last) / 1000, 0.1);
   last = time;
   if (needsRecenter && frame) {
@@ -133,10 +144,30 @@ async function run() {
     }
   });
   const { missedDays } = arrive(store);
-  if (!store.data.onboarded) await firstFive(ctx);
-  else palace.setWarmth(1, 800);
+  if (!store.data.onboarded) {
+    try {
+      await firstFive(ctx);
+    } catch (err) {
+      // Never strand a first-time user in a broken tutorial: what they placed is saved; carry on to the palace.
+      await recover(err);
+      store.data.onboarded = true;
+      store.save();
+    }
+  } else palace.setWarmth(1, 800);
   await home(missedDays);
 }
+
+/** Something threw inside a flow: say so plainly, tidy the stage, and go back to the palace. */
+async function recover(err: unknown) {
+  console.error('[atrium]', err);
+  stage.clearRow();
+  stage.showArrows(false);
+  await stage.say('Something went wrong. Back to the palace.', 'Atrium').catch(() => {});
+}
+
+// Errors outside a flow (a background sync, a model load) can't derail anything; just record them.
+addEventListener('unhandledrejection', (e) => console.error('[atrium] unhandled', e.reason));
+addEventListener('error', (e) => console.error('[atrium] error', e.error ?? e.message));
 
 const INBOX_POLL_MS = 15_000;
 
@@ -188,15 +219,19 @@ async function home(missedDays: number) {
       stage.clearRow();
       continue;
     }
-    if (action === 'wing') await palace.focus(((palace.wing + 1) % wings) * SLOT_COUNT);
-    else if (action === 'settings') await settings();
-    else if (action === 'inbox') await inboxFlow(ctx, inbox);
-    else if (action === 'capture') await captureFlow(ctx);
-    else if (action === 'agent') await agentFlow();
-    else if (action === 'print') await printFlow();
-    else {
-      await dailySession(ctx, missedDays, action === 'practise');
-      missedDays = 0;
+    try {
+      if (action === 'wing') await palace.focus(((palace.wing + 1) % wings) * SLOT_COUNT);
+      else if (action === 'settings') await settings();
+      else if (action === 'inbox') await inboxFlow(ctx, inbox);
+      else if (action === 'capture') await captureFlow(ctx);
+      else if (action === 'agent') await agentFlow();
+      else if (action === 'print') await printFlow();
+      else {
+        await dailySession(ctx, missedDays, action === 'practise');
+        missedDays = 0;
+      }
+    } catch (err) {
+      await recover(err);
     }
     inbox = await cloud.inbox();
   }
@@ -339,10 +374,10 @@ const enterDesktop = () => {
 };
 const enterVr = async () => {
   unlockAudio();
-  warmMicrophone();
   const session = await navigator.xr!.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'hand-tracking'] });
   await renderer.xr.setSession(session);
   start();
+  void cloud.health().then(() => warmMicrophone(cloud.stt));
 };
 const each = (sel: string, f: (b: HTMLButtonElement) => void) => document.querySelectorAll<HTMLButtonElement>(sel).forEach(f);
 each('[data-desktop]', (b) => (b.onclick = enterDesktop));

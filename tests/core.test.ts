@@ -11,6 +11,9 @@ import { JA_STARTER } from '../src/shared/deck-ja';
 import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 import { migrate } from '../src/headset/store';
+import { FrameGuard } from '../src/core/frame-guard';
+import { bakeTemplate } from '../src/shared/props';
+import * as THREE from 'three';
 import { sceneFit } from '../src/headset/scene-builder';
 
 // Deterministic noise so tests never flake.
@@ -163,6 +166,20 @@ describe('ember streak', () => {
     expect(s.count).toBe(3);
   });
 
+  it('can repair for 48 hours after coming back, not longer', () => {
+    const broken = (back: number) => {
+      let s = recordRecall(newStreak(), d0);
+      s = recordRecall(rollover(s, addDays(d0, 1)).state, addDays(d0, 1));
+      return rollover(s, addDays(d0, back)).state; // broken on the day you come back
+    };
+    const late = (gap: number) => {
+      const s = broken(4), day = addDays(d0, 4 + gap);
+      return recordFullSession(recordFullSession(s, day), day);
+    };
+    expect(late(2).broken).toBeNull();
+    expect(late(3).broken).not.toBeNull();
+  });
+
   it('handles month boundaries', () => {
     expect(addDays('2026-02-28', 1)).toBe('2026-03-01');
   });
@@ -266,5 +283,60 @@ describe('save migration', () => {
     const d = migrate(save(mine), true);
     expect(d.memories[0].scene.props.at(-1)!.model).toEqual({ id: 'm1', ready: true });
     expect(d.cloud.dirtyMemories).toEqual([]);
+  });
+});
+
+describe('frame guard', () => {
+  const run = (g: FrameGuard, ms: number, dt: number, xr: boolean, t0 = 0) => {
+    for (let t = t0; t < t0 + ms; t += dt) g.sample(dt, t, xr);
+    return t0 + ms;
+  };
+
+  it('leaves a steady 60 Hz flat screen alone', () => {
+    const levels: number[] = [];
+    run(new FrameGuard((l) => levels.push(l)), 10_000, 16.7, false);
+    expect(levels).toEqual([]);
+  });
+
+  it('steps down in the headset only after 3 s of slow frames, then again', () => {
+    const levels: number[] = [];
+    const g = new FrameGuard((l) => levels.push(l));
+    let t = run(g, 2000, 13.9, true);
+    t = run(g, 2500, 20, true, t);
+    expect(levels).toEqual([]); // not sustained long enough yet
+    t = run(g, 2000, 20, true, t);
+    expect(levels).toEqual([1]);
+    run(g, 5000, 20, true, t);
+    expect(levels).toEqual([1, 2]);
+  });
+
+  it('catches dropped frames on a flat screen', () => {
+    const levels: number[] = [];
+    const g = new FrameGuard((l) => levels.push(l));
+    let t = 0;
+    for (let i = 0; i < 600; i++) t = run(g, 100, i % 3 === 0 ? 33.4 : 16.7, false, t);
+    expect(levels[0]).toBe(1);
+  });
+});
+
+describe('3D model baking', () => {
+  it('turns quantised meshopt positions into a unit-height model without clamping', () => {
+    // Like a meshopt GLB: normalised int16 positions, real size carried by the node's scale.
+    const q = (v: number) => Math.round(v * 32767);
+    const pos = new THREE.BufferAttribute(new Int16Array([q(-1), q(-1), 0, q(1), q(-1), 0, q(0), q(1), 0]), 3, true);
+    const geo = new THREE.BufferGeometry().setAttribute('position', pos);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial());
+    const node = new THREE.Group();
+    node.scale.set(0.3, 0.2, 0.3); // 0.6 wide, 0.4 tall
+    node.position.set(5, 3, 0);
+    node.add(mesh);
+    const t = bakeTemplate(node);
+    t.parts[0].geo.computeBoundingBox();
+    const bb = t.parts[0].geo.boundingBox!;
+    expect(bb.min.y).toBeCloseTo(0, 3);
+    expect(bb.max.y).toBeCloseTo(1, 3);
+    expect(bb.min.x).toBeCloseTo(-0.75, 3);
+    expect(t.aspect).toBeCloseTo(1.5, 3);
+    expect(t.parts[0].geo.getAttribute('position').array).toBeInstanceOf(Float32Array);
   });
 });

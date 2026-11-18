@@ -61,3 +61,25 @@ export async function rateLimit(tokenId: string, limit: number, windowMs = 3_600
   );
   return rows[0].count <= limit;
 }
+
+/** New devices (accounts) per client IP per hour: device tokens are free, so this bounds per-user caps being dodged. */
+export const DEVICES_PER_IP_HOUR = 10;
+
+/**
+ * The caller's IP as Cloudflare reports it (it can't be spoofed through Cloudflare), hashed so raw IPs are never
+ * stored. Null without the header: local dev and tests, where there is nobody to limit.
+ */
+export async function clientKey(req: Request): Promise<string | null> {
+  const ip = req.headers.get('cf-connecting-ip');
+  return ip ? `ip:${(await sha256(ip)).slice(0, 24)}` : null;
+}
+
+/** Spend that costs real money, capped for the whole deployment per UTC day (env overrides). */
+export type CapKind = 'lux3d' | 'stt' | 'agent' | 'draft';
+const CAP_DEFAULTS: Record<CapKind, number> = { lux3d: 150, stt: 3000, agent: 300, draft: 600 };
+export const capFor = (kind: CapKind) => Number(process.env[`CAP_${kind.toUpperCase()}_DAY`]) || CAP_DEFAULTS[kind];
+
+/** False once the deployment has used today's allowance of this kind. */
+export function globalCap(kind: CapKind): Promise<boolean> {
+  return rateLimit(`global:${kind}`, capFor(kind), 86_400_000);
+}

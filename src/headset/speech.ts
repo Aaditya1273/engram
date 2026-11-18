@@ -78,9 +78,12 @@ export function listen(lang: string, timeoutMs = 6000): Listening {
 }
 
 let mic: Promise<MediaStream> | null = null;
-/** Ask for the microphone now (inside the Enter click) if the browser can't recognise speech itself. */
-export const warmMicrophone = () => {
-  if (!Ctor && canRecord()) void microphone().catch(() => {});
+/**
+ * Ask for the microphone up front, only when it will be used: the browser can't recognise speech itself and
+ * the server can transcribe. Otherwise nobody is asked for a microphone that nothing would listen to.
+ */
+export const warmMicrophone = (serverCanTranscribe: boolean) => {
+  if (!Ctor && serverCanTranscribe && canRecord()) void microphone().catch(() => {});
 };
 /** One microphone stream for the session: asking again for every answer would re-prompt and add latency. */
 function microphone() {

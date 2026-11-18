@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
-import { rateLimit, type Principal, type Scope } from './auth';
+import { globalCap, rateLimit, type Principal, type Scope } from './auth';
 import { gaps, known, listDue, readiness } from './knowledge';
 import { capture, createGoal, GoalInput, listGoals, loadKnowledge, resolveGoal } from './ops';
 
@@ -33,6 +33,7 @@ export async function handleMcp(req: Request, who: Principal): Promise<Response>
     const material = [body ?? '', ...(facts ?? [])].join('\n').trim();
     if (!material) return fail('Provide `text` or `facts`.');
     if (!(await rateLimit(who.tokenId, AGENT_WRITES_PER_HOUR))) return fail(`Rate limit: at most ${AGENT_WRITES_PER_HOUR} writes per hour per key.`);
+    if (!(await globalCap('draft'))) return fail('Atrium has reached today\'s drafting limit. Try again tomorrow.');
     const r = await capture(who.userId, 'agent', material, topic, goal);
     return text({ added_to_inbox: r.items.length, topic: r.topic, items: r.items.map((i) => ({ question: i.question, answer: i.display })), note: 'Items wait in the inbox until the user co-creates them in the headset.' });
   });

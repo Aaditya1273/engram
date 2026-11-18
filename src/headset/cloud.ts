@@ -35,17 +35,30 @@ export class Cloud {
     return (await res.json()) as T;
   }
 
+  private healthCheck: Promise<boolean> | null = null;
+  /**
+   * What the server can do, without registering anything (safe on page load). True if the cloud is usable.
+   * A deployment without a database can't authenticate, so it offers nothing.
+   */
+  health(): Promise<boolean> {
+    this.healthCheck ??= this.api<{ ai: boolean; stt?: boolean; lux3d?: boolean; db: string }>('/health').then((h) => {
+      const usable = h.db !== 'none';
+      this.unconfigured = !usable;
+      this.ai = usable && h.ai;
+      this.stt = usable && !!h.stt;
+      this.lux3d = usable && !!h.lux3d;
+      return usable;
+    }, () => {
+      this.healthCheck = null; // offline: ask again next time
+      return false;
+    });
+    return this.healthCheck;
+  }
+
   /** Register this headset once; afterwards just checks the server is there. */
   async connect(): Promise<boolean> {
     try {
-      const health = await this.api<{ ai: boolean; stt?: boolean; lux3d?: boolean; db: string }>('/health');
-      this.lux3d = !!health.lux3d;
-      this.ai = health.ai;
-      this.stt = !!health.stt;
-      if (health.db === 'none') {
-        this.unconfigured = true;
-        return (this.online = false);
-      }
+      if (!(await this.health())) return (this.online = false);
       if (!this.store.data.cloud.token) {
         const { token } = await this.api<{ token: string }>('/device', { method: 'POST', body: JSON.stringify({ name: 'Headset' }) });
         this.store.data.cloud.token = token;
