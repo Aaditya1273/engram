@@ -5,10 +5,11 @@ import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { setModelEnvironment, setPreferPaintings } from './shared/props';
 import { FrameGuard } from './core/frame-guard';
+import { journeys } from './core/journey';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
-  arrivalMessage, arrive, captureFlow, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
+  arrivalMessage, arrive, captureFlow, languageDemo, walkJourney, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
 } from './headset/flows';
 import { Input } from './headset/input';
 import { EYE_Y, Palace, SLOT_COUNT } from './headset/palace';
@@ -185,7 +186,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing';
+    type Action = 'start' | 'practise' | 'journeys' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -203,6 +204,7 @@ async function home(missedDays: number) {
     const action = await Promise.race([
       stage.ask<Action>([
         msg.due ? { label: 'Start', value: 'start' } : { label: 'Practise anyway', value: 'practise' },
+        { label: 'Journeys', value: 'journeys' },
         ...(inbox.length ? [{ label: `Inbox (${inbox.length})`, value: 'inbox' as const }] : []),
         ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
         { label: 'Remember this', value: 'capture' },
@@ -222,6 +224,7 @@ async function home(missedDays: number) {
     try {
       if (action === 'wing') await palace.focus(((palace.wing + 1) % wings) * SLOT_COUNT);
       else if (action === 'settings') await settings();
+      else if (action === 'journeys') await journeysMenu();
       else if (action === 'inbox') await inboxFlow(ctx, inbox);
       else if (action === 'capture') await captureFlow(ctx);
       else if (action === 'agent') await agentFlow();
@@ -265,6 +268,19 @@ async function agentFlow() {
   } catch (e) {
     await stage.say(`The agent couldn't reach you just now. ${(e as Error).message}`, title);
   }
+}
+
+/** Walk any journey again (forwards, backwards, by number), or try the Japanese language demo. */
+async function journeysMenu() {
+  const mine = journeys(store.data.memories);
+  stage.show('Journeys', mine.length ? 'Walk one of your journeys again.' : 'No journeys yet.');
+  const pick = await stage.ask<string | null>([
+    ...mine.slice(0, 4).map((j) => ({ label: `${j.name} (${j.length})`, value: j.id })),
+    ...(store.data.memories.some((m) => m.id === 'ja-neko') ? [] : [{ label: 'Japanese words', value: 'ja' }]),
+    { label: 'Back', value: null },
+  ]);
+  if (pick === 'ja') await languageDemo(ctx);
+  else if (pick) await walkJourney(ctx, pick);
 }
 
 /** Memories with an object the learner had generated, newest first. */

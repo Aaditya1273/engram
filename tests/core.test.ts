@@ -12,6 +12,8 @@ import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 import { migrate } from '../src/headset/store';
 import { FrameGuard } from '../src/core/frame-guard';
+import { isLandmark, journeys, journeyStops, namedInOrder, recallOrder, stopPrompt } from '../src/core/journey';
+import { ELEMENTS } from '../src/shared/deck-elements';
 import { bakeTemplate } from '../src/shared/props';
 import * as THREE from 'three';
 import { sceneFit } from '../src/headset/scene-builder';
@@ -338,5 +340,52 @@ describe('3D model baking', () => {
     expect(bb.min.x).toBeCloseTo(-0.75, 3);
     expect(t.aspect).toBeCloseTo(1.5, 3);
     expect(t.parts[0].geo.getAttribute('position').array).toBeInstanceOf(Float32Array);
+  });
+});
+
+describe('journeys', () => {
+  it('walks forwards and backwards over every stop', () => {
+    expect(recallOrder(5, 'forwards')).toEqual([0, 1, 2, 3, 4]);
+    expect(recallOrder(5, 'backwards')).toEqual([4, 3, 2, 1, 0]);
+  });
+
+  it('asks distinct positions, never two neighbours in a row', () => {
+    for (let seed = 0; seed < 50; seed++) {
+      let x = seed + 1;
+      const rng = () => ((x = (x * 9301 + 49297) % 233280) / 233280);
+      const order = recallOrder(10, 'position', 4, rng);
+      expect(new Set(order).size).toBe(4);
+      for (let i = 1; i < order.length; i++) expect(Math.abs(order[i] - order[i - 1])).toBeGreaterThan(1);
+    }
+  });
+
+  it('marks every fifth stop as a landmark and phrases prompts by mode', () => {
+    expect([0, 1, 2, 3, 4, 5, 9].map(isLandmark)).toEqual([false, false, false, false, true, false, true]);
+    expect(stopPrompt('position', 6, 10)).toBe("What's number 7?");
+    expect(stopPrompt('backwards', 9, 10)).toContain('number 10');
+  });
+
+  it('counts items named in order from one free answer', () => {
+    const names = ELEMENTS.map((e) => [e.display]);
+    expect(namedInOrder('hydrogen, helium, lithium, um, carbon', names)).toBe(3);
+    expect(namedInOrder('Hydrogen helium lithium beryllium boron carbon nitrogen oxygen fluorine neon', names)).toBe(10);
+    expect(namedInOrder('helium hydrogen', names)).toBe(1);
+    expect(namedInOrder('no idea', names)).toBe(0);
+  });
+
+  it('groups memories into journeys in path order', () => {
+    const mem = (id: string, index: number) => ({ id, journey: { id: 'j', name: 'J', index } }) as never;
+    const ms = [mem('c', 2), mem('a', 0), mem('b', 1), { id: 'free' } as never];
+    expect(journeyStops(ms, 'j').map((m: { id: string }) => m.id)).toEqual(['a', 'b', 'c']);
+    expect(journeys(ms)).toEqual([{ id: 'j', name: 'J', length: 3 }]);
+  });
+
+  it('ships ten element stops built from known props, each linked to the next', () => {
+    expect(ELEMENTS.map((e) => e.answers[1])).toEqual(['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']);
+    for (const [i, e] of ELEMENTS.entries()) {
+      expect(e.scenes).toHaveLength(1);
+      for (const p of e.scenes[0].props) expect([...PROP_IDS, ...SCENE_ART_IDS]).toContain(p.prop);
+      if (i < ELEMENTS.length - 1) expect(e.link!.length).toBeGreaterThan(10);
+    }
   });
 });

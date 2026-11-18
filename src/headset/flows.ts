@@ -5,6 +5,8 @@ import { DESIRED_RETENTION } from '../core/model';
 import { canRepair, dayKey, daysBetween, rollover } from '../core/streak';
 import { planSession } from '../core/triage';
 import { applyTwist, isEmptyTwist, parseTwist } from '../core/twist';
+import { isLandmark, journeyStops, namedInOrder, recallOrder, stopPrompt, type RecallMode } from '../core/journey';
+import { ELEMENTS, ELEMENTS_JOURNEY } from '../shared/deck-elements';
 import { JA_STARTER } from '../shared/deck-ja';
 import type { DeckItem, GestureSignature, InboxItem, Memory, SceneSpec } from '../shared/types';
 import { play } from './audio';
@@ -155,14 +157,14 @@ export function watchModels(ctx: Ctx, m: Memory) {
 
 function placeMemory(
   ctx: Ctx, item: DeckItem, scene: SceneSpec, slot: number, gesture?: GestureSignature, twist?: string,
-  where: { topic: string; goalId?: string } = { topic: 'Japanese starter' },
+  where: { topic: string; goalId?: string; journey?: Memory['journey'] } = { topic: 'Japanese starter' },
 ): Memory {
   const { store, palace } = ctx;
   const now = store.now();
   const m: Memory = {
     id: item.id, cue: item.cue, question: item.question, lang: item.lang, answers: item.answers, display: item.display,
     mnemonic: scene.mnemonic, scene, twist, gesture, topic: where.topic, goalId: where.goalId,
-    goalWeight: where.goalId ? 1.5 : 1, slot, createdAt: now,
+    goalWeight: where.goalId ? 1.5 : 1, slot, createdAt: now, ...(where.journey ? { journey: where.journey } : {}),
   };
   store.addMemory(m);
   watchModels(ctx, m);
@@ -170,18 +172,23 @@ function placeMemory(
   store.addReview({ memoryId: m.id, at: now, grade: 'good', answerOk: true, gestureScore: null, latencyMs: 0 });
   const a = palace.alcove(slot);
   a.setScene(scene);
-  a.setLabel(`${m.display} · ${m.cue}`);
+  a.setLabel(labelOf(m));
+  a.setLandmark(m.journey && isLandmark(m.journey.index) ? m.journey.index + 1 : null);
   a.setRecall(store.recall(m));
   a.burst();
   play('light');
   return m;
 }
 
+/** The pedestal plaque: a journey stop shows its number, anything else its word and meaning. */
+export const labelOf = (m: Memory) => (m.journey ? `${m.journey.index + 1} · ${m.display}` : `${m.display} · ${m.cue}`);
+
 export function showMemory(ctx: Ctx, m: Memory) {
   if (Palace.wingOf(m.slot) !== ctx.palace.wing) return;
   const a = ctx.palace.alcove(m.slot);
   a.setScene(m.scene);
-  a.setLabel(`${m.display} · ${m.cue}`);
+  a.setLabel(labelOf(m));
+  a.setLandmark(m.journey && isLandmark(m.journey.index) ? m.journey.index + 1 : null);
   a.setRecall(ctx.store.recall(m), true);
 }
 
@@ -189,13 +196,13 @@ export function showMemory(ctx: Ctx, m: Memory) {
  * Graded recall: say the answer and perform the gesture; Atrium checks both. No self-rating.
  * Without speech, three pinchable answers replace the spoken one (still graded, never self-rated).
  */
-export async function recallOne(ctx: Ctx, m: Memory, others: Memory[]): Promise<boolean> {
+export async function recallOne(ctx: Ctx, m: Memory, others: Memory[], opts: { prompt?: string } = {}): Promise<boolean> {
   const { stage, palace, input, store } = ctx;
   await stage.whilePaused();
   const alcove = palace.alcove(m.slot);
   alcove.setVeiled(true);
   const doGesture = !!m.gesture && input.canGesture && m.gesture.modality === input.modality;
-  const prompt = m.question;
+  const prompt = opts.prompt ?? m.question;
   let t0 = performance.now();
   let answerOk = false, revealed = false, heard: string[] = [];
   // Held in an object: it's assigned inside a promise callback, which TS narrowing can't see.
@@ -237,7 +244,7 @@ export async function recallOne(ctx: Ctx, m: Memory, others: Memory[]): Promise<
   const grade = gradeRecall(answerOk, gesture, latencyMs);
   store.addReview({ memoryId: m.id, at: store.now(), grade, answerOk, gestureScore: gesture?.score ?? null, latencyMs: Math.round(latencyMs) });
   alcove.setVeiled(false);
-  alcove.setLabel(`${m.display} · ${m.cue}`);
+  alcove.setLabel(labelOf(m));
   alcove.setRecall(store.recall(m));
 
   if (answerOk) {
@@ -293,76 +300,192 @@ async function strengthenLeech(ctx: Ctx, m: Memory) {
 
 // ---------------------------------------------------------------- the first five minutes
 
+// ---------------------------------------------------------------- journeys
+
+const ordinal = (n: number) => ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth'][n - 1] ?? `Number ${n}`;
+
+/**
+ * A short walk along the empty path before it is filled: a briefly explored space holds new memories as well
+ * as a familiar one, and the gold medallions give the path its landmarks.
+ */
+async function explorationWalk(ctx: Ctx, startSlot: number, n: number) {
+  const { stage, palace } = ctx;
+  for (let i = 0; i < n; i++) if (isLandmark(i)) palace.alcove(startSlot + i).setLandmark(i + 1);
+  await stage.say(`This is your path: ${n} pedestals, in order. A gold medallion marks every fifth one.`, 'Your path');
+  for (let i = 2; i < n; i += 2) {
+    await palace.focus(startSlot + i);
+    await stage.sleep(350);
+  }
+  await palace.focus(startSlot);
+}
+
+/**
+ * Walks the path placing one memory per stop: its scene, its keyword story, then the line that carries you to
+ * the next stop. The learner moves on when ready.
+ */
+export async function encodeJourney(
+  ctx: Ctx, items: DeckItem[], startSlot: number, journey: { id: string; name: string },
+  where: { topic?: string; goalId?: string } = {},
+): Promise<Memory[]> {
+  const { stage, palace } = ctx;
+  const placed: Memory[] = [];
+  for (const [i, item] of items.entries()) {
+    const slot = startSlot + i;
+    await palace.focus(slot);
+    const scene = item.scenes[0];
+    palace.alcove(slot).setScene(scene);
+    const title = `${i + 1} · ${item.display}`;
+    await stage.say(`${ordinal(i + 1)}: ${item.display}. ${scene.mnemonic}`, title);
+    placed.push(placeMemory(ctx, item, scene, slot, undefined, undefined, {
+      topic: where.topic ?? journey.name, goalId: where.goalId, journey: { ...journey, index: i, link: item.link || undefined },
+    }));
+    if (item.link) await stage.say(item.link, title);
+    await stage.ask([{ label: i < items.length - 1 ? 'Next stop' : 'Done', value: true }]);
+  }
+  return placed;
+}
+
+/**
+ * Graded recall along a journey: forwards or backwards walks the path stop by stop, position jumps ("what's
+ * number 7?") without walking there first. Every stop is veiled until it's answered, so nothing gives the
+ * answer away. Every answer is an FSRS review. Returns how many were right.
+ */
+export async function journeyRecall(ctx: Ctx, stops: Memory[], mode: RecallMode, count = 3): Promise<number> {
+  const { palace } = ctx;
+  for (const m of stops) palace.alcove(m.slot).setVeiled(true);
+  let right = 0;
+  for (const i of recallOrder(stops.length, mode, count)) {
+    const m = stops[i];
+    if (mode !== 'position') await palace.focus(m.slot);
+    if (await recallOne(ctx, m, stops, { prompt: stopPrompt(mode, i, stops.length) })) right++;
+    if (mode === 'position') await palace.focus(m.slot);
+  }
+  for (const m of stops) palace.alcove(m.slot).setVeiled(false);
+  return right;
+}
+
+/** Walk one of your journeys again: pick it, then the direction. */
+export async function walkJourney(ctx: Ctx, id: string) {
+  const { stage, store } = ctx;
+  const stops = journeyStops(store.data.memories, id);
+  if (!stops.length) return;
+  const name = stops[0].journey!.name;
+  stage.show(name, `${stops.length} stops. How do you want to walk it?`);
+  const mode = await stage.ask<RecallMode | null>([
+    { label: 'Forwards', value: 'forwards' },
+    { label: 'Backwards', value: 'backwards' },
+    { label: 'By number', value: 'position' },
+    { label: 'Back', value: null },
+  ]);
+  if (!mode) return;
+  const right = await journeyRecall(ctx, stops, mode, Math.min(5, stops.length));
+  const asked = mode === 'position' ? Math.min(5, stops.length) : stops.length;
+  void ctx.cloud.sync();
+  await stage.say(`${right} of ${asked}. ${right === asked ? 'Perfect.' : 'The ones you missed will come round again soon.'}`, name);
+}
+
+// ---------------------------------------------------------------- the first five minutes
+
+/**
+ * The first session ends with a feat: the first ten elements, in order, forwards, backwards, and "what's number 7?",
+ * learned in a few minutes with the method memory champions use. No text tutorial, no menus before the feat,
+ * fully offline, and every step works by voice, by pinch, or by gaze.
+ */
 export async function firstFive(ctx: Ctx) {
   const { stage, palace, store, input } = ctx;
   const pinch = pinchWord(input);
+  const n = ELEMENTS.length;
   palace.setWarmth(0, 1);
   palace.alcove(0).setRecall(1, true);
 
-  // 0:00 – one lantern, one pinch.
+  // 0:00 – a promise, one lantern, one pinch.
   stage.show('Atrium', `${pinch} the glowing lantern to light it.`);
-  void stage.say(`Welcome. ${input.xr ? 'Look at' : 'Point at'} the glowing lantern, and ${pinch.toLowerCase()} to light it.`, 'Atrium');
+  void stage.say(`Welcome. I'll show you how memory champions remember anything. ${input.xr ? 'Look at' : 'Point at'} the glowing lantern, and ${pinch.toLowerCase()} to light it.`, 'Atrium');
   await stage.waitAlcove(0);
   play('light');
   palace.setWarmth(1, 1600);
   palace.alcove(0).setRecall(null);
-  await stage.say('Light means memory. Each alcove will hold one thing you know.', 'Atrium');
 
-  // 0:20 – moving without standing.
+  // 0:20 – the gap: most people can't do this.
+  await stage.say('Quick test first. Can you name the first ten chemical elements, in order? Try it now, out loud.', 'Quick test');
+  let before: number;
+  if (speechAvailable()) {
+    stage.show('Quick test', 'Listening… say as many as you can, in order.');
+    before = namedInOrder((await listen('en-US', 12_000).result).join(' '), ELEMENTS.map((e) => [e.display]));
+  } else {
+    before = await stage.ask([{ label: 'All ten', value: 10 }, { label: 'A few', value: 3 }, { label: 'Not really', value: 0 }]);
+  }
+  await stage.say(
+    before >= n ? 'Impressive. Now watch how to make it permanent, and reversible.'
+      : `${before ? `You got ${before} in order.` : "Most people can't."} In three minutes you'll know all ten, forwards and backwards.`,
+    'Quick test',
+  );
+
+  // 0:45 – moving without standing.
   stage.showArrows(true);
   const flickHow = input.xr ? 'pinch and flick your hand sideways' : 'press an arrow key';
-  await stage.say(`The room turns, so you never have to. To move, ${flickHow}, or ${pinch.toLowerCase()} an arrow.`, 'Turning');
-  const dir = await stage.waitFlick();
-  await palace.snap(dir);
-  await stage.say('Everything comes to you. Now, six Japanese words.', 'Turning');
-  await palace.focus(0);
+  await stage.say(`The room turns, so you never have to. To look around, ${flickHow}, or ${pinch.toLowerCase()} an arrow.`, 'Turning');
+  await palace.snap(await stage.waitFlick());
   stage.showArrows(false);
 
-  // 0:45 – six words: choose a scene, add a twist (word 2), invent a gesture, place it.
-  const placed: Memory[] = [];
-  for (const [i, item] of JA_STARTER.entries()) {
-    await palace.focus(i);
-    await stage.say(`${item.display} means ${item.cue}. Pick the scene that sticks for you.`, `${item.display} · ${item.cue}`);
-    let scene = item.scenes[await stage.chooseScene(item)];
-    palace.alcove(i).setScene(scene);
-    await stage.say(scene.mnemonic, `${item.display} · ${item.cue}`);
-    let twist: string | undefined;
-    if (i === 1) {
-      ({ scene, twist } = await addTwist(ctx, scene));
-      palace.alcove(i).setScene(scene);
-    }
-    const gesture = await enrolGesture(ctx, item.gestureHint);
-    placed.push(placeMemory(ctx, item, scene, i, gesture, twist));
-  }
+  // 1:00 – walk the empty path, then fill it: one vivid scene per stop, each leading to the next.
+  await explorationWalk(ctx, 0, n);
+  const placed = await encodeJourney(ctx, ELEMENTS, 0, ELEMENTS_JOURNEY, { topic: 'Elements' });
 
-  // 2:45 – this is what forgetting looks like (the real model, on a simulated clock).
-  await palace.focus(2.5);
-  await stage.say('This is what forgetting looks like.', 'Three weeks, without practice');
-  const now = store.now();
-  for (let s = 0; s <= 1; s += 1 / 45) {
-    for (const m of placed) palace.alcove(m.slot).setRecall(store.recall(m, now + s * s * 21 * DAY), true);
-    await stage.sleep(60);
-  }
-  await stage.say("Your lanterns dim as memories fade. Let's beat it.", 'Three weeks, without practice');
+  // 3:00 – the lights go down; the path stays.
+  await palace.focus(4.5);
+  palace.setWarmth(0.3, 900);
+  await stage.say('Now the lights go down. The path is in your head. Walk it.', 'Recall');
+  palace.setWarmth(1, 1600);
 
-  // 3:15 – graded recall.
-  let score = 0;
-  for (const m of shuffle(placed)) {
-    await palace.focus(m.slot);
-    if (await recallOne(ctx, m, placed)) score++;
-  }
-  for (const m of placed) palace.alcove(m.slot).setRecall(store.recall(m));
+  // 3:10 – forwards, backwards, and a jump.
+  const forwards = await journeyRecall(ctx, placed, 'forwards');
+  await stage.say(`${forwards} of ${n} forwards. Now the hard part: backwards.`, 'Backwards');
+  const backwards = await journeyRecall(ctx, placed, 'backwards');
+  await palace.focus(4.5);
+  await stage.say('Last one. No walking this time.', 'Jump');
+  const seven = await recallOne(ctx, placed[6], placed, { prompt: "What's number 7?" });
+  await palace.focus(placed[6].slot);
 
-  // 4:15 – the payoff and the daily promise.
-  await palace.focus(2.5);
+  // 4:20 – the payoff, and the real use.
   store.streakSession(dayKey(store.now()));
   store.data.onboarded = true;
   store.save();
   void ctx.cloud.sync();
   await stage.say(
-    `${score >= 5 ? 'Brilliant. ' : ''}You remembered ${score} of ${placed.length}. Tomorrow I'll check you again, for just a few minutes.`,
-    `${score} of ${placed.length}`,
+    `You went from ${before} to ${forwards} forwards and ${backwards} backwards${seven ? ', and you jumped straight to nitrogen' : ''}. That's how memory champions do it. Tomorrow I'll check you again, for just a few minutes.`,
+    `${forwards} forwards · ${backwards} backwards`,
   );
+}
+
+/** The original six Japanese words, kept as a language demo: choose a scene, add a twist, invent a gesture. */
+export async function languageDemo(ctx: Ctx) {
+  const { stage, palace, store } = ctx;
+  const start = store.nextFreeSlot();
+  const placed: Memory[] = [];
+  for (const [i, item] of JA_STARTER.entries()) {
+    if (store.data.memories.some((m) => m.id === item.id)) continue;
+    const slot = start + placed.length;
+    await palace.focus(slot);
+    await stage.say(`${item.display} means ${item.cue}. Pick the scene that sticks for you.`, `${item.display} · ${item.cue}`);
+    let scene = item.scenes[await stage.chooseScene(item)];
+    palace.alcove(slot).setScene(scene);
+    await stage.say(scene.mnemonic, `${item.display} · ${item.cue}`);
+    let twist: string | undefined;
+    if (i === 1) {
+      ({ scene, twist } = await addTwist(ctx, scene));
+      palace.alcove(slot).setScene(scene);
+    }
+    const gesture = await enrolGesture(ctx, item.gestureHint);
+    placed.push(placeMemory(ctx, item, scene, slot, gesture, twist));
+  }
+  let score = 0;
+  for (const m of shuffle(placed)) {
+    await palace.focus(m.slot);
+    if (await recallOne(ctx, m, placed)) score++;
+  }
+  void ctx.cloud.sync();
+  if (placed.length) await stage.say(`You remembered ${score} of ${placed.length}.`, 'Japanese');
 }
 
 // ---------------------------------------------------------------- daily session

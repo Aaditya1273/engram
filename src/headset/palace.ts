@@ -27,12 +27,10 @@ const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, dept
 // The architecture lives in decor.ts; these are the live, per-alcove parts.
 const MAT = {
   chain: new THREE.MeshLambertMaterial({ color: PALETTE.gold, emissive: PALETTE.gold, emissiveIntensity: 0.3 }),
-  veil: new THREE.MeshLambertMaterial({ color: SCENE.veil, emissive: SCENE.veilSheen, emissiveIntensity: 0.35, side: THREE.DoubleSide, flatShading: true }),
 };
 const GEO = {
   chain: new THREE.CylinderGeometry(0.003, 0.003, LANTERN_HOOP_Y - LANTERN_Y - 0.07, 4),
   lantern: new THREE.PlaneGeometry(0.067, 0.14),
-  veil: new THREE.CylinderGeometry(0.24, 0.26, 0.5, 10, 1, true),
   hit: new THREE.BoxGeometry(0.55, 1.2, 0.35),
   wash: new THREE.PlaneGeometry(0.95, 0.95).rotateX(-Math.PI / 2),
 };
@@ -63,7 +61,8 @@ export class Alcove {
   private glow: THREE.Sprite;
   /** The lantern's light pooling on the floor round its pedestal: a fading memory darkens its patch of floor. */
   private wash: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
-  private veil: THREE.Mesh;
+  /** While a memory is being recalled its scene hides and a glowing gold question mark floats in its place. */
+  private veil: Panel;
   private label: Panel;
   private bursts: { s: THREE.Sprite; t: number }[] = [];
   /** 1 right after a successful recall, easing to 0: the lantern swells, then settles. */
@@ -114,8 +113,10 @@ export class Alcove {
     hang(this.glow);
     this.wash = add(GEO.wash, new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }), 0, 0.006, 0.05) as typeof this.wash;
 
-    this.veil = add(GEO.veil, MAT.veil, 0, SCENE_Y + 0.24, 0);
+    this.veil = new Panel(0.16, 0.16, { frame: 'round', size: 0.08 }).set({ body: '?' });
+    this.veil.position.set(0, SCENE_Y + 0.17, 0.02);
     this.veil.visible = false;
+    this.group.add(this.veil);
 
     // A gold-rimmed plaque on the pedestal's shaft, just under the cap, tipped back toward the seated eye.
     this.label = new Panel(0.27, 0.064, { size: 0.028, weight: 600, frame: 'pill' });
@@ -133,6 +134,7 @@ export class Alcove {
   clear() {
     this.setScene(null);
     this.setLabel(null);
+    this.setLandmark(null);
     this.setRecall(null, true);
     this.setVeiled(false);
   }
@@ -152,6 +154,23 @@ export class Alcove {
       this.sceneHolder.add(this.scene.group);
     }
     this.lotus.visible = !spec;
+  }
+
+  private medallion: Panel | null = null;
+  /** Landmark stops (every fifth) wear a gold numbered medallion on the pedestal; null removes it. */
+  setLandmark(n: number | null) {
+    if (n === null) {
+      if (this.medallion) this.medallion.visible = false;
+      return;
+    }
+    if (!this.medallion) {
+      this.medallion = new Panel(0.11, 0.11, { frame: 'round', size: 0.05 });
+      this.medallion.position.set(0, SCENE_Y * 0.62, 0.17);
+      this.medallion.rotation.x = -0.12;
+      this.group.add(this.medallion);
+    }
+    this.medallion.set({ body: String(n) });
+    this.medallion.visible = true;
   }
 
   setLabel(text: string | null) {

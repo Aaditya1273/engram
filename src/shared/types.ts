@@ -41,7 +41,10 @@ export interface DeckItem {
   /** Romanised display, e.g. "neko". */
   display: string;
   gestureHint: string;
-  scenes: [SceneSpec, SceneSpec, SceneSpec];
+  /** Scene options to choose from: three for a free item, one for a journey stop (its scene is part of the story). */
+  scenes: SceneSpec[];
+  /** Journey items: the story line that carries you from this stop to the next. */
+  link?: string;
 }
 
 export type Grade = 'again' | 'hard' | 'good' | 'easy';
@@ -64,6 +67,8 @@ export interface Memory {
   scene: SceneSpec;
   twist?: string;
   gesture?: GestureSignature;
+  /** Part of an ordered journey: which one, this stop's position (0-based), and the story line to the next stop. */
+  journey?: { id: string; name: string; index: number; link?: string };
   topic: string;
   goalId?: string;
   goalWeight: number;

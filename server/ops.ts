@@ -109,6 +109,7 @@ export const MemorySchema = z.object({
   mnemonic: z.string().max(400),
   scene: Scene,
   twist: z.string().max(300).optional(),
+  journey: z.object({ id: z.string().max(80), name: z.string().max(120), index: z.number().int().min(0).max(1000), link: z.string().max(400).optional() }).optional(),
   gesture: z.object({ modality: z.enum(['hands', 'pointer']), takes: z.tuple([z.array(z.array(z.number())).max(64), z.array(z.array(z.number())).max(64)]), tolerance: z.number() }).optional(),
   topic: z.string().max(80),
   goalId: z.string().max(80).optional(),
