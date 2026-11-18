@@ -12,6 +12,7 @@ import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 import { migrate } from '../src/headset/store';
 import { FrameGuard } from '../src/core/frame-guard';
+import { rarityOf } from '../src/core/rarity';
 import { beatMs, flightMs, musicLevel, nextPick, rushPoints, weekKey } from '../src/core/rush';
 import { isLandmark, journeys, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt } from '../src/core/journey';
 import { ELEMENTS } from '../src/shared/deck-elements';
@@ -433,5 +434,16 @@ describe('Recall Rush rules', () => {
     expect(weekKey(Date.UTC(2026, 10, 18))).toBe('2026-W47');
     expect(weekKey(Date.UTC(2027, 0, 1))).toBe('2026-W53');
     expect(weekKey(Date.UTC(2027, 0, 4))).toBe('2027-W01');
+  });
+});
+
+describe('collection rarity', () => {
+  const day = 86_400_000, now = 200 * day;
+  it('is earned by mastery, then by time kept', () => {
+    expect(rarityOf({ stabilityDays: 5, recall: 0.95, firstReviewAt: now - 100 * day, now })).toBeNull();
+    expect(rarityOf({ stabilityDays: 30, recall: 0.7, firstReviewAt: now - 100 * day, now })).toBeNull(); // fading: not on show
+    expect(rarityOf({ stabilityDays: 30, recall: 0.92, firstReviewAt: now - 10 * day, now })).toBe('bronze');
+    expect(rarityOf({ stabilityDays: 30, recall: 0.92, firstReviewAt: now - 31 * day, now })).toBe('silver');
+    expect(rarityOf({ stabilityDays: 60, recall: 0.92, firstReviewAt: now - 95 * day, now })).toBe('gold');
   });
 });

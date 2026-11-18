@@ -13,6 +13,7 @@ import { PROP_HEIGHT } from './props-catalog';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import MODELS from './models.json';
+import FINISHES from './finishes.json';
 
 export { PROP_IDS } from './props-catalog';
 
@@ -441,7 +442,13 @@ export interface PropOptions {
   sat?: { value: number };
   /** A model made for this memory (twist-to-3D): replaces the prop's own art once it loads. */
   model?: string;
+  /** Collection finish: a silver or gold re-materialed model (Lux3D material transfer), or a bronze tint. */
+  finish?: 'bronze' | 'silver' | 'gold';
 }
+
+/** Prop paintings with a silver and/or gold model (scripts/finishes.mjs). */
+const HAS_FINISH = FINISHES as Record<string, Partial<Record<'silver' | 'gold', unknown>>>;
+const FINISH_TINT = { bronze: '#b4783c', silver: '#c7d0d8', gold: '#e2b23e' } as const;
 
 export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): THREE.Group {
   const root = new THREE.Group();
@@ -456,7 +463,10 @@ export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): T
   const shadow = new THREE.Mesh(g('shadow', () => new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2)),
     new THREE.MeshBasicMaterial({ map: shadowTexture(), transparent: true, depthWrite: false }));
   shadow.position.y = 0.001;
-  const tint = pick.tint ? new THREE.Color(pick.tint) : null;
+  const finishModel = opts.finish && opts.finish !== 'bronze' && HAS_FINISH[pick.file]?.[opts.finish]
+    ? `${import.meta.env.BASE_URL}art/models/finish/${pick.file}-${opts.finish}.glb` : null;
+  // No re-materialed model for this finish (bronze, or not generated): tint the usual model in the metal's colour.
+  const tint = opts.finish && !finishModel ? new THREE.Color(FINISH_TINT[opts.finish]) : pick.tint ? new THREE.Color(pick.tint) : null;
   let art: THREE.Object3D | null = null, modelled = false;
   // The painting shows first (small, quick); the 3D model replaces it when it arrives. Either can fail alone.
   artTexture(pick.file).then((tex) => {
@@ -470,7 +480,7 @@ export function buildProp(id: PropId, color?: string, opts: PropOptions = {}): T
     root.add(art);
     if (opts.grounded !== false) root.add(shadow);
   }, () => !modelled && buildPrimitive(root, id, color));
-  const url = preferPaintings ? null : opts.model ?? (HAS_MODEL.has(pick.file) ? modelUrl(pick.file) : null);
+  const url = preferPaintings ? null : opts.model ?? finishModel ?? (HAS_MODEL.has(pick.file) ? modelUrl(pick.file) : null);
   if (url) {
     loadModel(url).then((t) => {
       modelled = true;

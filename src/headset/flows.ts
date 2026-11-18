@@ -7,6 +7,7 @@ import { planSession } from '../core/triage';
 import { applyTwist, isEmptyTwist, parseTwist } from '../core/twist';
 import { isLandmark, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt, type RecallMode } from '../core/journey';
 import { ELEMENTS, ELEMENTS_JOURNEY } from '../shared/deck-elements';
+import { RARITY_RANK, rarityOf, type Rarity } from '../core/rarity';
 import { JA_STARTER } from '../shared/deck-ja';
 import type { DeckItem, GestureSignature, InboxItem, Memory, SceneSpec } from '../shared/types';
 import { play } from './audio';
@@ -184,7 +185,7 @@ function placeMemory(
 export const labelOf = (m: Memory) => (m.journey ? `${m.journey.index + 1} · ${m.display}` : `${m.display} · ${m.cue}`);
 
 export function showMemory(ctx: Ctx, m: Memory) {
-  if (Palace.wingOf(m.slot) !== ctx.palace.wing) return;
+  if (Palace.wingOf(m.slot) !== ctx.palace.wing || ctx.palace.borrowed) return;
   const a = ctx.palace.alcove(m.slot);
   a.setScene(m.scene);
   a.setLabel(labelOf(m));
@@ -413,6 +414,61 @@ export async function quizMe(ctx: Ctx) {
   }
   void cloud.sync();
   await stage.say(`${right} of ${weakest.length}. ${right === weakest.length ? 'Nothing slipped today.' : "I'll bring the misses back soon."}`, 'Lumen');
+}
+
+// ---------------------------------------------------------------- collection
+
+/** Each memory's rarity from its FSRS card and review log (null: not mastered yet). */
+export function collectibles(store: Store): { m: Memory; rarity: Rarity }[] {
+  const now = store.now();
+  return store.data.memories.flatMap((m) => {
+    const first = store.data.reviews.reduce((t, r) => (r.memoryId === m.id ? Math.min(t, r.at) : t), Infinity);
+    const rarity = rarityOf({ stabilityDays: store.card(m).stability, recall: store.recall(m, now), firstReviewAt: first, now });
+    return rarity ? [{ m, rarity }] : [];
+  }).sort((a, b) => RARITY_RANK[b.rarity] - RARITY_RANK[a.rarity]);
+}
+
+const FINISH_NAME: Record<Rarity, string> = { bronze: 'Bronze', silver: 'Silver', gold: 'Gold' };
+
+/**
+ * The collection: mastered memories on show in their finish (gold models and silver models re-materialed with
+ * Aholo Lux3D material transfer). With nothing mastered yet, a preview of what your newest memory earns.
+ * The wing is borrowed for the viewing and refilled after.
+ */
+export async function collectionFlow(ctx: Ctx) {
+  const { stage, palace, store } = ctx;
+  const items = collectibles(store);
+  const base = palace.wing * 20;
+  palace.borrowed = true;
+  try {
+    if (items.length) {
+      const shown = items.slice(0, 10);
+      shown.forEach(({ m, rarity }, i) => {
+        const a = palace.alcove(base + i);
+        a.setScene(m.scene, { finish: rarity });
+        a.setLabel(`${FINISH_NAME[rarity]} · ${m.display}`);
+        a.setRecall(1, true);
+      });
+      await palace.focus(base + Math.min(2, shown.length - 1));
+      const counts = (['gold', 'silver', 'bronze'] as Rarity[]).map((r) => [r, items.filter((x) => x.rarity === r).length] as const).filter(([, n]) => n);
+      await stage.say(`Your collection: ${counts.map(([r, n]) => `${n} ${r}`).join(', ')}. Bronze when mastered, silver at thirty days kept, gold at ninety.`, 'Collection');
+    } else {
+      const m = [...store.data.memories].sort((a, b) => b.createdAt - a.createdAt)[0];
+      if (!m) return void (await stage.say('Your collection fills as memories are mastered. Build a palace first.', 'Collection'));
+      (['bronze', 'silver', 'gold'] as Rarity[]).forEach((r, i) => {
+        const a = palace.alcove(base + i);
+        a.setScene(m.scene, { finish: r });
+        a.setLabel(`${FINISH_NAME[r]} · ${['mastered', '30 days', '90 days'][i]}`);
+        a.setRecall(1, true);
+      });
+      await palace.focus(base + 1);
+      await stage.say(`Nothing mastered yet. This is what ${m.display} becomes: bronze once you've mastered it, silver after thirty days, gold after ninety.`, 'Collection');
+    }
+    await stage.ask([{ label: 'Back to the palace', value: true }]);
+  } finally {
+    palace.borrowed = false;
+    palace.onWing(palace.wing);
+  }
 }
 
 /** Walk one of your journeys again: pick it, then the direction. */

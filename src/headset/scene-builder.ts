@@ -38,7 +38,7 @@ export interface BuiltScene {
 const tmp = new THREE.Color();
 
 /** Assembles a scene from the prop kit. Art streams in; the scene is usable at once. */
-export function buildScene(spec: SceneSpec): BuiltScene {
+export function buildScene(spec: SceneSpec, opts: { finish?: 'bronze' | 'silver' | 'gold' } = {}): BuiltScene {
   const group = new THREE.Group();
   const inner = new THREE.Group();
   const fit = sceneFit(spec);
@@ -48,7 +48,7 @@ export function buildScene(spec: SceneSpec): BuiltScene {
   const sat = { value: 1 };
   for (const p of spec.props) {
     const model = p.model?.ready ? `/api/models/${p.model.id}.glb` : undefined;
-    const prop = buildProp(p.prop, p.color, { grounded: p.pos[1] < GROUND_Y, sat, model });
+    const prop = buildProp(p.prop, p.color, { grounded: p.pos[1] < GROUND_Y, sat, model, finish: opts.finish });
     prop.position.set(...p.pos);
     prop.scale.setScalar(p.scale ?? 1);
     prop.rotation.y = p.rot ?? 0;

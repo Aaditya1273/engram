@@ -143,14 +143,14 @@ export class Alcove {
     return this.target !== null;
   }
 
-  setScene(spec: SceneSpec | null) {
+  setScene(spec: SceneSpec | null, opts: { finish?: 'bronze' | 'silver' | 'gold' } = {}) {
     if (this.scene) {
       this.sceneHolder.remove(this.scene.group);
       this.scene.dispose();
       this.scene = null;
     }
     if (spec) {
-      this.scene = buildScene(spec);
+      this.scene = buildScene(spec, opts);
       this.sceneHolder.add(this.scene.group);
     }
     this.lotus.visible = !spec;
@@ -302,6 +302,8 @@ export class Palace {
   onAlcoveSelect: (slot: number) => void = () => {};
   /** Per-frame callbacks for things animating outside an alcove (Recall Rush lanterns, Lumen). dt in seconds. */
   readonly tickers = new Set<(dt: number, t: number) => void>();
+  /** True while a flow borrows the alcoves for a display (the collection): background redraws must wait. */
+  borrowed = false;
   /** Frame guard level 1: only scenes within NEAR_SLOTS of the one in front are drawn. */
   nearOnly = false;
   /** The mouse ray on a computer (null in the headset): lanterns lean toward it. */

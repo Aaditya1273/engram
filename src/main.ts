@@ -11,7 +11,7 @@ import { Lumen } from './headset/lumen';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
-  arrivalMessage, arrive, captureFlow, languageDemo, quizMe, walkJourney, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
+  arrivalMessage, arrive, captureFlow, collectionFlow, languageDemo, quizMe, walkJourney, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
 } from './headset/flows';
 import { Input } from './headset/input';
 import { EYE_Y, Palace, SLOT_COUNT } from './headset/palace';
@@ -192,7 +192,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz';
+    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz' | 'collection';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -238,7 +238,7 @@ async function home(missedDays: number) {
     }
     if (action === 'more') {
       action = await stage.ask<Action>([
-        ...(store.data.memories.length ? [{ label: 'Quiz me', value: 'quiz' as const }] : []),
+        ...(store.data.memories.length ? [{ label: 'Quiz me', value: 'quiz' as const }, { label: 'Collection', value: 'collection' as const }] : []),
         { label: 'Remember this', value: 'capture' },
         ...(cloud.online && cloud.ai ? [{ label: 'Ask an agent', value: 'agent' as const }] : []),
         ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
@@ -254,6 +254,7 @@ async function home(missedDays: number) {
       else if (action === 'journeys') await journeysMenu();
       else if (action === 'rush') await recallRush(ctx);
       else if (action === 'quiz') await quizMe(ctx);
+      else if (action === 'collection') await collectionFlow(ctx);
       else if (action === 'build') await buildFlow();
       else if (action === 'inbox') await inboxFlow(ctx, inbox);
       else if (action === 'capture') await captureFlow(ctx);
