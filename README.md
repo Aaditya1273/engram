@@ -197,10 +197,34 @@ Set a goal with a date (*"JLPT N5 on 1 March"*). Atrium gives two honest numbers
 `/companion.html`, paired with the headset by a 6-letter code. Capture text into the inbox (optionally for a goal), keep the streak alive with a 60-second **mental walk** (a top-down map of one wing; type each answer and Atrium grades it against the stored answers, never self-rated), see goals with readiness, manage connected agents, and export or delete your data.
 
 ### 8. Room mode *(built; untested on a device)*
-Pin memories to real objects you can see from your chair (a lamp, a shelf, the window) using spatial anchors, so your real room can cue recall after the headset comes off. The virtual palace stays the default.
+On a Quest with passthrough, **Room mode** (on the landing page, shown only where `immersive-ar` is supported) hides the architecture: your memories, lanterns and plaques stand in a ring around your chair in your own room. The virtual palace stays the default. *(Planned: pinning memories to real objects with spatial anchors.)*
 
 ### 9. Wind-down mode *(optional)*
 A low-light, ungraded walk through the day's new memories before bed (**Settings → More → Wind-down walk**).
+
+### 12. Journeys: order is the superpower
+A journey is an ordered path of stops, the method of loci proper. Walk it **forwards**, **backwards** or jump **by number** ("what's number 7?"); a gold medallion marks every fifth stop so you can find position 15 without counting. Each stop carries a story line to the next, so recalling one pulls the next. The first five minutes are the first ten elements, learned and recalled forwards, backwards and by position; **Rehearse it** checks a spoken run-through of a talk for coverage and order.
+
+### 13. World Builder: paste anything
+Notes, a chapter, a talk, a list, a **web page** or a **PDF**, or just a topic ("the twelve cranial nerves"), becomes one ordered journey: rooms, stops in order, a 3D scene for each and story links between them. From the palace (typed or spoken), the phone companion, or any agent via MCP `build_palace`. Without an AI key, "term – definition" lines still make a journey.
+
+### 14. Lumen, the coach
+A lantern spirit generated, rigged and animated with Aholo Lux3D. It floats beside you, talks while narrating, nods, cheers and worries with your answers, announces what agents send you, and runs **Quiz me**: your weakest memories, each asked a fresh way (reworded, reversed, applied).
+
+### 15. Recall Rush
+Ninety seconds against your own memories: a lantern carrying a cue flies in; answer before it arrives. The combo speeds it up and brightens the synthesised music. Every answer is a real FSRS review. Weekly best, and on a computer a 15-second clip of the finish to share.
+
+### 16. Collection, finishes and open-to-remember
+Mastered memories earn **bronze**, **silver** at 30 days kept and **gold** at 90, and stand in that finish on their pedestals (silver and gold models made with Lux3D material transfer). While you recall, each stop is a closed **chest** (Lux3D text-to-3D, then articulation): answer, and the lid opens on its real hinge as the scene rises out.
+
+### 17. Arena
+Profiles with a year-long review heatmap and badges; friends by code (they see how you're doing, never what you've memorised); **cheers** that give a friend a free streak repair; the **daily challenge** (20 words, the same for everyone, memorised in your palace and scored on the server's clock); **duels** on a shared seed; opt-in weekly **leagues** ranked by memories kept, with an anonymous mode and no demotion.
+
+### 18. Memory Athlete
+A 40-day programme in the shape of the training that took ordinary people from about 26 to 62 of 72 words (Dresler et al., Neuron, 2017): a 30-word baseline on day 1, a benchmark every seventh day, and the method built a step at a time in between (loci, vivid images, story links, speed, depth). Atrium's own numbers come from your own benchmarks.
+
+### 19. Creator palaces, Chinese and English
+Publish any journey as a template with a share code (your twists, gestures and generated objects stay yours); anyone can copy it in. The website, menus, onboarding and journeys switch between English and 中文, with Chinese narration, Chinese answers accepted for the elements, and an English-words journey asked in Chinese.
 
 ### 10. Real 3D objects, including your own
 Every prop on a pedestal is a real 3D model, generated from its painting with **Aholo Lux3D** (image-to-3D) and shrunk for a standalone headset (about 10k triangles, meshopt geometry, 1024 px WebP textures: 8 MB → about 300 KB). The painting shows first and stays if a model can't load, so nothing ever depends on the network.
@@ -403,6 +427,7 @@ All optional locally (see `.env.example`).
 | `DATABASE_URL` | ✅ | Postgres connection string (e.g. Neon). Unset → embedded PGlite in `.data/` |
 | `GEMINI_API_KEY`, `GROQ_API_KEY` or `NVIDIA_API_KEY` | ⬜ | AI scene drafting, free-form twists, the study agent (preference in that order). Groq or Gemini also transcribe speech for the Quest browser. Unset → offline drafter, multiple-choice recall on Quest |
 | `AHOLO_API_KEY` | ⬜ | Aholo Lux3D (global region): twist-to-3D, leech objects, 3D-print export. Unset → painted props only |
+| `CAP_LUX3D_DAY`, `CAP_STT_DAY`, `CAP_AGENT_DAY`, `CAP_DRAFT_DAY` | ⬜ | Deployment-wide daily caps on paid calls (defaults 150 / 3000 / 300 / 600); over the cap the app falls back quietly |
 | `LLM_MODEL` | ⬜ | Override the model (default `gemini-3.8-flash` / `openai/gpt-oss-120b` / `meta/llama-3.3-70b-instruct`) |
 | `PUBLIC_BASE_URL` | ⬜ | Origin used in pairing links and MCP URLs when behind a proxy |
 | `PGLITE_DIR` | ⬜ | Where the local embedded database lives (default `.data/pglite`) |
@@ -596,6 +621,12 @@ Every core feature rests on published work. These are the studies' own results, 
 - [x] **Real 3D:** 26-prop Lux3D library, twist-to-3D, leech objects, 3D-print keepsakes (STL)
 - [x] **Quest speech:** recorded answers transcribed on the server (Whisper on Groq, Gemini fallback)
 - [x] **Ask an agent:** a built-in study agent files five facts through the MCP path, on one device
+- [x] **Journeys** (forwards, backwards, by number), the elements onboarding, rehearsal
+- [x] **World Builder** (text, topic, URL, PDF, MCP `build_palace`), creator palaces
+- [x] **Lumen**, Recall Rush, collection and finishes, open-to-remember chests
+- [x] **Arena**: profiles, heatmap, friends, cheers, daily challenge, duels, leagues; milestones and weekly mode
+- [x] **Memory Athlete** (baseline, plan, benchmarks); Chinese and English
+- [ ] Themed worlds (Aholo world generation), home palace (reconstruction), study rooms, number and card casts
 - [x] **MCP server:** `add_memories`, `create_goal`, `list_due`, `get_known`, `get_gaps`, `get_readiness`
 - [x] Readiness score and goals
 - [x] Phone companion with graded mental walk

@@ -36,7 +36,7 @@ Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 | Twist-to-3D and leech objects (text-to-3D → retopology → stored) | ✅ / 🟡 | Live API + walkthrough for twists ("a tiny teapot shaped like a lantern" appeared on its pedestal); mocked server tests. The leech flow has not been driven in a walkthrough |
 | Silver and gold finishes (material transfer), collection and rarity, finishes on pedestals | 🟡 | Live API (batch in progress: see `src/shared/finishes.json`); tests `collection rarity`; collection preview walkthrough |
 | Lumen (text-to-3D → auto-rig → 5 retargeted clips), reactions, quiz | ✅ | Live API; seen in walkthroughs; test `Lumen quiz` and a live Groq quiz |
-| Open-to-remember chest (articulation) | 🟡 | Articulation task submitted; see `src/shared/containers.json` when done |
+| Open-to-remember chest (articulation: URDF body + lid on a revolute hinge, rebuilt in three.js) | ✅ | Live API; walkthrough (18 Nov): closed chests on every stop being recalled, lids open on answer |
 | Keepsake STL / 3MF export | 🟡 | Code and route exist; never run against the real export API (needs the public deployment) |
 | Themed worlds (World generation), home palace (Reality reconstruction), Aholo Viewer | ⬜ | Not built |
 
