@@ -31,6 +31,7 @@ const Stop = z.object({
   link: z.string().catch('').describe('one short, vivid sentence that carries the image of this stop to the image of the next stop (empty on the last)'),
 });
 const Room = z.object({ title: z.string().catch('Room').describe('a short, meaningful group name, e.g. "Eye movement"'), stops: z.array(Stop) });
+const NameList = z.object({ items: z.array(z.string()).describe('the names, in order') });
 export const PalaceDraft = z.object({
   name: z.string().catch('My palace').describe('a short name for the journey, e.g. "The 12 cranial nerves"'),
   rooms: z.array(Room).describe('1 to 5 rooms (groups), in order'),
@@ -96,10 +97,24 @@ export async function buildPalace(material: string, nameHint?: string): Promise<
   // Models sometimes stop a canonical list early (9 of the 12 cranial nerves). If the topic names its count and the
   // draft falls short, ask once more with the count spelled out, and keep the fuller journey.
   const want = promisedCount(`${nameHint ?? ''} ${text.slice(0, 200)}`);
-  for (let tries = 0; out && want && items.length < want && tries < 2; tries++) {
-    const again = await ask(`This list has exactly ${want} items, and the last draft had only ${items.length}. Include all ${want}, one stop each, in order; do not stop early.\n`);
-    const more = itemsOf(again);
-    if (more.length > items.length) [out, items] = [again, more];
+  // Asking again for the whole palace rarely helps; asking for just the names is small and reliable. Then the
+  // palace is built from that numbered list, which the builder turns into one stop per line.
+  if (out && want && items.length < want) {
+    const list = await chatJson(NameList, 'atrium_list', 'You list the items of a well-known ordered set, from established knowledge. Names only, in order.',
+      `List all ${want} items of: ${nameHint || text.slice(0, 200)}`, 30_000, 0);
+    if (list && list.items.length >= want) {
+      const again = await ask(`Use exactly these ${want} stops, in this order:\n${list.items.slice(0, want).map((n, i) => `${i + 1}. ${n}`).join('\n')}\n`);
+      const more = itemsOf(again);
+      if (more.length > items.length) [out, items] = [again, more];
+      // Still short: the listed names nothing covers become plain stops, in their places. The list is complete.
+      const covered = (n: string) => items.some((i) => [i.display, ...i.answers].some((a) => a.toLowerCase().includes(n.toLowerCase().split(' ').pop()!)));
+      const names = list.items.slice(0, want);
+      const missing = names.map((n, i) => ({ n, i })).filter(({ n }) => !covered(n)).slice(0, want - items.length);
+      if (missing.length) {
+        const plain = offlineDraft(missing.map(({ n, i }) => `${i + 1} - ${n}`).join('\n'), nameHint).items;
+        missing.forEach(({ i }, k) => plain[k] && items.splice(Math.min(i, items.length), 0, { ...plain[k], scenes: [plain[k].scenes[0] as SceneSpec], link: '', room: items[0]?.room ?? out!.name }));
+      }
+    }
   }
   if (out && items.length) {
     items[items.length - 1].link = '';

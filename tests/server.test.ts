@@ -336,11 +336,12 @@ describe('World Builder', () => {
     expect(mine[0].item.scenes).toHaveLength(1);
   });
 
-  it('asks again when the AI cuts a counted list short, and keeps the full journey', async () => {
+  it('when the AI cuts a counted list short, lists the names first and builds from them', async () => {
     process.env.GEMINI_API_KEY = 'g';
     const stop = (n: number) => ({ cue: `CN ${n}`, question: `Cranial nerve ${n}?`, answer: `nerve ${n}`, alternates: [], lang: 'en-US', scene: { mnemonic: 'm', focus: 0, props: [{ id: 'cat', x: 0, y: 0, scale: 1, color: '' }] }, link: 'l' });
     const draft = (n: number) => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ name: 'The 12 cranial nerves', rooms: [{ title: 'All', stops: Array.from({ length: n }, (_, i) => stop(i + 1)) }] }) } }] }));
-    const f = vi.fn().mockResolvedValueOnce(draft(9)).mockResolvedValueOnce(draft(10)).mockResolvedValueOnce(draft(12));
+    const names = new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ items: Array.from({ length: 12 }, (_, i) => `nerve ${i + 1}`) }) } }] }));
+    const f = vi.fn().mockResolvedValueOnce(draft(9)).mockResolvedValueOnce(names).mockResolvedValueOnce(draft(12));
     vi.stubGlobal('fetch', f);
     const r = await call('POST', '/api/palace', dev, { name: 'The 12 cranial nerves' });
     vi.unstubAllGlobals();
@@ -348,6 +349,14 @@ describe('World Builder', () => {
     expect(r.status).toBe(201);
     expect(r.data.count).toBe(12);
     expect(f).toHaveBeenCalledTimes(3);
+    // The rebuild is short too: the missing names are added as plain stops, so the journey is still complete.
+    const names2 = new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ items: Array.from({ length: 12 }, (_, i) => `nerve ${i + 1}`) }) } }] }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(draft(10)).mockResolvedValueOnce(names2).mockResolvedValueOnce(draft(11)));
+    process.env.GEMINI_API_KEY = 'g';
+    const r2 = await call('POST', '/api/palace', dev, { name: 'The 12 cranial nerves' });
+    vi.unstubAllGlobals();
+    delete process.env.GEMINI_API_KEY;
+    expect(r2.data.count).toBe(12);
     expect(promisedCount('The 12 cranial nerves')).toBe(12);
     expect(promisedCount('Revolution of 1848 lasted 2 years')).toBeNull();
   });
