@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0e1a15" />
-    <meta name="description" content="Atrium is a VR memory palace for Meta Quest. Your hands write it, your palace keeps it, and you never fall behind." />
+    <meta name="description" content="Atrium turns anything you need to remember into a 3D memory palace you walk through, in VR on Meta Quest or in your browser. Paste anything. Walk through it. Never forget it." />
     <title>Atrium</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23173D32%27/%3E%3Cpath d=%27M16 7l6 9-6 9-6-9z%27 fill=%27%23B99A62%27/%3E%3C/svg%3E" />
     <link rel="preload" as="image" href="/art/site/hero.webp" />
@@ -59,6 +59,7 @@
       #overlay .door:hover { color: #f6e7c1; background: none; }
       .doors .sep { width: 1px; height: 24px; background: rgba(185, 154, 98, 0.55); }
       @media (max-width: 480px) { .doors { flex-direction: column; gap: 4px; } .doors .sep { display: none; } }
+      .lang-toggle { position: absolute; top: 18px; right: 18px; z-index: 3; min-height: 36px; padding: 0 14px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; }
       .vr-note { margin: 12px auto 0; max-width: 26rem; font-size: 0.95rem; color: var(--sage); }
 
       section.band { padding: clamp(64px, 11vw, 120px) 0; }
@@ -125,44 +126,45 @@
           <path d="M40 56c12-1 19-9 18-21-11 1-18 9-18 21Z" fill="currentColor" stroke="none" />
           <path d="M40 39c-6-5-7-14 0-23 7 9 6 18 0 23Z" fill="currentColor" stroke="none" />
         </svg>
+        <button class="lang-toggle" id="lang-toggle" aria-label="中文 / English">中文</button>
         <h1>Atrium</h1>
-        <p class="tagline">Your hands write it. Your palace keeps it. You never fall behind.</p>
+        <p class="tagline" data-i18n="tagline">Paste anything. Walk through it. Never forget it.</p>
         <div class="rule" aria-hidden="true"></div>
         <div class="hero-lantern"><img src="/art/site/lantern.webp" alt="" /></div>
-        <button class="enter" data-enter><svg width="36" height="24" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h22a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5l-2.6-3.2a2.4 2.4 0 0 0-3.8 0L10.5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="20.5" cy="9.5" r="2.4"/></svg>Enter Atrium</button>
+        <button class="enter" data-enter><svg width="36" height="24" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h22a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5l-2.6-3.2a2.4 2.4 0 0 0-3.8 0L10.5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="20.5" cy="9.5" r="2.4"/></svg><span data-i18n="enter">Enter Atrium</span></button>
           <div class="doors">
-            <button class="door" data-desktop id="desktop"><svg width="22" height="20" viewBox="0 0 22 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="1.5" width="19" height="13" rx="1.5"/><path d="M8 18.5h6M11 14.5v4"/></svg>Try on Desktop</button>
+            <button class="door" data-desktop id="desktop"><svg width="22" height="20" viewBox="0 0 22 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="1.5" width="19" height="13" rx="1.5"/><path d="M8 18.5h6M11 14.5v4"/></svg><span data-i18n="desktop">Try on Desktop</span></button>
             <span class="sep" aria-hidden="true"></span>
             <button class="door" data-vr><svg width="30" height="20" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h22a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5l-2.6-3.2a2.4 2.4 0 0 0-3.8 0L10.5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="20.5" cy="9.5" r="2.4"/></svg>Meta Quest / VR</button>
           </div>
-          <p class="vr-note" hidden>To step inside in VR, open this page in the Meta Quest browser.</p>
+          <p class="vr-note" hidden data-i18n="vrNote">To step inside in VR, open this page in the Meta Quest browser.</p>
       </section>
 
       <section class="band" id="how">
         <div class="wrap">
           <div class="head">
-            <p class="eyebrow">How it works</p>
-            <h2>A room that remembers for you</h2>
-            <p class="lede">Each thing you learn gets its own alcove, its own little scene and its own lantern. You build it once. Your palace shows you what is slipping.</p>
+            <p class="eyebrow" data-i18n="howEyebrow">How it works</p>
+            <h2 data-i18n="howTitle">Anything becomes a world you walk through</h2>
+            <p class="lede" data-i18n="howLede">Atrium turns notes, a chapter or a talk into a journey through your palace: a vivid 3D scene at every stop, each one leading to the next. The order is kept, which flashcards lose.</p>
           </div>
           <div class="steps">
             <article class="step">
               <figure><img src="/art/site/cards.webp" alt="Three painted scene cards: a mountain in cherry blossom, a torii gate at night, a bamboo shrine." loading="lazy" /></figure>
               <span class="n">01</span>
-              <h3>Choose a scene</h3>
-              <p>Every word arrives with three vivid scenes. Pick the one that sticks, then twist it out loud: “make the cat wear a hat.”</p>
+              <h3 data-i18n="s1Title">Paste anything</h3>
+              <p data-i18n="s1Text">A chapter, a speech, a list, a web page or a PDF. Or just say a topic: “the twelve cranial nerves”.</p>
             </article>
             <article class="step">
               <figure><img src="/art/props/cat-orange.webp" alt="A cheerful orange cat in a forest-green scarf." loading="lazy" /></figure>
               <span class="n">02</span>
-              <h3>Write it with your hands</h3>
-              <p>Stroke the cat, pat the dog. A gesture of your own, made twice, becomes part of the memory and part of the recall.</p>
+              <h3 data-i18n="s2Title">Walk through it</h3>
+              <p data-i18n="s2Text">Every stop is a real 3D scene, and anything you name becomes its own object. Write each one with a gesture of your own.</p>
             </article>
             <article class="step">
               <figure><img src="/art/site/lantern.webp" alt="A golden lantern wrapped in a ribbon of light." loading="lazy" /></figure>
               <span class="n">03</span>
-              <h3>Keep the lanterns lit</h3>
-              <p>Each lantern shows how well you remember. As it fades, the scene turns grey. Say the word and it blooms back to gold.</p>
+              <h3 data-i18n="s3Title">Never forget it</h3>
+              <p data-i18n="s3Text">Lanterns dim as memories fade. Recall forwards, backwards or straight to number seven, and they bloom back to gold.</p>
             </article>
           </div>
         </div>
@@ -171,17 +173,17 @@
       <section class="band tint" id="words">
         <div class="wrap">
           <div class="head">
-            <p class="eyebrow">Your first five minutes</p>
-            <h2>Six Japanese words, six alcoves</h2>
-            <p class="lede">The palace opens with a starter deck, so you feel it work before you add your own. Offline, no account, no typing.</p>
+            <p class="eyebrow" data-i18n="firstEyebrow">Your first five minutes</p>
+            <h2 data-i18n="firstTitle">The first ten elements, forwards and backwards</h2>
+            <p class="lede" data-i18n="firstLede">Most adults can't name them in order. Five minutes later you can: forwards, backwards, and straight to number seven. Offline, no account, no typing.</p>
           </div>
           <div class="deck">
-            <div class="word"><div class="stage"><img src="/art/props/cat-white.webp" alt="White cat" loading="lazy" /></div><b>neko</b><span>ねこ · cat</span></div>
-            <div class="word"><div class="stage"><img src="/art/props/dog.webp" alt="Golden puppy" loading="lazy" /></div><b>inu</b><span>いぬ · dog</span></div>
-            <div class="word"><div class="stage"><img src="/art/props/drop.webp" alt="Water drop" loading="lazy" /></div><b>mizu</b><span>みず · water</span></div>
-            <div class="word"><div class="stage"><img src="/art/props/mountain.webp" alt="Snow-capped mountain" loading="lazy" /></div><b>yama</b><span>やま · mountain</span></div>
-            <div class="word"><div class="stage"><img src="/art/props/book.webp" alt="Stack of books" loading="lazy" /></div><b>hon</b><span>ほん · book</span></div>
-            <div class="word"><div class="stage"><img src="/art/props/umbrella.webp" alt="Red sakura umbrella" loading="lazy" /></div><b>kasa</b><span>かさ · umbrella</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/fountain.webp" alt="A fountain" loading="lazy" /></div><b>Hydrogen</b><span>1 · H · a fire HYDRANT</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/ball.webp" alt="A red ball" loading="lazy" /></div><b>Helium</b><span>2 · He · a floating balloon</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/house.webp" alt="A cottage" loading="lazy" /></div><b>Lithium</b><span>3 · Li · windows LIT up</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/tree.webp" alt="A tree" loading="lazy" /></div><b>Beryllium</b><span>4 · Be · heavy with BERRIES</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/cat-books.webp" alt="A cat asleep on books" loading="lazy" /></div><b>Boron</b><span>5 · B · a BORing book</span></div>
+            <div class="word"><div class="stage"><img src="/art/props/mountain.webp" alt="A mountain" loading="lazy" /></div><b>Carbon</b><span>6 · C · a diamond in the coal</span></div>
           </div>
           <div class="cast" aria-label="More of the cast">
             <img src="/art/props/cat-black.webp" alt="Black cat" loading="lazy" />
@@ -197,7 +199,7 @@
             <img src="/art/props/glasses.webp" alt="Glasses" loading="lazy" />
             <img src="/art/props/shoe.webp" alt="Boots" loading="lazy" />
           </div>
-          <p class="cast-note">And a cast of painted props for everything you add yourself.</p>
+          <p class="cast-note" data-i18n="castNote">And a cast of 3D props for everything you add yourself.</p>
         </div>
       </section>
 
@@ -205,9 +207,9 @@
         <div class="wrap split">
           <figure><img src="/art/site/lotus.webp" alt="A glowing golden lotus: the bloom of a relit memory." loading="lazy" /></figure>
           <div>
-            <p class="eyebrow">The promise</p>
-            <h2>You never fall behind</h2>
-            <p class="lede">Most study apps punish a missed week with a mountain of reviews. Atrium does the opposite.</p>
+            <p class="eyebrow" data-i18n="promiseEyebrow">The promise</p>
+            <h2 data-i18n="promiseTitle">You never fall behind</h2>
+            <p class="lede" data-i18n="promiseLede">Most study apps punish a missed week with a mountain of reviews. Atrium does the opposite.</p>
             <ul class="points">
               <li><div><b>Seven minutes, always.</b> <span>Each session picks what is fading most and what matters most to your goals. The rest can wait.</span></div></li>
               <li><div><b>A comeback walk, not a backlog.</b> <span>Away for days? You get a short, gentle walk through your palace. The count stays hidden.</span></div></li>
@@ -221,9 +223,9 @@
         <div class="wrap split flip">
           <figure><img src="/art/site/boy-cat.webp" alt="A smiling boy in a forest-green jacket with an orange cat hugging his shoulders." loading="lazy" /></figure>
           <div>
-            <p class="eyebrow">Off the headset</p>
-            <h2>Your palace, in your pocket</h2>
-            <p class="lede">The companion app pairs with a six-letter code.</p>
+            <p class="eyebrow" data-i18n="companionEyebrow">Off the headset</p>
+            <h2 data-i18n="companionTitle">Your palace, in your pocket</h2>
+            <p class="lede" data-i18n="companionLede">The companion app pairs with a six-letter code: build palaces from text, a web page or a PDF, play the daily challenge, and see your friends.</p>
             <ul class="points">
               <li><div><b>Capture anything.</b> <span>Paste notes or a word list. Atrium drafts the scenes; they wait in your headset inbox until you co-create them.</span></div></li>
               <li><div><b>Walk it from memory.</b> <span>A mental walk on the bus keeps your ember alive.</span></div></li>
@@ -237,19 +239,19 @@
       <section class="closing">
         <img src="/art/site/rotunda.webp" alt="" loading="lazy" />
         <div class="wrap">
-          <p class="eyebrow">Ready when you are</p>
-          <h2>Your palace is waiting</h2>
-          <p class="lede">Five minutes, six words, and the first lanterns are yours.</p>
+          <p class="eyebrow" data-i18n="closingEyebrow">Ready when you are</p>
+          <h2 data-i18n="closingTitle">Your palace is waiting</h2>
+          <p class="lede" data-i18n="closingLede">Five minutes, ten elements, and a memory you didn't know you had.</p>
           <div class="buttons">
-            <button class="enter" data-enter><svg width="36" height="24" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h22a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5l-2.6-3.2a2.4 2.4 0 0 0-3.8 0L10.5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="20.5" cy="9.5" r="2.4"/></svg>Enter Atrium</button>
+            <button class="enter" data-enter><svg width="36" height="24" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h22a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5l-2.6-3.2a2.4 2.4 0 0 0-3.8 0L10.5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="20.5" cy="9.5" r="2.4"/></svg><span data-i18n="enter">Enter Atrium</span></button>
           <div class="doors">
-            <button class="door" data-desktop><svg width="22" height="20" viewBox="0 0 22 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="1.5" width="19" height="13" rx="1.5"/><path d="M8 18.5h6M11 14.5v4"/></svg>Try on Desktop</button>
+            <button class="door" data-desktop><svg width="22" height="20" viewBox="0 0 22 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="1.5" width="19" height="13" rx="1.5"/><path d="M8 18.5h6M11 14.5v4"/></svg><span data-i18n="desktop">Try on Desktop</span></button>
             <span class="sep" aria-hidden="true"></span>
             <button class="door" data-vr><svg width="30" height="20" viewBox="0 0 30 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 3h22a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6.5l-2.6-3.2a2.4 2.4 0 0 0-3.8 0L10.5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><circle cx="9.5" cy="9.5" r="2.4"/><circle cx="20.5" cy="9.5" r="2.4"/></svg>Meta Quest / VR</button>
           </div>
-          <p class="vr-note" hidden>To step inside in VR, open this page in the Meta Quest browser.</p>
+          <p class="vr-note" hidden data-i18n="vrNote">To step inside in VR, open this page in the Meta Quest browser.</p>
           </div>
-          <p class="hint">Sit down, put the controllers away and raise your hands. On desktop: point with the mouse, click to select, arrow keys to turn, Esc to pause.</p>
+          <p class="hint" data-i18n="hint">Sit down, put the controllers away and raise your hands. On desktop: point with the mouse, click to select, arrow keys to turn, Esc to pause.</p>
         </div>
       </section>
 

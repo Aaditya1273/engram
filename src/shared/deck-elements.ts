@@ -6,13 +6,16 @@ import type { DeckItem } from './types';
  * built from the 3D prop kit, and `link` is the story line that carries you to the next pedestal: recalling one
  * pulls the next. Landmarks (gold medallions) stand at 5 (boron) and 10 (neon).
  */
+/** Chinese names are accepted answers too, for Chinese-speaking learners. */
+const ZH = ['氢', '氦', '锂', '铍', '硼', '碳', '氮', '氧', '氟', '氖'];
+
 const item = (n: number, display: string, symbol: string, mnemonic: string, props: DeckItem['scenes'][0]['props'], link: string): DeckItem => ({
   id: `el-${symbol.toLowerCase()}`,
   cue: `element ${n}`,
   question: `What is element number ${n}?`,
   lang: 'en-US',
   display,
-  answers: [display, symbol],
+  answers: [display, symbol, ZH[n - 1]],
   gestureHint: 'Trace the scene in the air',
   scenes: [{ mnemonic, props }],
   link,

@@ -6,6 +6,8 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { setModelEnvironment, setPreferPaintings } from './shared/props';
 import { FrameGuard } from './core/frame-guard';
 import { journeys } from './core/journey';
+import { applySite, getLang, setLang, t } from './shared/i18n';
+import { ENGLISH, ENGLISH_JOURNEY } from './shared/deck-english';
 import { dayKey, MILESTONES, milestoneAt, unlockedThemes, weeklyStreak } from './core/streak';
 
 const THEME_NAME: Record<string, string> = { garden: 'Garden', ...Object.fromEntries(MILESTONES.map((m) => [m.theme, m.name])) };
@@ -16,7 +18,7 @@ import { athleteFlow } from './headset/athlete';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
-  arrivalMessage, arrive, captureFlow, collectionFlow, languageDemo, quizMe, walkJourney, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
+  arrivalMessage, arrive, captureFlow, collectionFlow, encodeJourney, journeyRecall, languageDemo, quizMe, walkJourney, watchModels, dailySession, firstFive, inboxFlow, pairFlow, readinessLines, showMemory, windDown, type Ctx,
 } from './headset/flows';
 import { Input } from './headset/input';
 import { EYE_Y, Palace, SLOT_COUNT } from './headset/palace';
@@ -238,12 +240,12 @@ async function home(missedDays: number) {
       cameOnline,
       // Five at most on the main row (a headset row must stay inside the central view); the rest live under More.
       stage.ask<Action>([
-        msg.due ? { label: 'Start', value: 'start' } : { label: 'Practise', value: 'practise' },
+        msg.due ? { label: t('Start'), value: 'start' } : { label: t('Practise'), value: 'practise' },
         ...(inbox.length ? [{ label: `Inbox (${inbox.length})`, value: 'inbox' as const }] : []),
-        { label: 'Journeys', value: 'journeys' },
-        ...(store.data.memories.length >= 3 ? [{ label: 'Recall Rush', value: 'rush' as const }] : []),
-        ...(cloud.online ? [{ label: 'Build a palace', value: 'build' as const }] : []),
-        { label: 'More…', value: 'more' },
+        { label: t('Journeys'), value: 'journeys' },
+        ...(store.data.memories.length >= 3 ? [{ label: t('Recall Rush'), value: 'rush' as const }] : []),
+        ...(cloud.online ? [{ label: t('Build a palace'), value: 'build' as const }] : []),
+        { label: t('More…'), value: 'more' },
       ]),
       inboxChanged,
     ]);
@@ -256,15 +258,15 @@ async function home(missedDays: number) {
     }
     if (action === 'more') {
       action = await stage.ask<Action>([
-        { label: 'Memory Athlete', value: 'athlete' },
-        ...(cloud.online ? [{ label: 'Daily challenge', value: 'challenge' as const }] : []),
-        ...(store.data.memories.length ? [{ label: 'Quiz me', value: 'quiz' as const }, { label: 'Collection', value: 'collection' as const }] : []),
-        { label: 'Remember this', value: 'capture' },
-        ...(cloud.online && cloud.ai ? [{ label: 'Ask an agent', value: 'agent' as const }] : []),
+        { label: t('Memory Athlete'), value: 'athlete' },
+        ...(cloud.online ? [{ label: t('Daily challenge'), value: 'challenge' as const }] : []),
+        ...(store.data.memories.length ? [{ label: t('Quiz me'), value: 'quiz' as const }, { label: t('Collection'), value: 'collection' as const }] : []),
+        { label: t('Remember this'), value: 'capture' },
+        ...(cloud.online && cloud.ai ? [{ label: t('Ask an agent'), value: 'agent' as const }] : []),
         ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
-        ...(!input.xr && keepsakes().length ? [{ label: 'Print a keepsake', value: 'print' as const }] : []),
-        { label: 'Settings', value: 'settings' },
-        { label: 'Back', value: 'back' },
+        ...(!input.xr && keepsakes().length ? [{ label: t('Print a keepsake'), value: 'print' as const }] : []),
+        { label: t('Settings'), value: 'settings' },
+        { label: t('Back'), value: 'back' },
       ]);
       if (action === 'back') continue;
     }
@@ -287,7 +289,7 @@ async function home(missedDays: number) {
       }
       else if (action === 'challenge') {
         // A duel code (from a friend, via the companion) plays their seed instead of today's.
-        const which = input.xr ? 'daily' : await stage.ask([{ label: "Today's challenge", value: 'daily' }, { label: 'Join a duel', value: 'duel' }, { label: 'Back', value: '' }]);
+        const which = input.xr ? 'daily' : await stage.ask([{ label: "Today's challenge", value: 'daily' }, { label: 'Join a duel', value: 'duel' }, { label: t('Back'), value: '' }]);
         if (which === 'daily') await dailyChallenge(ctx);
         if (which === 'duel') {
           stage.show('Join a duel', 'Type the duel code your friend shared, then press Enter.');
@@ -323,7 +325,7 @@ async function agentFlow() {
     { label: 'Cranial nerves', value: 'The cranial nerves' },
     { label: 'Spanish food', value: 'Spanish words for food' },
     ...(input.xr ? [] : [{ label: 'Type a topic', value: '' }]),
-    { label: 'Back', value: 'back' },
+    { label: t('Back'), value: 'back' },
   ]);
   if (topic === 'back') return;
   if (!topic) {
@@ -354,7 +356,7 @@ async function buildFlow() {
     const heard = speechAvailable() ? (await listen(store.data.settings.twistLang, 8000).result)[0]?.trim() : '';
     if (heard) req = { name: heard };
     else {
-      const pick = await stage.ask([{ label: 'Planets', value: 'The planets in order from the Sun' }, { label: 'Cranial nerves', value: 'The 12 cranial nerves' }, { label: 'Back', value: '' }]);
+      const pick = await stage.ask([{ label: 'Planets', value: 'The planets in order from the Sun' }, { label: 'Cranial nerves', value: 'The 12 cranial nerves' }, { label: t('Back'), value: '' }]);
       if (pick) req = { name: pick };
     }
   } else {
@@ -383,11 +385,19 @@ async function journeysMenu() {
   stage.show('Journeys', mine.length ? 'Walk one of your journeys again.' : 'No journeys yet.');
   const pick = await stage.ask<string | null>([
     ...mine.slice(0, 4).map((j) => ({ label: `${j.name} (${j.length})`, value: j.id })),
-    ...(store.data.memories.some((m) => m.id === 'ja-neko') ? [] : [{ label: 'Japanese words', value: 'ja' }]),
+    ...(store.data.memories.some((m) => m.id === 'ja-neko') ? [] : [{ label: t('Japanese words'), value: 'ja' }]),
+    ...(store.data.memories.some((m) => m.id === 'en-sun') ? [] : [{ label: t('English words'), value: 'en' }]),
     ...(cloud.online && !input.xr ? [{ label: 'Copy a shared palace', value: 'copy' }] : []),
-    { label: 'Back', value: null },
+    { label: t('Back'), value: null },
   ]);
   if (pick === 'ja') await languageDemo(ctx);
+  else if (pick === 'en') {
+    // English words for Chinese speakers: the same journey method, asked in Chinese.
+    const start = store.freeRun(ENGLISH.length);
+    await palace.focus(start);
+    const placed = await encodeJourney(ctx, ENGLISH, start, ENGLISH_JOURNEY, { topic: ENGLISH_JOURNEY.name });
+    await journeyRecall(ctx, placed, 'forwards');
+  }
   else if (pick === 'copy') {
     stage.show('Copy a shared palace', 'Type the code someone shared with you, then press Enter.');
     const code = (await stage.typeText('e.g. K7QX2M')).toUpperCase();
@@ -409,7 +419,7 @@ const keepsakes = () => store.data.memories.filter((m) => m.scene.props.some((p)
 async function printFlow() {
   const title = 'Print a keepsake';
   stage.show(title, 'Your own 3D objects can be printed. Pick one; you get an STL file for any 3D printer or print service.');
-  const m = await stage.ask([...keepsakes().slice(0, 4).map((k) => ({ label: k.display, value: k })), { label: 'Back', value: null }]);
+  const m = await stage.ask([...keepsakes().slice(0, 4).map((k) => ({ label: k.display, value: k })), { label: t('Back'), value: null }]);
   if (!m) return;
   stage.show(title, 'Preparing the printable file…');
   const url = await cloud.printable(m.scene.props.find((p) => p.model?.ready)!.model!.id);
@@ -435,14 +445,20 @@ async function settings() {
     const pick = await stage.ask([
       { label: 'Connect phone', value: 'pair' },
       { label: `Theme: ${THEME_NAME[s.theme ?? 'garden']}`, value: 'theme' },
+      { label: getLang() === 'zh' ? 'Language: 中文' : 'Language: English', value: 'lang' },
       { label: `Gaze-only: ${s.gazeOnly ? 'on' : 'off'}`, value: 'gaze' },
       { label: `Narration: ${s.narration ? 'on' : 'off'}`, value: 'narration' },
-      { label: 'More…', value: 'more' },
-      { label: 'Back', value: 'back' },
+      { label: t('More…'), value: 'more' },
+      { label: t('Back'), value: 'back' },
     ]);
     if (pick === 'back') return;
     if (pick === 'pair') await pairFlow(ctx, showQr);
     if (pick === 'gaze') input.gazeOnly = s.gazeOnly = !s.gazeOnly;
+    if (pick === 'lang') {
+      setLang(getLang() === 'zh' ? 'en' : 'zh');
+      showLang();
+      await stage.say(getLang() === 'zh' ? '已切换到中文。' : 'Switched to English.', t('Settings'));
+    }
     if (pick === 'theme') {
       // Cycle through the themes this learner's best streak has unlocked.
       const open = unlockedThemes(store.data.streak.best);
@@ -459,7 +475,7 @@ async function settings() {
         { label: `Streak: ${store.data.settings.weeklyStreak ? 'weekly' : 'daily'}`, value: 'weekly' },
         { label: 'About', value: 'about' },
         { label: 'Erase everything', value: 'reset' },
-        { label: 'Back', value: 'back' },
+        { label: t('Back'), value: 'back' },
       ]);
       if (more === 'wind') return void (await windDown(ctx));
       if (more === 'text') setTextScale(1.2);
@@ -474,7 +490,7 @@ async function settings() {
           'The 3D objects are generated by Aholo Lux3D (Manycore): every painted prop, and anything you name in a twist.',
           'Speech by Whisper on Groq. Built with three.js and WebXR.',
         ].join('\n'));
-        await stage.ask([{ label: 'Back', value: 'back' }]);
+        await stage.ask([{ label: t('Back'), value: 'back' }]);
       }
       if (more === 'reset') {
         stage.show('Erase everything?', 'This deletes your palace here and your account in the cloud. It cannot be undone.');
@@ -530,6 +546,17 @@ const enterVr = async () => {
   void cloud.health().then(() => warmMicrophone(cloud.stt));
 };
 const each = (sel: string, f: (b: HTMLButtonElement) => void) => document.querySelectorAll<HTMLButtonElement>(sel).forEach(f);
+// English / 中文: the page and the palace follow the same choice.
+const langToggle = document.getElementById('lang-toggle');
+const showLang = () => {
+  applySite();
+  if (langToggle) langToggle.textContent = getLang() === 'zh' ? 'EN' : '中文';
+};
+if (langToggle) langToggle.onclick = () => {
+  setLang(getLang() === 'zh' ? 'en' : 'zh');
+  showLang();
+};
+showLang();
 each('[data-desktop]', (b) => (b.onclick = enterDesktop));
 each('[data-enter]', (b) => (b.onclick = () => (xrSupported ? void enterVr() : enterDesktop())));
 each('[data-vr]', (b) => {

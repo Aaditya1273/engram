@@ -159,7 +159,9 @@ export const setNarration = (on: boolean) => {
 
 /** Speak and resolve when done (or after a reading-time estimate if TTS is unavailable). */
 export function narrate(text: string): Promise<void> {
-  const estimate = Math.max(1400, text.split(/\s+/).length * 330);
+  // Reading time for captions when there's no voice: by words, or by characters for Chinese.
+  const cjk = (text.match(/[\u4e00-\u9fff]/g) ?? []).length;
+  const estimate = Math.max(1400, cjk ? cjk * 230 : text.split(/\s+/).length * 330);
   const synth = globalThis.speechSynthesis;
   if (!narrationOn || !synth) return new Promise((r) => setTimeout(r, estimate));
   return new Promise((res) => {
@@ -167,8 +169,11 @@ export function narrate(text: string): Promise<void> {
     const u = new SpeechSynthesisUtterance(text.replace(/\*/g, ''));
     u.rate = 0.96;
     u.pitch = 1;
-    const voice = synth.getVoices().find((v) => v.lang.startsWith('en') && /female|samantha|google uk|aria|jenny/i.test(v.name))
-      ?? synth.getVoices().find((v) => v.lang.startsWith('en'));
+    // Chinese narration in the Chinese UI (any CJK in the text), English otherwise.
+    const zh = /[\u4e00-\u9fff]/.test(text);
+    u.lang = zh ? 'zh-CN' : 'en-US';
+    const voice = zh ? synth.getVoices().find((v) => v.lang.replace('_', '-').startsWith('zh'))
+      : synth.getVoices().find((v) => v.lang.startsWith('en') && /female|samantha|google uk|aria|jenny/i.test(v.name)) ?? synth.getVoices().find((v) => v.lang.startsWith('en'));
     if (voice) u.voice = voice;
     let done = false;
     const finish = () => {

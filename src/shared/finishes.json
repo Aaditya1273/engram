@@ -149,5 +149,41 @@
       "seconds": 245,
       "bytes": 297240
     }
+  },
+  "mountain": {
+    "gold": {
+      "taskId": 8270634,
+      "seconds": 224,
+      "bytes": 237800
+    },
+    "silver": {
+      "taskId": 8270618,
+      "seconds": 243,
+      "bytes": 347620
+    }
+  },
+  "shoe": {
+    "silver": {
+      "taskId": 8270724,
+      "seconds": 234,
+      "bytes": 303672
+    },
+    "gold": {
+      "taskId": 8270727,
+      "seconds": 234,
+      "bytes": 210836
+    }
+  },
+  "star": {
+    "gold": {
+      "taskId": 8270975,
+      "seconds": 166,
+      "bytes": 153720
+    },
+    "silver": {
+      "taskId": 8270961,
+      "seconds": 181,
+      "bytes": 207496
+    }
   }
 }

@@ -12,12 +12,14 @@ import { JA_STARTER } from '../src/shared/deck-ja';
 import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 import { migrate } from '../src/headset/store';
+import { wrap } from '../src/headset/ui';
 import { FrameGuard } from '../src/core/frame-guard';
 import { freeRecallScore, planDay, programmeDay } from '../src/core/athlete';
 import { rarityOf } from '../src/core/rarity';
 import { beatMs, flightMs, musicLevel, nextPick, rushPoints, weekKey } from '../src/core/rush';
 import { isLandmark, journeys, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt } from '../src/core/journey';
 import { ELEMENTS } from '../src/shared/deck-elements';
+import { ENGLISH } from '../src/shared/deck-english';
 import { bakeTemplate } from '../src/shared/props';
 import * as THREE from 'three';
 import { sceneFit } from '../src/headset/scene-builder';
@@ -395,6 +397,14 @@ describe('journeys', () => {
     expect(journeys(ms)).toEqual([{ id: 'j', name: 'J', length: 3 }]);
   });
 
+  it('ships the English-for-Chinese journey with known props and Chinese questions', () => {
+    expect(ENGLISH).toHaveLength(10);
+    for (const e of ENGLISH) {
+      expect([...PROP_IDS, ...SCENE_ART_IDS]).toContain(e.scenes[0].props[0].prop);
+      expect(e.question).toMatch(/[\u4e00-\u9fff]/);
+    }
+  });
+
   it('ships ten element stops built from known props, each linked to the next', () => {
     expect(ELEMENTS.map((e) => e.answers[1])).toEqual(['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne']);
     for (const [i, e] of ELEMENTS.entries()) {
@@ -501,5 +511,15 @@ describe('Memory Athlete', () => {
     const words = ['anchor', 'violin', 'tiger', 'teapot'];
     expect(freeRecallScore(words, 'um tiger, then anchor... anchor again, and a violin')).toBe(3);
     expect(freeRecallScore(words, '')).toBe(0);
+  });
+});
+
+describe('text wrapping', () => {
+  // A fake canvas where every character is 10 px wide.
+  const ctx = { measureText: (s: string) => ({ width: s.length * 10 }) } as unknown as CanvasRenderingContext2D;
+  it('breaks English at spaces and Chinese between characters', () => {
+    expect(wrap(ctx, 'the quick brown fox', 100)).toEqual(['the quick', 'brown fox']);
+    expect(wrap(ctx, '我会教你记忆冠军如何记住任何东西。', 60)).toEqual(['我会教你记忆', '冠军如何记住', '任何东西。']);
+    expect(wrap(ctx, 'one\ntwo', 100)).toEqual(['one', 'two']);
   });
 });

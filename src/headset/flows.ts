@@ -5,8 +5,9 @@ import { DESIRED_RETENTION } from '../core/model';
 import { canRepair, dayKey, daysBetween, rollover } from '../core/streak';
 import { planSession } from '../core/triage';
 import { applyTwist, isEmptyTwist, parseTwist } from '../core/twist';
-import { isLandmark, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt, type RecallMode } from '../core/journey';
+import { isLandmark, journeyStops, namedInOrder, recallOrder, rehearsalReport, type RecallMode } from '../core/journey';
 import { ELEMENTS, ELEMENTS_JOURNEY } from '../shared/deck-elements';
+import { t, t2 } from '../shared/i18n';
 import { RARITY_RANK, rarityOf, type Rarity } from '../core/rarity';
 import { JA_STARTER } from '../shared/deck-ja';
 import type { DeckItem, GestureSignature, InboxItem, Memory, SceneSpec } from '../shared/types';
@@ -235,7 +236,7 @@ export async function recallOne(ctx: Ctx, m: Memory, others: Memory[], opts: { p
       const r = await input.captureGesture(RECALL_GESTURE_MS);
       g.result = match(m.gesture!, r.frames, r.modality);
     }
-    stage.show(prompt, 'Pick the answer.');
+    stage.show(prompt, t('Pick the answer.'));
     t0 = performance.now();
     const pool = shuffle(others.filter((o) => o.id !== m.id)).slice(0, 2).map((o) => o.display);
     const pick = await stage.ask(shuffle([m.display, ...pool, ...(pool.length < 2 ? ['—'] : [])]).map((d) => ({ label: d, value: d })));
@@ -314,7 +315,7 @@ const ordinal = (n: number) => ['First', 'Second', 'Third', 'Fourth', 'Fifth', '
 async function explorationWalk(ctx: Ctx, startSlot: number, n: number) {
   const { stage, palace } = ctx;
   for (let i = 0; i < n; i++) if (isLandmark(i)) palace.alcove(startSlot + i).setLandmark(i + 1);
-  await stage.say(`This is your path: ${n} pedestals, in order. A gold medallion marks every fifth one.`, 'Your path');
+  await stage.say(t2('This is your path: {n} pedestals, in order. A gold medallion marks every fifth one.', { n }), t('Your path'));
   for (let i = 2; i < n; i += 2) {
     await palace.focus(startSlot + i);
     await stage.sleep(350);
@@ -344,7 +345,7 @@ export async function encodeJourney(
       topic: where.topic ?? journey.name, goalId: where.goalId, journey: { ...journey, index: i, link: item.link || undefined },
     }));
     if (item.link) await stage.say(item.link, title);
-    await stage.ask([{ label: i < items.length - 1 ? 'Next stop' : 'Done', value: true }]);
+    await stage.ask([{ label: t(i < items.length - 1 ? 'Next stop' : 'Done'), value: true }]);
   }
   return placed;
 }
@@ -361,7 +362,7 @@ export async function journeyRecall(ctx: Ctx, stops: Memory[], mode: RecallMode,
   for (const i of recallOrder(stops.length, mode, count)) {
     const m = stops[i];
     if (mode !== 'position') await palace.focus(m.slot);
-    if (await recallOne(ctx, m, stops, { prompt: stopPrompt(mode, i, stops.length) })) right++;
+    if (await recallOne(ctx, m, stops, { prompt: localPrompt(mode, i, stops.length) })) right++;
     if (mode === 'position') await palace.focus(m.slot);
   }
   for (const m of stops) palace.alcove(m.slot).setVeiled(false);
@@ -477,6 +478,13 @@ export async function collectionFlow(ctx: Ctx) {
   }
 }
 
+/** stopPrompt, in the learner's language. */
+function localPrompt(mode: RecallMode, i: number, total: number): string {
+  if (mode === 'position') return t2("What's number {n}?", { n: i + 1 });
+  if (mode === 'backwards') return i === total - 1 ? t2("Backwards now. What's at the end, number {n}?", { n: total }) : t2('And before that, number {n}?', { n: i + 1 });
+  return i === 0 ? t("From the start. What's at number 1?") : t2('Next stop, number {n}?', { n: i + 1 });
+}
+
 /** Walk one of your journeys again: pick it, then the direction. */
 export async function walkJourney(ctx: Ctx, id: string) {
   const { stage, store } = ctx;
@@ -527,25 +535,25 @@ export async function firstFive(ctx: Ctx) {
 
   // 0:00 – a promise, one lantern, one pinch.
   stage.show('Atrium', `${pinch} the glowing lantern to light it.`);
-  void stage.say(`Welcome. I'm Lumen. I'll show you how memory champions remember anything. ${input.xr ? 'Look at' : 'Point at'} the glowing lantern, and ${pinch.toLowerCase()} to light it.`, 'Lumen');
+  void stage.say(t(`Welcome. I'm Lumen. I'll show you how memory champions remember anything. ${input.xr ? 'Look at' : 'Point at'} the glowing lantern, and ${pinch.toLowerCase()} to light it.`), t('Lumen'));
   await stage.waitAlcove(0);
   play('light');
   palace.setWarmth(1, 1600);
   palace.alcove(0).setRecall(null);
 
   // 0:20 – the gap: most people can't do this.
-  await stage.say('Quick test first. Can you name the first ten chemical elements, in order? Try it now, out loud.', 'Quick test');
+  await stage.say(t('Quick test first. Can you name the first ten chemical elements, in order? Try it now, out loud.'), t('Quick test'));
   let before: number;
   if (speechAvailable()) {
-    stage.show('Quick test', 'Listening… say as many as you can, in order.');
+    stage.show(t('Quick test'), t('Listening… say as many as you can, in order.'));
     before = namedInOrder((await listen('en-US', 12_000).result).join(' '), ELEMENTS.map((e) => [e.display]));
   } else {
-    before = await stage.ask([{ label: 'All ten', value: 10 }, { label: 'A few', value: 3 }, { label: 'Not really', value: 0 }]);
+    before = await stage.ask([{ label: t('All ten'), value: 10 }, { label: t('A few'), value: 3 }, { label: t('Not really'), value: 0 }]);
   }
   await stage.say(
     before >= n ? 'Impressive. Now watch how to make it permanent, and reversible.'
-      : `${before ? `You got ${before} in order.` : "Most people can't."} In three minutes you'll know all ten, forwards and backwards.`,
-    'Quick test',
+      : `${before ? t2('You got {n} in order.', { n: before }) : t("Most people can't.")} ${t("In three minutes you'll know all ten, forwards and backwards.")}`,
+    t('Quick test'),
   );
 
   // 0:45 – moving without standing.
@@ -562,16 +570,16 @@ export async function firstFive(ctx: Ctx) {
   // 3:00 – the lights go down; the path stays.
   await palace.focus(4.5);
   palace.setWarmth(0.3, 900);
-  await stage.say('Now the lights go down. The path is in your head. Walk it.', 'Recall');
+  await stage.say(t('Now the lights go down. The path is in your head. Walk it.'), t('Recall'));
   palace.setWarmth(1, 1600);
 
   // 3:10 – forwards, backwards, and a jump.
   const forwards = await journeyRecall(ctx, placed, 'forwards');
-  await stage.say(`${forwards} of ${n} forwards. Now the hard part: backwards.`, 'Backwards');
+  await stage.say(t2('{a} of {b} forwards. Now the hard part: backwards.', { a: forwards, b: n }), t('Backwards'));
   const backwards = await journeyRecall(ctx, placed, 'backwards');
   await palace.focus(4.5);
-  await stage.say('Last one. No walking this time.', 'Jump');
-  const seven = await recallOne(ctx, placed[6], placed, { prompt: "What's number 7?" });
+  await stage.say(t('Last one. No walking this time.'), t('Jump'));
+  const seven = await recallOne(ctx, placed[6], placed, { prompt: t2("What's number {n}?", { n: 7 }) });
   await palace.focus(placed[6].slot);
 
   // 4:20 – the payoff, and the real use.

@@ -63,18 +63,24 @@ const diamond = (ctx: CanvasRenderingContext2D, x: number, y: number, s: number)
   ctx.closePath();
 };
 
-function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+/**
+ * Splits a paragraph into units a line may break between: words (with their following space) for Latin text,
+ * single characters for Chinese and Japanese, which have no spaces. Closing punctuation stays on its character.
+ */
+const BREAKS = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff][，。、！？；：」』）》]?|[^\s\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]+\s*|\s+/g;
+
+export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const out: string[] = [];
   for (const para of text.split('\n')) {
     let line = '';
-    for (const word of para.split(' ')) {
-      const test = line ? `${line} ${word}` : word;
-      if (ctx.measureText(test).width > maxW && line) {
-        out.push(line);
-        line = word;
+    for (const unit of para.match(BREAKS) ?? []) {
+      const test = line + unit;
+      if (ctx.measureText(test.trimEnd()).width > maxW && line.trim()) {
+        out.push(line.trimEnd());
+        line = unit.trimStart();
       } else line = test;
     }
-    out.push(line);
+    out.push(line.trimEnd());
   }
   return out;
 }
