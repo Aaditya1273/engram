@@ -1,0 +1,55 @@
+{
+ "marks": [
+  {
+   "t": 1.637,
+   "kind": "pinch",
+   "label": "Settings"
+  },
+  {
+   "t": 4.357,
+   "kind": "pinch",
+   "label": "Language: English"
+  },
+  {
+   "t": 6.358,
+   "kind": "pinch",
+   "label": "日本語"
+  },
+  {
+   "t": 7.444,
+   "kind": "lang",
+   "label": "ja"
+  },
+  {
+   "t": 10.999,
+   "kind": "pinch",
+   "label": "言語: 日本語"
+  },
+  {
+   "t": 13.469,
+   "kind": "pinch",
+   "label": "हिन्दी"
+  },
+  {
+   "t": 14.486,
+   "kind": "lang",
+   "label": "hi"
+  },
+  {
+   "t": 17.646,
+   "kind": "pinch",
+   "label": "भाषा: हिन्दी"
+  },
+  {
+   "t": 19.72,
+   "kind": "pinch",
+   "label": "English"
+  },
+  {
+   "t": 20.951,
+   "kind": "lang",
+   "label": "en"
+  }
+ ],
+ "err": null
+}

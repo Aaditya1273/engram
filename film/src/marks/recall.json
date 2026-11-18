@@ -1,0 +1,135 @@
+{
+ "marks": [
+  {
+   "t": 2.209,
+   "kind": "pinch",
+   "label": "Walk it"
+  },
+  {
+   "t": 3.686,
+   "kind": "prompt",
+   "label": "From the start. What's at number 1? | Pick the answer."
+  },
+  {
+   "t": 6.251,
+   "kind": "pinch",
+   "label": "Olfactory"
+  },
+  {
+   "t": 9.498,
+   "kind": "prompt",
+   "label": "Next stop, number 2? | Pick the answer."
+  },
+  {
+   "t": 12.17,
+   "kind": "pinch",
+   "label": "Optic"
+  },
+  {
+   "t": 15.4,
+   "kind": "prompt",
+   "label": "Next stop, number 3? | Pick the answer."
+  },
+  {
+   "t": 17.825,
+   "kind": "pinch",
+   "label": "Oculomotor"
+  },
+  {
+   "t": 21.173,
+   "kind": "prompt",
+   "label": "Next stop, number 4? | Pick the answer."
+  },
+  {
+   "t": 23.43,
+   "kind": "pinch",
+   "label": "Trochlear"
+  },
+  {
+   "t": 26.363,
+   "kind": "prompt",
+   "label": "Next stop, number 5? | Pick the answer."
+  },
+  {
+   "t": 28.452,
+   "kind": "pinch",
+   "label": "Trigeminal"
+  },
+  {
+   "t": 32.163,
+   "kind": "prompt",
+   "label": "Next stop, number 6? | Pick the answer."
+  },
+  {
+   "t": 34.036,
+   "kind": "pinch",
+   "label": "Abducens"
+  },
+  {
+   "t": 36.935,
+   "kind": "prompt",
+   "label": "Next stop, number 7? | Pick the answer."
+  },
+  {
+   "t": 38.766,
+   "kind": "pinch",
+   "label": "Facial"
+  },
+  {
+   "t": 42.01,
+   "kind": "prompt",
+   "label": "Next stop, number 8? | Pick the answer."
+  },
+  {
+   "t": 43.45,
+   "kind": "pinch",
+   "label": "Vestibulocochlear"
+  },
+  {
+   "t": 46.624,
+   "kind": "prompt",
+   "label": "Next stop, number 9? | Pick the answer."
+  },
+  {
+   "t": 48.34,
+   "kind": "pinch",
+   "label": "Glossopharyngeal"
+  },
+  {
+   "t": 52.076,
+   "kind": "prompt",
+   "label": "Next stop, number 10? | Pick the answer."
+  },
+  {
+   "t": 53.481,
+   "kind": "pinch",
+   "label": "Vagus"
+  },
+  {
+   "t": 56.693,
+   "kind": "prompt",
+   "label": "Next stop, number 11? | Pick the answer."
+  },
+  {
+   "t": 58.355,
+   "kind": "pinch",
+   "label": "Accessory"
+  },
+  {
+   "t": 61.597,
+   "kind": "prompt",
+   "label": "Next stop, number 12? | Pick the answer."
+  },
+  {
+   "t": 62.762,
+   "kind": "pinch",
+   "label": "Hypoglossal"
+  },
+  {
+   "t": 84.544,
+   "kind": "done",
+   "label": "All lanterns lit | The next one starts to fade in about 2 days."
+  }
+ ],
+ "err": null
+}

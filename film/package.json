@@ -1,0 +1,8 @@
+{
+  "name": "atrium-film",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "TMPDIR=$HOME/.cache/remotion-tmp remotion render src/index.ts Atrium out/atrium-meta.mp4 --codec=h264 --crf=17 --concurrency=6"
+  }
+}
