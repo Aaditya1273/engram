@@ -53,5 +53,65 @@
       "seconds": 267,
       "bytes": 213928
     }
+  },
+  "dog": {
+    "gold": {
+      "taskId": 8269345,
+      "seconds": 277,
+      "bytes": 141024
+    },
+    "silver": {
+      "taskId": 8269344,
+      "seconds": 360,
+      "bytes": 211724
+    }
+  },
+  "dog-hat": {
+    "silver": {
+      "taskId": 8269342,
+      "seconds": 425,
+      "bytes": 236136
+    },
+    "gold": {
+      "taskId": 8269346,
+      "seconds": 364,
+      "bytes": 164640
+    }
+  },
+  "drop": {
+    "gold": {
+      "taskId": 8269728,
+      "seconds": 169,
+      "bytes": 220600
+    },
+    "silver": {
+      "taskId": 8269725,
+      "seconds": 185,
+      "bytes": 251896
+    }
+  },
+  "drop-honey": {
+    "gold": {
+      "taskId": 8269722,
+      "seconds": 246,
+      "bytes": 176316
+    },
+    "silver": {
+      "taskId": 8269718,
+      "seconds": 263,
+      "bytes": 243576
+    }
+  },
+  "fountain": {
+    "silver": {
+      "taskId": 8269944,
+      "seconds": 243,
+      "bytes": 371044
+    },
+    "gold": {
+      "taskId": 8269951,
+      "seconds": 236,
+      "bytes": 282388
+    }
   }
 }

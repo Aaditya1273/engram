@@ -104,6 +104,7 @@ export async function recallRush(ctx: Ctx) {
   store.data.rush = { best: Math.max(prev.best, score), bestCombo: Math.max(prev.bestCombo, best), week, weekBest: Math.max(weekBest, score) };
   store.save();
   void ctx.cloud.sync();
+  void ctx.cloud.reportRush(store.data.rush.best);
   play(newBest ? 'relight' : 'light');
   await stage.say(
     `${score} points. ${right} of ${total} right, best combo ${best}.${newBest ? ' A new personal best!' : ` Your best is ${prev.best}.`}`,

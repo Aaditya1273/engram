@@ -8,6 +8,7 @@ import { FrameGuard } from './core/frame-guard';
 import { journeys } from './core/journey';
 import { recallRush } from './headset/rush';
 import { Lumen } from './headset/lumen';
+import { dailyChallenge } from './headset/challenge';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
@@ -192,7 +193,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz' | 'collection';
+    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz' | 'collection' | 'challenge';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -238,6 +239,7 @@ async function home(missedDays: number) {
     }
     if (action === 'more') {
       action = await stage.ask<Action>([
+        ...(cloud.online ? [{ label: 'Daily challenge', value: 'challenge' as const }] : []),
         ...(store.data.memories.length ? [{ label: 'Quiz me', value: 'quiz' as const }, { label: 'Collection', value: 'collection' as const }] : []),
         { label: 'Remember this', value: 'capture' },
         ...(cloud.online && cloud.ai ? [{ label: 'Ask an agent', value: 'agent' as const }] : []),
@@ -255,6 +257,16 @@ async function home(missedDays: number) {
       else if (action === 'rush') await recallRush(ctx);
       else if (action === 'quiz') await quizMe(ctx);
       else if (action === 'collection') await collectionFlow(ctx);
+      else if (action === 'challenge') {
+        // A duel code (from a friend, via the companion) plays their seed instead of today's.
+        const which = input.xr ? 'daily' : await stage.ask([{ label: "Today's challenge", value: 'daily' }, { label: 'Join a duel', value: 'duel' }, { label: 'Back', value: '' }]);
+        if (which === 'daily') await dailyChallenge(ctx);
+        if (which === 'duel') {
+          stage.show('Join a duel', 'Type the duel code your friend shared, then press Enter.');
+          const code = (await stage.typeText('e.g. K7QXM')).toUpperCase();
+          if (code) await dailyChallenge(ctx, code);
+        }
+      }
       else if (action === 'build') await buildFlow();
       else if (action === 'inbox') await inboxFlow(ctx, inbox);
       else if (action === 'capture') await captureFlow(ctx);

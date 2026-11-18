@@ -154,6 +154,21 @@ export class Cloud {
     }
   }
 
+  // ---- arena
+  challengeStart(duel?: string) {
+    return this.api<{ runId: string; key: string; items: string[] }>('/challenge/start', { method: 'POST', body: JSON.stringify({ duel }) });
+  }
+  challengeFinish(runId: string, answers: string[]) {
+    return this.api<{ correct: number; score: number; seconds: number; key: string }>('/challenge/finish', { method: 'POST', body: JSON.stringify({ runId, answers }) });
+  }
+  board(scope: 'global' | 'friends', duel?: string) {
+    return this.api<{ key: string; rows: { rank: number; name: string; correct: number; score: number; you: boolean }[] }>(`/challenge/board?scope=${scope}${duel ? `&duel=${duel}` : ''}`);
+  }
+  /** Best-effort: the Recall Rush best goes on the profile friends see. */
+  async reportRush(best: number) {
+    if (this.online) await this.api('/profile', { method: 'PATCH', body: JSON.stringify({ rushBest: best }) }).catch(() => {});
+  }
+
   /** World Builder: text, a web page or a topic becomes an ordered journey, filed in the inbox. */
   buildPalace(input: { text?: string; url?: string; name?: string }) {
     return this.api<{ journey: { id: string; name: string }; inboxIds: string[]; name: string; count: number }>('/palace', { method: 'POST', body: JSON.stringify(input) });

@@ -67,3 +67,42 @@ export function recordFullSession(s: StreakState, today: string): StreakState {
 export function canRepair(s: StreakState, today: string): boolean {
   return !!s.broken && daysBetween(s.broken.day, today) <= REPAIR_WINDOW_DAYS;
 }
+
+/** Streak milestones; each unlocks a palace theme. */
+export const MILESTONES = [
+  { days: 7, theme: 'moonlit', name: 'Moonlit' },
+  { days: 30, theme: 'autumn', name: 'Autumn' },
+  { days: 100, theme: 'golden', name: 'Golden hour' },
+  { days: 365, theme: 'sakura', name: 'Sakura' },
+] as const;
+export type Theme = 'garden' | (typeof MILESTONES)[number]['theme'];
+
+/** Themes unlocked by the best streak ever reached (the garden is always there). */
+export const unlockedThemes = (best: number): Theme[] => ['garden', ...MILESTONES.filter((m) => best >= m.days).map((m) => m.theme)];
+
+/** The milestone just reached, if `count` is exactly one of them (for the celebration). */
+export const milestoneAt = (count: number) => MILESTONES.find((m) => m.days === count) ?? null;
+
+/** Monday of the ISO week containing a day key. */
+function weekOf(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  t.setUTCDate(t.getUTCDate() - ((t.getUTCDay() + 6) % 7));
+  return t.toISOString().slice(0, 10);
+}
+
+/**
+ * Weekly mode, for people who can't do every day: a week counts when it has at least 5 active days, and the
+ * streak is the run of such weeks up to now. The current week never breaks it while it can still reach 5.
+ */
+export function weeklyStreak(activeDays: Iterable<string>, today: string, perWeek = 5): number {
+  const perWeekCount = new Map<string, number>();
+  for (const d of activeDays) perWeekCount.set(weekOf(d), (perWeekCount.get(weekOf(d)) ?? 0) + 1);
+  let week = weekOf(today), n = 0;
+  if ((perWeekCount.get(week) ?? 0) >= perWeek) n++;
+  for (;;) {
+    week = addDays(week, -7);
+    if ((perWeekCount.get(week) ?? 0) < perWeek) return n;
+    n++;
+  }
+}

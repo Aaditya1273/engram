@@ -10,6 +10,7 @@ import {
 import { db } from './db';
 import { MAX_AUDIO_BYTES, sttEnabled, transcribe } from './speech';
 import { buildPalace, fetchPage, fileJourney, MAX_MATERIAL, pdfToText } from './palace';
+import { addFriend, board, challengeKey, cheer, createDuel, finishRun, joinLeague, league, listFriends, myProfile, startRun, updateProfile } from './arena';
 import { advanceModel, createModel, exportModel, lux3dEnabled, MODEL_PROMPT_MAX, modelFile } from './lux3d';
 
 /** The whole API as one fetch handler: deployed as a single Vercel function, mounted in Vite for dev. */
@@ -237,6 +238,59 @@ export async function handle(req: Request): Promise<Response> {
       if (!alternatives) throw new HttpError(502, 'Transcription failed');
       return json({ alternatives });
     }
+
+    // ---- arena: profile, friends, cheers, daily challenge, duels, leagues
+    if (path === '/api/profile' && m === 'GET') return json(await myProfile((await need(req, 'device')).userId));
+    if (path === '/api/profile' && m === 'PATCH') {
+      const who = await need(req, 'device', 'write');
+      const p = await body(req, z.object({
+        name: z.string().trim().min(1).max(32).optional(), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+        rushBest: z.number().int().min(0).max(10_000_000).optional(), anonymous: z.boolean().optional(),
+      }));
+      await updateProfile(who.userId, p);
+      return json(await myProfile(who.userId));
+    }
+    if (path === '/api/friends' && m === 'GET') return json(await listFriends((await need(req, 'device')).userId));
+    if (path === '/api/friends' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      if (!(await rateLimit(who.tokenId, 30))) throw new HttpError(429, 'Too many tries this hour');
+      const { code } = await body(req, z.object({ code: z.string().trim().min(4).max(8) }));
+      const f = await addFriend(who.userId, code);
+      return f ? json(f, 201) : json({ error: 'No one has that code.' }, 404);
+    }
+    const cheerPath = path.match(/^\/api\/friends\/([A-Za-z0-9]{4,8})\/cheer$/);
+    if (cheerPath && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      const r = await cheer(who.userId, cheerPath[1], new Date().toISOString().slice(0, 10));
+      return r === 'not-friend' ? json({ error: 'Not a friend of yours.' }, 404) : json({ result: r });
+    }
+    if (path === '/api/duels' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      if (!(await rateLimit(who.tokenId, 20))) throw new HttpError(429, 'Too many duels this hour');
+      return json({ code: await createDuel(who.userId) }, 201);
+    }
+    if (path === '/api/challenge/start' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      const { duel } = await body(req, z.object({ duel: z.string().trim().max(8).optional() }));
+      const key = await challengeKey(duel);
+      if (!key) throw new HttpError(404, 'No duel with that code.');
+      const r = await startRun(who.userId, key);
+      return 'error' in r ? json(r, 409) : json(r, 201);
+    }
+    if (path === '/api/challenge/finish' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      const { runId, answers } = await body(req, z.object({ runId: z.string().max(80), answers: z.array(z.string().max(60)).max(40) }));
+      const r = await finishRun(who.userId, runId, answers);
+      return 'error' in r ? json(r, 409) : json(r);
+    }
+    if (path === '/api/challenge/board' && m === 'GET') {
+      const who = await need(req, 'device');
+      const key = await challengeKey(url.searchParams.get('duel') ?? undefined);
+      if (!key) throw new HttpError(404, 'No duel with that code.');
+      return json({ key, rows: await board(who.userId, key, url.searchParams.get('scope') === 'friends' ? 'friends' : 'global') });
+    }
+    if (path === '/api/league' && m === 'GET') return json(await league((await need(req, 'device')).userId));
+    if (path === '/api/league' && m === 'POST') return json(await joinLeague((await need(req, 'device', 'write')).userId));
 
     // ---- goals
     if (path === '/api/goals' && m === 'GET') return json(await listGoals((await need(req, 'device')).userId));

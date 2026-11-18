@@ -352,3 +352,68 @@ describe('Lumen quiz', () => {
     expect(r.data.questions).toEqual([{ id: 'a', prompt: 'Which gas is most of the air?' }]);
   });
 });
+
+describe('arena', () => {
+  let ann: string, bo: string;
+  beforeAll(async () => {
+    ann = (await call('POST', '/api/device', undefined, { name: 'Ann' })).data.token;
+    bo = (await call('POST', '/api/device', undefined, { name: 'Bo' })).data.token;
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('gives every learner a profile with a friend code and a heatmap of reviews', async () => {
+    const p = (await call('GET', '/api/profile', ann)).data;
+    expect(p.code).toMatch(/^[A-Z2-9]{6}$/);
+    expect(p.name).toMatch(/^Learner /);
+    const renamed = (await call('PATCH', '/api/profile', ann, { name: 'Ann', rushBest: 1200 })).data;
+    expect(renamed.name).toBe('Ann');
+    expect(renamed.rushBest).toBe(1200);
+    expect((await call('PATCH', '/api/profile', ann, { rushBest: 500 })).data.rushBest).toBe(1200); // best only goes up
+    expect(typeof p.heatmap).toBe('object');
+  });
+
+  it('makes friends both ways by code; a cheer gives one freeze a day', async () => {
+    const boCode = (await call('GET', '/api/profile', bo)).data.code;
+    expect((await call('POST', '/api/friends', ann, { code: 'ZZZZZZ' })).status).toBe(404);
+    expect((await call('POST', '/api/friends', ann, { code: boCode.toLowerCase() })).status).toBe(201);
+    expect((await call('GET', '/api/friends', bo)).data.map((f: { name: string }) => f.name)).toEqual(['Ann']);
+    expect((await call('POST', `/api/friends/${boCode}/cheer`, ann)).data.result).toBe('sent');
+    expect((await call('POST', `/api/friends/${boCode}/cheer`, ann)).data.result).toBe('already');
+    expect((await call('GET', '/api/me', bo)).data.streak.freezes).toBe(1);
+  });
+
+  it('runs the daily challenge on the server clock: no instant finishes, no replays, ranked boards', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const t0 = Date.UTC(2026, 10, 18, 10);
+    vi.setSystemTime(t0);
+    const run = (await call('POST', '/api/challenge/start', ann, {})).data;
+    expect(run.items).toHaveLength(20);
+    expect((await call('POST', '/api/challenge/finish', ann, { runId: run.runId, answers: run.items })).status).toBe(409); // 0 s: too fast
+    vi.setSystemTime(t0 + 240_000);
+    const done = (await call('POST', '/api/challenge/finish', ann, { runId: run.runId, answers: run.items })).data;
+    expect(done.correct).toBe(20);
+    expect((await call('POST', '/api/challenge/start', ann, {})).status).toBe(409); // one go a day
+    // A player who never opened their profile still shows on the board.
+    const cy = (await call('POST', '/api/device', undefined, { name: 'Cy' })).data.token;
+    const cRun = (await call('POST', '/api/challenge/start', cy, {})).data;
+    const bRun = (await call('POST', '/api/challenge/start', bo, {})).data;
+    vi.setSystemTime(t0 + 300_000);
+    await call('POST', '/api/challenge/finish', bo, { runId: bRun.runId, answers: bRun.items.slice(0, 8) });
+    await call('POST', '/api/challenge/finish', cy, { runId: cRun.runId, answers: cRun.items.slice(0, 3) });
+    expect((await call('GET', '/api/challenge/board?scope=global', cy)).data.rows.some((r: { you: boolean }) => r.you)).toBe(true);
+    const rows = (await call('GET', '/api/challenge/board?scope=friends', ann)).data.rows;
+    expect(rows.map((r: { name: string; correct: number }) => [r.name, r.correct])).toEqual([['Ann', 20], [expect.stringMatching(/Learner/), 8]]);
+    expect(rows[0].you).toBe(true);
+  });
+
+  it('runs duels on their own seed, and leagues by memories kept', async () => {
+    const duel = (await call('POST', '/api/duels', ann)).data.code;
+    const a = (await call('POST', '/api/challenge/start', ann, { duel })).data;
+    const b = (await call('POST', '/api/challenge/start', bo, { duel })).data;
+    expect(a.items).toEqual(b.items);
+    expect((await call('POST', '/api/challenge/start', ann, { duel: 'NOPE1' })).status).toBe(404);
+    expect((await call('GET', '/api/league', ann)).data).toBeNull();
+    const l = (await call('POST', '/api/league', ann)).data;
+    expect(l.members[0]).toMatchObject({ rank: 1, you: true, kept: 0 });
+  });
+});

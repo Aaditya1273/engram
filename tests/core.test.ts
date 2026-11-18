@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { enrol, match, resample, dtw } from '../src/core/gesture';
 import { gradeRecall } from '../src/core/grade';
 import { planSession } from '../src/core/triage';
-import { newStreak, rollover, recordRecall, recordFullSession, addDays } from '../src/core/streak';
+import { newStreak, rollover, recordRecall, recordFullSession, addDays, unlockedThemes, milestoneAt, weeklyStreak } from '../src/core/streak';
+import { challengeItems, dailyKey, scoreChallenge, WORDS } from '../src/core/challenge';
 import { answerMatches } from '../src/core/answer';
 import { parseTwist, applyTwist } from '../src/core/twist';
 import { cardFrom, recallProbability } from '../src/core/model';
@@ -445,5 +446,41 @@ describe('collection rarity', () => {
     expect(rarityOf({ stabilityDays: 30, recall: 0.92, firstReviewAt: now - 10 * day, now })).toBe('bronze');
     expect(rarityOf({ stabilityDays: 30, recall: 0.92, firstReviewAt: now - 31 * day, now })).toBe('silver');
     expect(rarityOf({ stabilityDays: 60, recall: 0.92, firstReviewAt: now - 95 * day, now })).toBe('gold');
+  });
+});
+
+describe('milestones and weekly mode', () => {
+  it('unlocks themes at 7, 30, 100 and 365 days', () => {
+    expect(unlockedThemes(3)).toEqual(['garden']);
+    expect(unlockedThemes(30)).toEqual(['garden', 'moonlit', 'autumn']);
+    expect(milestoneAt(100)?.name).toBe('Golden hour');
+    expect(milestoneAt(8)).toBeNull();
+  });
+
+  it('counts runs of weeks with five active days, never breaking on the current week', () => {
+    const days = (mon: string, n: number) => Array.from({ length: n }, (_, i) => addDays(mon, i));
+    const active = [...days('2026-11-02', 5), ...days('2026-11-09', 6), ...days('2026-11-16', 2)];
+    expect(weeklyStreak(active, '2026-11-18')).toBe(2); // this week (2 days so far) doesn't break it
+    expect(weeklyStreak([...active, ...days('2026-11-18', 3)], '2026-11-20')).toBe(3);
+    expect(weeklyStreak(days('2026-10-26', 5), '2026-11-18')).toBe(0); // a missed week breaks it
+  });
+});
+
+describe('daily challenge', () => {
+  it('gives everyone the same 20 distinct words for a key, different on another day', () => {
+    const a = challengeItems(dailyKey(Date.UTC(2026, 10, 18, 9))), b = challengeItems(dailyKey(Date.UTC(2026, 10, 18, 22)));
+    expect(a).toEqual(b);
+    expect(new Set(a).size).toBe(20);
+    expect(a.every((w) => WORDS.includes(w))).toBe(true);
+    expect(challengeItems(dailyKey(Date.UTC(2026, 10, 19)))).not.toEqual(a);
+  });
+
+  it('scores words in their right place, and only pays for speed with half right', () => {
+    const items = challengeItems('x');
+    const swapped = [items[1], items[0], ...items.slice(2)];
+    expect(scoreChallenge(items, items, 300).correct).toBe(20);
+    expect(scoreChallenge(items, swapped, 300).correct).toBe(18);
+    expect(scoreChallenge(items, items.slice(0, 5), 60)).toEqual({ correct: 5, score: 500 });
+    expect(scoreChallenge(items, items, 300).score).toBe(2000 + 200);
   });
 });

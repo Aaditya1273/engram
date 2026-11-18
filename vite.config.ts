@@ -35,6 +35,8 @@ export default defineConfig(({ mode }) => {
   Object.assign(process.env, loadEnv(mode, process.cwd(), ''));
   return {
     plugins: [api()],
+    // The asset scripts rewrite these manifests as each generated model lands; don't reload the page each time.
+    server: { watch: { ignored: ['**/src/shared/models.json', '**/src/shared/finishes.json', '**/src/shared/lumen.json'] } },
     build: {
       chunkSizeWarningLimit: 1000,
       rollupOptions: { input: { main: 'index.html', companion: 'companion.html' } },

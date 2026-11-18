@@ -74,6 +74,47 @@ create table if not exists models (
   created_at     timestamptz not null default now()
 );
 create index if not exists models_user on models (user_id, created_at);
+create table if not exists profiles (
+  user_id     text primary key references users(id) on delete cascade,
+  name        text not null,
+  color       text not null default '#D9B76E',
+  code        text not null unique,
+  rush_best   int not null default 0,
+  anonymous   boolean not null default false
+);
+create table if not exists friends (
+  a           text not null references users(id) on delete cascade,
+  b           text not null references users(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (a, b)
+);
+create table if not exists cheers (
+  from_id  text not null references users(id) on delete cascade,
+  to_id    text not null references users(id) on delete cascade,
+  day      text not null,
+  primary key (from_id, to_id, day)
+);
+create table if not exists challenge_runs (
+  id           text primary key,
+  user_id      text not null references users(id) on delete cascade,
+  key          text not null,
+  started_at   timestamptz not null default now(),
+  finished_at  timestamptz,
+  correct      int,
+  score        int
+);
+create index if not exists challenge_runs_key on challenge_runs (key, score);
+create table if not exists duels (
+  code        text primary key,
+  created_by  text not null references users(id) on delete cascade,
+  created_at  timestamptz not null default now()
+);
+create table if not exists leagues (
+  week      text not null,
+  user_id   text not null references users(id) on delete cascade,
+  grp       int not null,
+  primary key (week, user_id)
+);
 create table if not exists rate_limits (
   token_id      text not null,
   window_start  bigint not null,

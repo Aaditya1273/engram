@@ -17,8 +17,8 @@ import { glowTexture } from './ui';
 /** The clips, in the order scripts/lumen.mjs requested them. */
 const CLIP = { idle: 0, yes: 1, cheer: 2, worry: 3, talk: 4 } as const;
 type Mood = keyof typeof CLIP;
-/** Beside the seated user, about 35° to the right and a little low: present, never in the way. */
-const SPOT = new THREE.Vector3(0.6, 0.9, -0.85);
+/** Beside the seated user, about 35° to the right and below the row of pedestal plaques: present, never in the way. */
+const SPOT = new THREE.Vector3(0.58, 0.72, -0.8);
 const HEIGHT = 0.24;
 
 export class Lumen {
