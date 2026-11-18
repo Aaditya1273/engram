@@ -418,10 +418,12 @@ async function buildFlow() {
     }
   } else {
     stage.show(title, 'Paste notes, a chapter, a list, or a web address. Or just type a topic. Then press Ctrl+Enter.');
-    const text = await stage.typeText('e.g. the 12 cranial nerves, or paste a whole chapter here…', { multiline: true });
-    if (/^https?:\/\/\S+$/.test(text)) req = { url: text };
+    const text = await stage.typeText('e.g. the 12 cranial nerves, or paste a whole chapter here…', { multiline: true, submit: t('Build') });
+    // Empty is Cancel / Escape: nothing to build.
+    if (!text) req = null;
+    else if (/^https?:\/\/\S+$/.test(text)) req = { url: text };
     else if (text.length < 80 && !text.includes('\n')) req = { name: text };
-    else if (text) req = { text };
+    else req = { text };
   }
   if (!req) return;
   stage.show(title, 'Building your palace: finding the order, the rooms, a scene for every stop…');

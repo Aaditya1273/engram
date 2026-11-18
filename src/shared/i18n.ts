@@ -63,7 +63,7 @@ const ZH: Record<string, string> = {
   Next: '下一个', Previous: '上一个', 'Take the test': '开始测试', "Today's practice": '今日练习', 'Test again': '再测一次',
   'Back to the palace': '回到宫殿', 'Copy a shared palace': '复制分享的宫殿', 'Japanese words': '日语单词', 'English words': '英语单词',
   'Type my own': '自己输入', 'Red hat': '红帽子', Glasses: '眼镜', 'Make it gold': '变成金色', Skip: '跳过', 'Save the clip': '保存片段',
-  "I'm done": '我说完了', Language: '语言',
+  "I'm done": '我说完了', Language: '语言', Build: '建造',
   "A five-minute walk-through: the first ten elements, forwards and backwards. Or go straight to your palace.": "五分钟的入门：前十个化学元素，正背和倒背。也可以直接进入你的宫殿。",
   "Start the intro": "开始入门",
   "Skip to my palace": "直接进入宫殿",

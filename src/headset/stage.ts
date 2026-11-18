@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { DECOR, PANEL } from '../shared/theme';
 import type { DeckItem } from '../shared/types';
 import { buildScene, type BuiltScene } from './scene-builder';
-import { buttonWidth, makeButton, Panel, type Selectable } from './ui';
+import { t } from '../shared/i18n';
+import { buttonWidth, makeButton, Panel, uiToneCss, type Selectable } from './ui';
 import { narrate } from './speech';
 import { play } from './audio';
 import type { Palace } from './palace';
@@ -174,33 +175,58 @@ export class Stage {
   }
 
   /**
-   * Desktop only: a text field over the canvas for when typing beats talking. Resolves with the text,
-   * or '' on Escape. Keys typed here don't reach the palace's shortcuts.
+   * Desktop only: a text field over the canvas for when typing beats talking, in the world's colours, above the
+   * caption. Resolves with the text, or '' on Cancel / Escape. Keys typed here don't reach the palace's shortcuts.
    */
-  typeText(placeholder: string, opts: { multiline?: boolean } = {}): Promise<string> {
+  typeText(placeholder: string, opts: { multiline?: boolean; submit?: string } = {}): Promise<string> {
     return new Promise((res) => {
+      const c = uiToneCss(), multi = !!opts.multiline;
+      const box = document.createElement('div');
+      Object.assign(box.style, {
+        position: 'fixed', left: '50%', top: multi ? '9%' : '30%', transform: 'translateX(-50%)', zIndex: '20',
+        width: multi ? 'min(46rem, calc(100vw - 32px))' : 'min(32rem, calc(100vw - 32px))', boxSizing: 'border-box',
+        padding: '14px', borderRadius: '18px', border: '1px solid #d9b76e', background: c.bg,
+        boxShadow: '0 0 28px rgba(217, 183, 110, 0.28)', display: 'flex', flexDirection: 'column', gap: '12px',
+      });
       // Multi-line for pasting a chapter or notes: Ctrl/Cmd+Enter builds, plain Enter is a new line.
-      const el = document.createElement(opts.multiline ? 'textarea' : 'input') as HTMLInputElement;
-      if (opts.multiline) Object.assign(el.style, { height: '38vh', borderRadius: '18px', resize: 'none', lineHeight: '1.45' });
-      else el.type = 'text';
-      el.maxLength = opts.multiline ? 40_000 : 120;
+      const el = document.createElement(multi ? 'textarea' : 'input') as HTMLInputElement;
+      if (!multi) el.type = 'text';
+      el.maxLength = multi ? 40_000 : 120;
       el.placeholder = placeholder;
       el.setAttribute('aria-label', placeholder);
       Object.assign(el.style, {
-        position: 'fixed', left: '50%', bottom: '18%', transform: 'translateX(-50%)', width: opts.multiline ? 'min(46rem, calc(100vw - 32px))' : 'min(32rem, calc(100vw - 32px))',
-        padding: '14px 18px', borderRadius: '999px', border: '1px solid #d9b76e', background: 'rgba(14, 26, 21, 0.92)',
-        color: '#f4f0e6', font: '500 1.05rem system-ui, sans-serif', outline: 'none', zIndex: '20', boxShadow: '0 0 24px rgba(217, 183, 110, 0.25)',
+        width: '100%', boxSizing: 'border-box', height: multi ? '34vh' : '46px', resize: 'none', padding: '12px 16px',
+        borderRadius: '12px', border: '1px solid rgba(217, 183, 110, 0.45)', background: 'rgba(0, 0, 0, 0.22)',
+        color: '#f4f0e6', font: '500 1.05rem system-ui, sans-serif', lineHeight: '1.45', outline: 'none',
       });
+      const row = document.createElement('div');
+      Object.assign(row.style, { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px' });
+      const hint = document.createElement('span');
+      hint.textContent = multi ? 'Ctrl+Enter' : 'Enter';
+      Object.assign(hint.style, { marginRight: 'auto', color: 'rgba(244, 240, 230, 0.55)', font: '500 0.85rem system-ui, sans-serif' });
+      const button = (label: string, primary: boolean, onClick: () => void) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        Object.assign(b.style, {
+          minHeight: '38px', padding: '0 18px', borderRadius: '999px', cursor: 'pointer', font: '600 0.95rem system-ui, sans-serif',
+          border: `1px solid ${primary ? '#d9b76e' : 'rgba(244, 240, 230, 0.35)'}`, color: primary ? '#1c160b' : '#f4f0e6',
+          background: primary ? '#d9b76e' : c.raised,
+        });
+        b.onclick = onClick;
+        return b;
+      };
       const done = (v: string) => {
-        el.remove();
+        box.remove();
         res(v.trim());
       };
+      row.append(hint, button(t('Cancel'), false, () => done('')), button(opts.submit ?? t('Done'), true, () => done(el.value)));
+      box.append(el, row);
       el.onkeydown = (e) => {
         e.stopPropagation();
-        if (e.key === 'Enter' && (!opts.multiline || e.ctrlKey || e.metaKey)) done(el.value);
+        if (e.key === 'Enter' && (!multi || e.ctrlKey || e.metaKey)) done(el.value);
         if (e.key === 'Escape') done('');
       };
-      document.body.appendChild(el);
+      document.body.appendChild(box);
       el.focus();
     });
   }

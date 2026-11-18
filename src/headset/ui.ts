@@ -30,6 +30,9 @@ export const UI_TONES = {
 } satisfies Record<string, UiTone>;
 let tone: UiTone = UI_TONES.garden;
 const rgba = (c: Rgb, a: number) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
+/** The current world's panel colours as CSS, for the few HTML controls laid over the canvas. */
+export const uiToneCss = () => ({ bg: rgba(tone.bottom, 0.95), raised: rgba(tone.top, 0.97), hover: rgba(tone.hoverTop, 0.98) });
+
 /** Recolours every panel for a world (an unknown world keeps the garden's green). */
 export const setUiTone = (world: string) => {
   tone = (UI_TONES as Record<string, UiTone>)[world] ?? UI_TONES.garden;
