@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { modelEnvironment } from '../shared/props';
 import { soundListeners, type Sound } from './audio';
+import type { Theme } from '../core/streak';
 import type { Palace } from './palace';
 import type { Stage } from './stage';
 import { glowTexture } from './ui';
@@ -20,6 +21,39 @@ type Mood = keyof typeof CLIP;
 /** Beside the seated user, about 35° to the right and below the row of pedestal plaques: present, never in the way. */
 const SPOT = new THREE.Vector3(0.6, 0.64, -0.8);
 const HEIGHT = 0.21;
+
+/**
+ * Lumen's cloak follows the world: [hue°, saturation ×, lightness ×] for its green pixels. The gold trim, the
+ * lantern head, the gloves and the shading are untouched.
+ */
+const CLOAK: Record<Theme, [number, number, number] | null> = {
+  garden: null,
+  moonlit: [228, 0.75, 0.62],
+  sakura: [338, 0.6, 1.35],
+  golden: [40, 0.9, 1],
+};
+/** A copy of Lumen's texture with the cloak recoloured. Pixels are sRGB. */
+function recolour(src: CanvasImageSource & { width: number; height: number }, cloak: [number, number, number]) {
+  const c = document.createElement('canvas');
+  c.width = src.width;
+  c.height = src.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(src, 0, 0);
+  const img = ctx.getImageData(0, 0, c.width, c.height), d = img.data;
+  const col = new THREE.Color(), hsl = { h: 0, s: 0, l: 0 }, rgb = { r: 0, g: 0, b: 0 };
+  for (let i = 0; i < d.length; i += 4) {
+    col.setRGB(d[i] / 255, d[i + 1] / 255, d[i + 2] / 255, THREE.SRGBColorSpace).getHSL(hsl, THREE.SRGBColorSpace);
+    const deg = hsl.h * 360;
+    if (deg < 65 || deg > 170 || hsl.s <= 0.2) continue;
+    col.setHSL(cloak[0] / 360, Math.min(1, hsl.s * cloak[1]), Math.min(1, hsl.l * cloak[2]), THREE.SRGBColorSpace);
+    col.getRGB(rgb, THREE.SRGBColorSpace);
+    d[i] = rgb.r * 255;
+    d[i + 1] = rgb.g * 255;
+    d[i + 2] = rgb.b * 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return c;
+}
 
 export class Lumen {
   readonly root = new THREE.Group();
@@ -77,6 +111,7 @@ export class Lumen {
       model.scale.setScalar(HEIGHT / size.y);
       model.position.y = -box.min.y * (HEIGHT / size.y);
       const env = modelEnvironment();
+      const dress: THREE.MeshStandardMaterial[] = [];
       model.traverse((o) => {
         if (o instanceof THREE.Mesh) {
           o.frustumCulled = false; // skinned: its bounds don't follow the animation
@@ -84,10 +119,28 @@ export class Lumen {
             if (m instanceof THREE.MeshStandardMaterial) {
               m.envMap = env;
               m.envMapIntensity = 1.1;
+              if (m.map) dress.push(m);
             }
           }
         }
       });
+      // Recoloured textures are made once per world, then kept.
+      const original = new Map(dress.map((m) => [m, m.map!]));
+      const made = new Map<string, THREE.Texture>();
+      const wear = (theme: Theme) => {
+        const cloak = CLOAK[theme];
+        for (const [m, tex] of original) {
+          const key = `${tex.uuid} ${theme}`;
+          if (cloak && !made.has(key)) {
+            const t = tex.clone();
+            t.source = new THREE.Source(recolour(tex.image as ImageBitmap, cloak)); // its own image: a clone shares the original's
+            made.set(key, t);
+          }
+          m.map = cloak ? made.get(key)! : tex;
+        }
+      };
+      wear(this.palace.theme);
+      this.palace.themeListeners.add(wear);
       this.glow.position.y = HEIGHT * 0.78;
       this.root.add(model, this.glow);
       this.mixer = new THREE.AnimationMixer(model);

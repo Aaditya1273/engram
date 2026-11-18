@@ -59,21 +59,29 @@ const LOTUS = {
 };
 
 /**
- * The moonlit theme's lantern: Aholo Lux3D's model of the painted sakura pagoda lantern (scripts/sakura-lantern.mjs),
- * fitted to the painted lantern's place: its top on the chain, 17 cm tall. Loaded the first time it's needed.
+ * Worlds with their own lanterns: Aholo Lux3D models of painted lanterns (scripts/sakura-lantern.mjs), alternating
+ * along the ring when there are several. Other worlds keep the painted lantern.
  */
-const SAKURA_H = 0.17;
-let sakuraLantern: Promise<THREE.Object3D> | null = null;
-function loadSakuraLantern() {
-  sakuraLantern ??= new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${import.meta.env.BASE_URL}art/models/sakura-lantern.glb`).then((g) => {
-    const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
-    const s = SAKURA_H / size.y;
-    g.scene.scale.setScalar(s);
-    g.scene.position.set(-mid.x * s, 0.07 - box.max.y * s, -mid.z * s);
-    return g.scene;
-  });
-  sakuraLantern.catch(() => (sakuraLantern = null));
-  return sakuraLantern;
+const THEME_LANTERNS: Partial<Record<Theme, string[]>> = {
+  moonlit: ['sakura-lantern'],
+  sakura: ['blossom-lantern-1', 'blossom-lantern-2'],
+};
+/** Each model is fitted to the painted lantern's place: its top on the chain, 17 cm tall. Loaded on first use. */
+const LANTERN_H = 0.17;
+const lanternModels = new Map<string, Promise<THREE.Object3D>>();
+function loadLantern(name: string) {
+  if (!lanternModels.has(name)) {
+    const p = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${import.meta.env.BASE_URL}art/models/${name}.glb`).then((g) => {
+      const box = new THREE.Box3().setFromObject(g.scene), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
+      const s = LANTERN_H / size.y;
+      g.scene.scale.setScalar(s);
+      g.scene.position.set(-mid.x * s, 0.07 - box.max.y * s, -mid.z * s);
+      return g.scene;
+    });
+    p.catch(() => lanternModels.delete(name));
+    lanternModels.set(name, p);
+  }
+  return lanternModels.get(name)!;
 }
 
 /** Golden motes rising from a relit lantern: the reward made visible. */
@@ -241,7 +249,10 @@ export class Alcove {
 
   /** Show a 3D lantern (a template shared by every alcove) instead of the painted one; null puts the painting back. */
   setLanternModel(template: THREE.Object3D | null) {
-    if (template && !this.modelMats.length) {
+    if (template && this.model.userData.source !== template) {
+      this.model.clear();
+      this.modelMats = [];
+      this.model.userData.source = template;
       const m = template.clone();
       m.traverse((o) => {
         if (o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) {
@@ -412,11 +423,16 @@ export class Palace {
     this.theme = theme;
     this.dress(theme);
     setUiTone(theme);
-    // The moonlit night hangs 3D sakura lanterns; if the model can't load, the painted ones simply stay.
-    if (theme === 'moonlit') void loadSakuraLantern().then((t) => this.theme === 'moonlit' && this.alcoves.forEach((a) => a.setLanternModel(t)), () => {});
-    else this.alcoves.forEach((a) => a.setLanternModel(null));
+    for (const f of this.themeListeners) f(theme);
+    // Worlds with their own 3D lanterns hang them (alternating); if a model can't load, the painted ones simply stay.
+    const names = THEME_LANTERNS[theme];
+    if (names) {
+      void Promise.all(names.map(loadLantern)).then((ts) => this.theme === theme && this.alcoves.forEach((a) => a.setLanternModel(ts[a.slot % ts.length])), () => {});
+    } else this.alcoves.forEach((a) => a.setLanternModel(null));
   }
-  private theme: Theme = 'garden';
+  /** The world being shown, and who else dresses for it (Lumen's cloak). */
+  theme: Theme = 'garden';
+  readonly themeListeners = new Set<(theme: Theme) => void>();
   /** Repaints the view through the arches and the vines (from buildDecor). */
   private dress: (theme: Theme) => void = () => {};
 
