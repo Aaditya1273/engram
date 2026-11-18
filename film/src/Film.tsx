@@ -1,6 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, Audio, Img, interpolate, OffthreadVideo, Sequence, staticFile, useCurrentFrame } from 'remotion';
-import { Aurora, BAR, bf, C, Camera, Chip, clamp, Drop, Finish, Fireflies, FPS, Glitch, Headset, inOut, Line, ramp, SANS, SERIF, useT, Wash } from './kit';
+import { Aurora, BAR, bf, C, Camera, Chip, clamp, Drop, Finish, Fireflies, FPS, Glitch, Headset, inOut, Line, MetaLockup, MetaLogo, ramp, SANS, SERIF, useT, Wash } from './kit';
 import { Product, PRODUCT_SFX } from './product';
 
 /**
@@ -79,7 +79,7 @@ const Intro: React.FC = () => {
         <OffthreadVideo src={staticFile('clips/intro.mp4')} muted style={{ width: 1920, height: 1080, filter: `brightness(${1 + bloom * 3}) contrast(${1 - bloom * 0.4})` }} />
       </Glitch>
       <Wash color="#fff" o={bloom} />
-      <Wash color={C.paper} o={ramp(t, end - 0.05, end + 0.3)} />
+      <Wash color={C.deep} o={ramp(t, end - 0.05, end + 0.3)} />
     </AbsoluteFill>
   );
 };
@@ -92,19 +92,20 @@ const Pain: React.FC = () => {
   const gone = t >= B(5.5) && t < B(6.6);
   const curve = ramp(t, B(6.8), B(9), inOut);
   return (
-    <AbsoluteFill style={{ background: C.paper }}>
+    <AbsoluteFill style={{ background: C.deep }}>
       <Camera dur={B(11)} push={0.14} seed="pain">
-        <Aurora colors={['#F2D58C', '#E8DCC0', '#D9C08A', '#EFE3C8']} opacity={0.55} />
-        <AbsoluteFill style={{ backgroundImage: `radial-gradient(${C.ink}30 2.6px, transparent 2.6px)`, backgroundSize: '46px 46px', backgroundPosition: `${t * 38}px ${t * 22}px` }} />
+        <Aurora opacity={0.6} />
+        <Fireflies n={26} seed="pn" opacity={0.55} />
+        <AbsoluteFill style={{ backgroundImage: `radial-gradient(${C.ivory}30 2.6px, transparent 2.6px)`, backgroundSize: '46px 46px', backgroundPosition: `${t * 38}px ${t * 22}px` }} />
         {t < B(5.4) && <>
-          <Drop text="You read it." at={0.1} out={B(1.5)} color={C.ink} serif={false} size={96} />
-          <Line text={<span>You <span style={{ background: `linear-gradient(90deg, #F2D58Cdd ${hl * 100}%, transparent ${hl * 100}%)`, padding: '0 10px', borderRadius: 8 }}>highlighted</span> it.</span>} at={B(1.5)} out={B(3)} color={C.ink} size={96} weight={500} />
-          <Drop text="You made the flashcards." at={B(3)} out={B(4.4)} color={C.ink} serif={false} y={-250} size={84} pill={['flashcards.']} />
+          <Drop text="You read it." at={0.1} out={B(1.5)} color={C.ivory} serif={false} size={96} />
+          <Line text={<span>You <span style={{ color: C.ink, background: `linear-gradient(90deg, #F2D58Cdd ${hl * 100}%, transparent ${hl * 100}%)`, padding: '0 10px', borderRadius: 8 }}>highlighted</span> it.</span>} at={B(1.5)} out={B(3)} color={C.ivory} size={96} weight={500} />
+          <Drop text="You made the flashcards." at={B(3)} out={B(4.4)} color={C.ivory} serif={false} y={-250} size={84} pill={['flashcards.']} />
           {cards > 0 && t < B(4.6) && [0, 1, 2, 3, 4].map((i) => {
             const fall = ramp(t, B(3) + i * 0.12, B(3) + i * 0.12 + 0.6);
-            return <div key={i} style={{ position: 'absolute', left: 960 - 170 + (i - 2) * 26, top: 470 - (1 - fall) * 500 + i * 8, width: 340, height: 210, borderRadius: 14, background: '#fff', border: `1.5px solid ${C.ink}22`, boxShadow: '0 18px 40px rgba(0,0,0,0.12)', transform: `rotate(${(i - 2) * 4}deg)`, opacity: fall, fontFamily: SANS, fontSize: 30, color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{['Olfactory', 'Optic', 'Oculomotor', 'Trochlear', 'Trigeminal'][i]}</div>;
+            return <div key={i} style={{ position: 'absolute', left: 960 - 170 + (i - 2) * 26, top: 470 - (1 - fall) * 500 + i * 8, width: 340, height: 210, borderRadius: 14, background: 'rgba(14, 34, 25, 0.88)', border: `1.5px solid ${C.gold}66`, boxShadow: '0 18px 40px rgba(0,0,0,0.12)', transform: `rotate(${(i - 2) * 4}deg)`, opacity: fall, fontFamily: SANS, fontSize: 30, color: C.ivory, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{['Olfactory', 'Optic', 'Oculomotor', 'Trochlear', 'Trigeminal'][i]}</div>;
           })}
-          <Drop text="Two days later…" at={B(4.4)} out={B(5.5)} color={C.ink} serif={false} size={96} />
+          <Drop text="Two days later…" at={B(4.4)} out={B(5.5)} color={C.ivory} serif={false} size={96} />
         </>}
         {gone && <Gone t0={B(5.5)} />}
         {t >= B(6.6) && <Curve p={curve} t={t - B(6.6)} />}
@@ -121,7 +122,7 @@ const Gone: React.FC<{ t0: number }> = ({ t0 }) => {
       <div style={{ display: 'flex' }}>
         {'gone.'.split('').map((ch, i) => {
           const d = Math.max(0, t - 0.7 - i * 0.08);
-          return <span key={i} style={{ fontFamily: SERIF, fontSize: 380, fontWeight: 500, color: C.ink, letterSpacing: '-0.04em', opacity: Math.min(1, t * 4) * Math.max(0, 1 - d * 1.6), filter: `blur(${d * 26}px)`, transform: `translate(${d * (60 + i * 40) + Math.max(0, 1 - t * 2.4) ** 3 * 700}px, ${-d * 90}px) scale(${1 + d * 0.3}) perspective(1200px) rotateY(${-(Math.max(0, 1 - t * 2.4) ** 3) * 58}deg)`, display: 'inline-block' }}>{ch}</span>;
+          return <span key={i} style={{ fontFamily: SERIF, fontSize: 380, fontWeight: 500, color: C.ivory, letterSpacing: '-0.04em', opacity: Math.min(1, t * 4) * Math.max(0, 1 - d * 1.6), filter: `blur(${d * 26}px)`, transform: `translate(${d * (60 + i * 40) + Math.max(0, 1 - t * 2.4) ** 3 * 700}px, ${-d * 90}px) scale(${1 + d * 0.3}) perspective(1200px) rotateY(${-(Math.max(0, 1 - t * 2.4) ** 3) * 58}deg)`, display: 'inline-block' }}>{ch}</span>;
         })}
       </div>
     </AbsoluteFill>
@@ -138,13 +139,13 @@ const Curve: React.FC<{ p: number; t: number }> = ({ p, t }) => {
   return (
     <AbsoluteFill>
       <svg width={1920} height={1080}>
-        <line x1={x0} y1={y0} x2={x0 + W} y2={y0} stroke={C.ink} strokeOpacity={0.3} strokeWidth={2} strokeDasharray={W} strokeDashoffset={W * (1 - Math.min(1, p * 3))} />
-        <line x1={x0} y1={y0} x2={x0} y2={y0 - H - 20} stroke={C.ink} strokeOpacity={0.3} strokeWidth={2} />
-        <path d={d} fill="none" stroke={C.ink} strokeWidth={5} strokeLinecap="round" strokeDasharray={len} strokeDashoffset={len * (1 - p)} />
+        <line x1={x0} y1={y0} x2={x0 + W} y2={y0} stroke={C.ivory} strokeOpacity={0.3} strokeWidth={2} strokeDasharray={W} strokeDashoffset={W * (1 - Math.min(1, p * 3))} />
+        <line x1={x0} y1={y0} x2={x0} y2={y0 - H - 20} stroke={C.ivory} strokeOpacity={0.3} strokeWidth={2} />
+        <path d={d} fill="none" stroke={C.goldHi} strokeWidth={5} strokeLinecap="round" strokeDasharray={len} strokeDashoffset={len * (1 - p)} />
         {marks.map(([x, l], i) => {
           const a = ramp(p, x * 0.9, x * 0.9 + 0.1, inOut);
           const y = y0 - H * (0.25 + 0.75 * Math.exp(-x * 5.2));
-          return <g key={i} opacity={a}><circle cx={x0 + x * W} cy={y} r={11} fill={C.gold} /><text x={x0 + x * W} y={y0 + 46} textAnchor="middle" fontFamily={SANS} fontSize={26} fill={C.ink} opacity={0.7}>{l}</text></g>;
+          return <g key={i} opacity={a}><circle cx={x0 + x * W} cy={y} r={11} fill={C.gold} /><text x={x0 + x * W} y={y0 + 46} textAnchor="middle" fontFamily={SANS} fontSize={26} fill={C.ivory} opacity={0.7}>{l}</text></g>;
         })}
       </svg>
       {/* What we studied rides down the curve and fades as it goes. */}
@@ -152,9 +153,9 @@ const Curve: React.FC<{ p: number; t: number }> = ({ p, t }) => {
         const q = Math.min(1, Math.max(0, (t - 0.4 - i * 0.9) / 3.2));
         if (q <= 0) return null;
         const x = q * 0.95, y = y0 - H * (0.25 + 0.75 * Math.exp(-x * 5.2));
-        return <div key={label} style={{ position: 'absolute', left: x0 + x * W, top: y - 64, transform: 'translateX(-50%)', padding: '10px 20px', borderRadius: 12, background: '#fff', border: `1.5px solid ${C.ink}22`, boxShadow: '0 12px 30px rgba(0,0,0,0.12)', fontFamily: SANS, fontSize: 26, color: C.ink, opacity: 1 - q * 0.85, filter: `blur(${q * 6}px)`, whiteSpace: 'nowrap' }}>{label}</div>;
+        return <div key={label} style={{ position: 'absolute', left: x0 + x * W, top: y - 64, transform: 'translateX(-50%)', padding: '10px 20px', borderRadius: 12, background: 'rgba(14, 34, 25, 0.88)', border: `1.5px solid ${C.gold}66`, boxShadow: '0 12px 30px rgba(0,0,0,0.12)', fontFamily: SANS, fontSize: 26, color: C.ivory, opacity: 1 - q * 0.85, filter: `blur(${q * 6}px)`, whiteSpace: 'nowrap' }}>{label}</div>;
       })}
-      <Drop text="Most of what we learn is gone within a day." at={0.5} size={66} y={-390} color={C.ink} serif={false} pill={['within', 'a', 'day.']} />
+      <Drop text="Most of what we learn is gone within a day." at={0.5} size={66} y={-390} color={C.ivory} serif={false} pill={['within', 'a', 'day.']} />
       <Line text="The forgetting curve · Ebbinghaus, 1885" at={1.6} size={22} y={420} color={C.muted} weight={400} />
     </AbsoluteFill>
   );
@@ -201,7 +202,7 @@ const Reveal: React.FC = () => {
           <div style={{ transform: `translateY(-60px) perspective(1400px) rotateY(${Math.sin(t * 0.9) * 9}deg) rotateX(${Math.cos(t * 0.7) * 4}deg) scale(${1 + 0.06 * draw})` }}><Headset draw={draw} glow={ramp(t, B(2), B(2.4))} /></div>
           <div style={{ position: 'absolute', top: 760, textAlign: 'center' }}>
             <div style={{ fontFamily: SERIF, fontSize: 84, color: C.goldHi, opacity: ramp(t, B(1.4), B(1.9)), letterSpacing: '0.02em' }}>Atrium</div>
-            <div style={{ fontFamily: SANS, fontSize: 30, color: C.ivory, opacity: ramp(t, B(1.7), B(2.1)), marginTop: 6, letterSpacing: '0.12em' }}>BUILT FOR META QUEST</div>
+            <div style={{ opacity: ramp(t, B(1.7), B(2.1)), marginTop: 14, display: 'flex', justifyContent: 'center' }}><MetaLockup size={36} /></div>
           </div>
         </AbsoluteFill>
       )}
@@ -227,7 +228,8 @@ const Impact: React.FC = () => {
           <Fade t={t - B(4.5)} />
         </>}
         {t >= B(8.6) && <>
-          <Drop text="Built for Meta Quest." at={B(8.6) + 0.05} y={-290} size={104} gold={['Meta', 'Quest.']} swing />
+          <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}><div style={{ transform: `translateY(-430px) scale(${0.6 + 0.4 * ramp(t, B(8.6), B(8.6) + 0.7)})`, opacity: ramp(t, B(8.6), B(8.6) + 0.5) }}><MetaLogo size={150} /></div></AbsoluteFill>
+          <Drop text="Built for Meta Quest." at={B(8.6) + 0.15} y={-270} size={104} gold={['Meta', 'Quest.']} swing />
           <Chip size={34} at={B(9.4)} x={-470} y={20}>Hand tracking · pinch and gaze</Chip>
           <Chip size={34} at={B(9.8)} x={0} y={130}>Seated · comfortable · 72 fps</Chip>
           <Chip size={34} at={B(10.2)} x={470} y={20}>WebXR · works offline</Chip>
@@ -284,29 +286,40 @@ const Fade: React.FC<{ t: number }> = ({ t }) => {
   );
 };
 
-/** 2:45 The end card, held over the outro. */
+/** 2:45 The finale: "Never forget." fills the frame and the camera flies through it into the end card. */
 const End: React.FC = () => {
   const t = useT();
-  const a = ramp(t, 0, 0.9);
+  const fly = ramp(t, 0.55, 1.25, (x) => x * x * x);
+  const card = t - 1.05;
+  const a = ramp(card, 0, 0.9);
   const caret = Math.floor(t * 2) % 2 === 0;
   return (
     <AbsoluteFill style={{ background: C.deep }}>
       <Camera dur={B(8)} push={0.05} seed="end">
-        <Aurora opacity={0.5} />
-        <Fireflies n={36} seed="e" />
-        <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ position: 'absolute', width: 820, height: 820, borderRadius: '50%', background: `radial-gradient(circle, ${C.goldHi}33 0%, transparent 60%)`, opacity: a }} />
-          <Img src={staticFile('art/lantern.png')} style={{ height: 260, transform: `translateY(-210px) scale(${0.85 + 0.15 * a})`, opacity: a, filter: `drop-shadow(0 0 40px ${C.gold})` }} />
-        </AbsoluteFill>
-        <Drop text="ATRIUM" at={0.15} size={150} color={C.goldHi} y={20} />
-        <Drop text="Walk through it. Never forget it." at={0.8} size={60} y={160} serif={false} weight={400} gold={['forget']} />
-        <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ transform: 'translateY(270px)', opacity: ramp(t, 1.5, 2.1), padding: '16px 34px', borderRadius: 999, border: `1.5px solid ${C.gold}`, background: 'rgba(8,20,14,0.7)', fontFamily: SANS, fontSize: 40, color: C.ivory, letterSpacing: '0.02em' }}>
-            atrium-b0r.pages.dev<span style={{ color: C.goldHi, opacity: caret ? 1 : 0 }}>▍</span>
-          </div>
-        </AbsoluteFill>
-        <Line text="Built for Meta Quest · WebXR" at={2.3} size={32} y={395} color={C.gold} />
+        <Aurora opacity={0.55 + 0.25 * a} />
+        <Fireflies n={44} seed="e" />
+        {card > 0 && <>
+          <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'absolute', width: 900, height: 900, borderRadius: '50%', background: `radial-gradient(circle, ${C.goldHi}3a 0%, transparent 60%)`, opacity: a, transform: `scale(${0.7 + 0.3 * a})` }} />
+            <Img src={staticFile('art/lantern.png')} style={{ height: 270, transform: `translateY(-235px) scale(${0.8 + 0.2 * a})`, opacity: a, filter: `drop-shadow(0 0 50px ${C.gold})` }} />
+          </AbsoluteFill>
+          <Drop text="ATRIUM" at={1.1} size={170} color={C.goldHi} y={10} swing />
+          <Drop text="Walk through it. Never forget it." at={1.7} size={60} y={150} serif={false} gold={['forget']} />
+          <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ transform: `translateY(265px) scale(${0.9 + 0.1 * ramp(card, 1.4, 2)})`, opacity: ramp(card, 1.4, 2), padding: '16px 36px', borderRadius: 999, border: `1.5px solid ${C.gold}`, background: 'rgba(8,20,14,0.7)', fontFamily: SANS, fontWeight: 500, fontSize: 40, color: C.ivory }}>
+              atrium-b0r.pages.dev<span style={{ color: C.goldHi, opacity: caret ? 1 : 0 }}>▍</span>
+            </div>
+          </AbsoluteFill>
+          <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ transform: `translateY(395px) translateY(${(1 - ramp(card, 2.1, 2.8)) * 30}px)`, opacity: ramp(card, 2.1, 2.8) }}><MetaLockup size={38} /></div>
+          </AbsoluteFill>
+        </>}
       </Camera>
+      {fly < 1 && (
+        <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', transform: `scale(${1 + fly * 9})`, opacity: 1 - ramp(t, 1.05, 1.3), filter: `blur(${fly * 16}px)` }}>
+          <Drop text="Never forget." at={0} size={230} gold={['forget.']} swing />
+        </AbsoluteFill>
+      )}
     </AbsoluteFill>
   );
 };

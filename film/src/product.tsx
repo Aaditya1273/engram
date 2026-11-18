@@ -1,6 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, OffthreadVideo, Sequence, staticFile } from 'remotion';
-import { BAR, C, Camera, Chip, FPS, inOut, Line, PinchRing, ramp, SANS, SERIF, useT, Wash } from './kit';
+import { BAR, C, Camera, Chip, Drop, FPS, inOut, MetaLogo, PinchRing, ramp, SANS, SERIF, useT, Wash } from './kit';
 import build from './marks/build.json';
 import recall from './marks/recall.json';
 import worlds from './marks/worlds.json';
@@ -22,20 +22,20 @@ const m = (take: string, kind: string, n = 0, label?: string) => {
   return x.t;
 };
 
-type Seg = { take: string; from: number; to: number; bars: number; zoom?: [number, number, number, number]; line?: React.ReactNode; chip?: React.ReactNode; count?: [string, string, number] };
+type Seg = { step?: string; take: string; from: number; to: number; bars: number; zoom?: [number, number, number, number]; line?: React.ReactNode; chip?: React.ReactNode; count?: [string, string, number] };
 const SEGS: Seg[] = [
-  { take: 'build', from: 0.9, to: m('build', 'pinch', 0) - 1.4, bars: 2.5, line: 'Put on your Quest. Look around.' },
-  { take: 'build', from: m('build', 'pinch', 0) - 1.2, to: m('build', 'pinch', 1) + 0.9, bars: 3.5, line: 'Name what you need to remember.' },
-  { take: 'build', from: m('build', 'built') - 2.0, to: m('build', 'built') + 1.8, bars: 2, line: 'Atrium builds the palace.', chip: '12 stops · in order' },
-  { take: 'build', from: m('build', 'stop', 0) - 1.0, to: m('build', 'pinch', 4) + 0.4, bars: 6.5, line: 'A vivid scene on every pedestal.', count: ['stop', 'Stop', 12] },
-  { take: 'build', from: m('build', 'pinch', 4) + 0.4, to: m('build', 'pinch', -1) + 0.6, bars: 5.5, line: 'Each one leads to the next.', count: ['stop', 'Stop', 12] },
-  { take: 'recall', from: m('recall', 'pinch', 0) - 0.6, to: m('recall', 'pinch', 5) + 0.9, bars: 9, line: 'Then walk it from memory.', count: ['pinch', 'Recalled', 12] },
-  { take: 'recall', from: m('recall', 'pinch', 5) + 0.6, to: m('recall', 'pinch', 5) + 3.0, bars: 2, zoom: [1.05, 1.75, 61, 84], line: 'No controllers. Just your hands.', chip: 'Hand tracking · gaze and pinch' },
-  { take: 'recall', from: m('recall', 'prompt', 5) - 0.3, to: m('recall', 'pinch', 8) + 0.8, bars: 4, line: 'Faster every time.', count: ['pinch', 'Recalled', 12] },
-  { take: 'recall', from: m('recall', 'prompt', 9) - 0.3, to: m('recall', 'pinch', -1) + 0.8, bars: 2.5, count: ['pinch', 'Recalled', 12] },
-  { take: 'recall', from: m('recall', 'pinch', -1) + 0.5, to: Math.min(m('recall', 'done') - 0.4, m('recall', 'pinch', -1) + 5.5), bars: 2, line: <span>All twelve. <span style={{ color: C.goldHi }}>In order.</span></span> },
-  { take: 'worlds', from: 0.2, to: m('worlds', 'world', 2) + 2.5, bars: 3.5, line: 'One palace. Three worlds.' },
-  { take: 'language', from: m('language', 'pinch', 2) - 0.6, to: m('language', 'lang', 1) + 1.6, bars: 2, line: 'In five languages.' },
+  { step: 'Step 1 · Your palace', take: 'build', from: 0.9, to: m('build', 'pinch', 0) - 1.4, bars: 2.5, line: 'Put on your Quest. Look around.' },
+  { step: 'Step 1 · Name a topic', take: 'build', from: m('build', 'pinch', 0) - 1.2, to: m('build', 'pinch', 1) + 0.9, bars: 3.5, line: 'Name what you need to remember.' },
+  { step: 'Step 2 · Atrium builds it', take: 'build', from: m('build', 'built') - 2.0, to: m('build', 'built') + 1.8, bars: 2, line: 'Atrium builds the palace.', chip: '12 stops · in order' },
+  { step: 'Step 3 · Walk it in', take: 'build', from: m('build', 'stop', 0) - 1.0, to: m('build', 'pinch', 4) + 0.4, bars: 6.5, line: 'A vivid scene on every pedestal.', count: ['stop', 'Stop', 12] },
+  { step: 'Step 3 · Walk it in', take: 'build', from: m('build', 'pinch', 4) + 0.4, to: m('build', 'pinch', -1) + 0.6, bars: 5.5, line: 'Each one leads to the next.', count: ['stop', 'Stop', 12] },
+  { step: 'Step 4 · Recall: pinch the answer', take: 'recall', from: m('recall', 'pinch', 0) - 0.6, to: m('recall', 'pinch', 5) + 0.9, bars: 9, line: 'Then walk it from memory.', count: ['pinch', 'Recalled', 12] },
+  { step: 'Step 4 · Recall: pinch the answer', take: 'recall', from: m('recall', 'pinch', 5) + 0.6, to: m('recall', 'pinch', 5) + 3.0, bars: 2, zoom: [1.05, 1.75, 61, 84], line: 'No controllers. Just your hands.', chip: 'Hand tracking · gaze and pinch' },
+  { step: 'Step 4 · Recall: pinch the answer', take: 'recall', from: m('recall', 'prompt', 5) - 0.3, to: m('recall', 'pinch', 8) + 0.8, bars: 4, line: 'Faster every time.', count: ['pinch', 'Recalled', 12] },
+  { step: 'Step 4 · Recall: pinch the answer', take: 'recall', from: m('recall', 'prompt', 9) - 0.3, to: m('recall', 'pinch', -1) + 0.8, bars: 2.5, count: ['pinch', 'Recalled', 12] },
+  { step: 'Done', take: 'recall', from: m('recall', 'pinch', -1) + 0.5, to: Math.min(m('recall', 'done') - 0.4, m('recall', 'pinch', -1) + 5.5), bars: 2, line: 'All twelve. In order.' },
+  { step: 'Three worlds', take: 'worlds', from: 0.2, to: m('worlds', 'world', 2) + 2.5, bars: 3.5, line: 'One palace. Three worlds.' },
+  { step: 'Five languages', take: 'language', from: m('language', 'pinch', 2) - 0.6, to: m('language', 'lang', 1) + 1.6, bars: 2, line: 'In five languages.' },
 ];
 
 /** Where each segment starts in the chapter (seconds), and its playback rate. */
@@ -90,8 +90,9 @@ const Segment: React.FC<{ s: (typeof PLAN)[number]; last: boolean }> = ({ s, las
       <AbsoluteFill style={{ boxShadow: 'inset 0 0 160px 60px rgba(0,0,0,0.75)', borderRadius: 60 }} />
       <AbsoluteFill style={{ background: 'linear-gradient(180deg, rgba(4,10,7,0.78) 0%, rgba(4,10,7,0) 26%)' }} />
       {pinches.map((p, i) => <PinchRing key={i} at={p} />)}
-      {s.line && <Line text={s.line} at={0.12} out={s.dur + (last ? 0 : 0.05)} y={-412} size={48} weight={400} />}
-      {s.chip && <Chip at={0.5} x={0} y={-330} size={24}>{s.chip}</Chip>}
+      {s.line && (typeof s.line === 'string' ? <Drop text={s.line} at={0.05} out={s.dur + (last ? 0 : 0.05)} y={-400} size={64} serif={false} /> : null)}
+      {s.chip && <Chip at={0.5} x={0} y={-315} size={28}>{s.chip}</Chip>}
+      {s.step && <Step text={s.step} />}
       {s.count && counted > 0 && (
         <div style={{ position: 'absolute', right: 90, top: 70, fontFamily: SANS, color: C.ivory, textAlign: 'right' }}>
           <div style={{ fontSize: 22, letterSpacing: '0.14em', color: C.gold }}>{s.count[1].toUpperCase()}</div>
@@ -103,14 +104,27 @@ const Segment: React.FC<{ s: (typeof PLAN)[number]; last: boolean }> = ({ s, las
   );
 };
 
-/** A small tag on the product chapter: the device, and the tool it runs in. */
+/** The tag on the product chapter: the device, with Meta's mark, and the tool it runs in. */
 const Hud: React.FC = () => {
   const t = useT();
   return (
-    <div style={{ position: 'absolute', left: 80, top: 74, display: 'flex', alignItems: 'center', gap: 14, opacity: ramp(t, 0.4, 1.2), fontFamily: SANS }}>
-      <div style={{ width: 12, height: 12, borderRadius: 6, background: '#E5484D', boxShadow: '0 0 12px #E5484D', opacity: 0.6 + 0.4 * Math.sin(t * 5) }} />
-      <div style={{ color: C.ivory, fontSize: 22, letterSpacing: '0.12em' }}>META QUEST 3</div>
-      <div style={{ color: C.muted, fontSize: 20 }}>· Meta Immersive Web Emulator</div>
+    <div style={{ position: 'absolute', right: 74, bottom: 70, display: 'flex', alignItems: 'center', gap: 14, opacity: ramp(t, 0.3, 1), fontFamily: SANS, fontWeight: 500 }}>
+      <MetaLogo size={44} />
+      <div style={{ color: C.ivory, fontSize: 28 }}>Meta Quest 3</div>
+      <div style={{ color: C.muted, fontSize: 24 }}>· Immersive Web Emulator</div>
+    </div>
+  );
+};
+
+/** Which step of the story this shot is, so a viewer always knows what is happening. */
+const Step: React.FC<{ text: string }> = ({ text }) => {
+  const t = useT();
+  const a = ramp(t, 0.15, 0.6);
+  const [n, label] = text.includes('·') ? text.split(' · ') : ['', text];
+  return (
+    <div style={{ position: 'absolute', left: 74, bottom: 70, display: 'flex', alignItems: 'center', gap: 16, opacity: a, transform: `translateX(${(1 - a) * -30}px)`, fontFamily: SANS, fontWeight: 500 }}>
+      {n && <div style={{ padding: '8px 18px', borderRadius: 999, background: C.goldHi, color: C.ink, fontSize: 26, letterSpacing: '0.06em' }}>{n.toUpperCase()}</div>}
+      <div style={{ padding: '8px 20px', borderRadius: 999, background: 'rgba(8,20,14,0.78)', border: `1.5px solid ${C.gold}`, color: C.ivory, fontSize: 30 }}>{label}</div>
     </div>
   );
 };
