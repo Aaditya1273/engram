@@ -1,3 +1,4 @@
+import { getLang } from '../shared/i18n';
 /**
  * Speech in and out, both optional. Recognition uses the browser's recogniser where there is one, and
  * otherwise records the answer and has the server transcribe it (the Quest browser has no recogniser).
@@ -159,8 +160,8 @@ export const setNarration = (on: boolean) => {
 
 /** Speak and resolve when done (or after a reading-time estimate if TTS is unavailable). */
 export function narrate(text: string): Promise<void> {
-  // Reading time for captions when there's no voice: by words, or by characters for Chinese.
-  const cjk = (text.match(/[\u4e00-\u9fff]/g) ?? []).length;
+  // Reading time for captions when there's no voice: by words, or by characters for Chinese and Japanese.
+  const cjk = (text.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) ?? []).length;
   const estimate = Math.max(1400, cjk ? cjk * 230 : text.split(/\s+/).length * 330);
   const synth = globalThis.speechSynthesis;
   if (!narrationOn || !synth) return new Promise((r) => setTimeout(r, estimate));
@@ -169,11 +170,17 @@ export function narrate(text: string): Promise<void> {
     const u = new SpeechSynthesisUtterance(text.replace(/\*/g, ''));
     u.rate = 0.96;
     u.pitch = 1;
-    // Chinese narration in the Chinese UI (any CJK in the text), English otherwise.
-    const zh = /[\u4e00-\u9fff]/.test(text);
-    u.lang = zh ? 'zh-CN' : 'en-US';
-    const voice = zh ? synth.getVoices().find((v) => v.lang.replace('_', '-').startsWith('zh'))
-      : synth.getVoices().find((v) => v.lang.startsWith('en') && /female|samantha|google uk|aria|jenny/i.test(v.name)) ?? synth.getVoices().find((v) => v.lang.startsWith('en'));
+    // The voice follows the text's script: kana is Japanese, Devanagari Hindi, Han Chinese (or Japanese in the
+    // Japanese UI); Latin text is Spanish in the Spanish UI when it reads as Spanish, else English (untranslated).
+    const locale = /[\u3040-\u30ff]/.test(text) || (getLang() === 'ja' && /[\u4e00-\u9fff]/.test(text)) ? 'ja-JP'
+      : /[\u0900-\u097f]/.test(text) ? 'hi-IN'
+      : /[\u4e00-\u9fff]/.test(text) ? 'zh-CN'
+      : getLang() === 'es' && /[áéíóúñ¿¡]/i.test(text) ? 'es-ES' : 'en-US';
+    u.lang = locale;
+    const voices = synth.getVoices(), base = locale.slice(0, 2);
+    const voice = base === 'en'
+      ? voices.find((v) => v.lang.startsWith('en') && /female|samantha|google uk|aria|jenny/i.test(v.name)) ?? voices.find((v) => v.lang.startsWith('en'))
+      : voices.find((v) => v.lang.replace('_', '-').startsWith(base));
     if (voice) u.voice = voice;
     let done = false;
     const finish = () => {

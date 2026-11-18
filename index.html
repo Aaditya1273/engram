@@ -59,7 +59,9 @@
       #overlay .door:hover { color: #f6e7c1; background: none; }
       .doors .sep { width: 1px; height: 24px; background: rgba(185, 154, 98, 0.55); }
       @media (max-width: 480px) { .doors { flex-direction: column; gap: 4px; } .doors .sep { display: none; } }
-      .lang-toggle { position: absolute; top: 18px; right: 18px; z-index: 3; min-height: 36px; padding: 0 14px; border-radius: 999px; font-weight: 600; font-size: 0.9rem; }
+      .lang-toggle { position: absolute; top: 18px; right: 18px; z-index: 3; min-height: 36px; padding: 0 34px 0 14px; border-radius: 999px; font: 600 0.9rem system-ui, sans-serif; color: var(--ivory); border: 1px solid rgba(244, 240, 230, 0.32); background: rgba(14, 26, 21, 0.35) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23d9b76e' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 14px center; appearance: none; cursor: pointer; }
+      .lang-toggle:hover, .lang-toggle:focus-visible { border-color: var(--gold); outline: none; }
+      .lang-toggle option { color: #1b1b1b; background: #f4f0e6; }
       .vr-note { margin: 12px auto 0; max-width: 26rem; font-size: 0.95rem; color: var(--sage); }
 
       section.band { padding: clamp(64px, 11vw, 120px) 0; }
@@ -126,7 +128,7 @@
           <path d="M40 56c12-1 19-9 18-21-11 1-18 9-18 21Z" fill="currentColor" stroke="none" />
           <path d="M40 39c-6-5-7-14 0-23 7 9 6 18 0 23Z" fill="currentColor" stroke="none" />
         </svg>
-        <button class="lang-toggle" id="lang-toggle" aria-label="中文 / English">中文</button>
+        <select class="lang-toggle" id="lang-toggle" aria-label="Language"></select>
         <h1>Atrium</h1>
         <p class="tagline" data-i18n="tagline">Paste anything. Walk through it. Never forget it.</p>
         <div class="rule" aria-hidden="true"></div>

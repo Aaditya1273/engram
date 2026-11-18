@@ -14,7 +14,7 @@ Atrium's AI turns anything you need to remember (a chapter, a talk, a list, a PD
 
 </div>
 
-> **Build status (18 Nov 2026):** journeys and the elements onboarding, the World Builder, Lumen, Recall Rush, the collection, the arena (daily challenge, duels, friends, leagues), Memory Athlete, creator palaces, Chinese/English and the Aholo Lux3D 3D pipeline are built and tested on desktop: **93 unit and integration tests** plus scripted browser walkthroughs; the live site runs on a Neon Postgres database with every cloud feature on. **Not yet:** a Meta Quest device pass, Aholo-generated worlds and home reconstruction, study rooms. The full, honest table is in **[docs/STATUS.md](docs/STATUS.md)**; Aholo timings and credit costs are in **[docs/AHOLO_API_NOTES.md](docs/AHOLO_API_NOTES.md)**.
+> **Build status (18 Nov 2026):** journeys and the elements onboarding, the World Builder, Lumen, Recall Rush, the collection, the arena (daily challenge, duels, friends, leagues), Memory Athlete, creator palaces, five languages (English, 中文, हिन्दी, Español, 日本語) and the Aholo Lux3D 3D pipeline are built and tested on desktop: **94 unit and integration tests** plus scripted browser walkthroughs; the live site runs on a Neon Postgres database with every cloud feature on. **Not yet:** a Meta Quest device pass, Aholo-generated worlds and home reconstruction, study rooms. The full, honest table is in **[docs/STATUS.md](docs/STATUS.md)**; Aholo timings and credit costs are in **[docs/AHOLO_API_NOTES.md](docs/AHOLO_API_NOTES.md)**.
 
 ---
 

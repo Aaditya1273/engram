@@ -1,20 +1,28 @@
 /**
- * English and Simplified Chinese. English is the default; the choice is remembered per device (localStorage)
- * and can be forced with ?lang=zh / ?lang=en. In-app strings are keyed by their English text, so `t('Next stop')`
- * reads like the code it replaces and falls back to English for anything not yet translated.
+ * English, Simplified Chinese, Hindi, Spanish and Japanese. English is the default; the choice is remembered per
+ * device (localStorage) and can be forced with ?lang=zh (or hi, es, ja, en). In-app strings are keyed by their
+ * English text, so `t('Next stop')` reads like the code it replaces and falls back to English when untranslated.
  * ponytail: the most visible text (website, menus, onboarding, journeys) is translated; deeper flows stay English.
  */
-export type Lang = 'en' | 'zh';
+import { ES, HI, JA } from './locales';
+
+/** Each language by its own name, in the order the menus offer them. */
+export const LANGS = { en: 'English', zh: '中文', hi: 'हिन्दी', es: 'Español', ja: '日本語' } as const;
+export type Lang = keyof typeof LANGS;
+/** A language's tables: in-app text by its English, templates with {placeholders}, website copy by data-i18n key. */
+export interface Dict { ui: Record<string, string>; tpl: Record<string, string>; site: Record<string, string> }
 const KEY = 'atrium:lang';
+const isLang = (l: string | null): l is Lang => !!l && l in LANGS;
 
 let lang: Lang = (() => {
   try {
     const q = new URLSearchParams(location.search).get('lang');
-    if (q === 'zh' || q === 'en') {
+    if (isLang(q)) {
       localStorage.setItem(KEY, q);
       return q;
     }
-    return localStorage.getItem(KEY) === 'zh' ? 'zh' : 'en';
+    const saved = localStorage.getItem(KEY);
+    return isLang(saved) ? saved : 'en';
   } catch {
     return 'en';
   }
@@ -30,8 +38,9 @@ export function setLang(l: Lang) {
   }
 }
 
-/** The speech-synthesis / caption locale for the current language. */
-export const speechLocale = () => (lang === 'zh' ? 'zh-CN' : 'en-US');
+/** The speech-synthesis / page locale for each language. */
+export const LOCALE: Record<Lang, string> = { en: 'en-US', zh: 'zh-CN', hi: 'hi-IN', es: 'es-ES', ja: 'ja-JP' };
+export const speechLocale = () => LOCALE[lang];
 
 const ZH: Record<string, string> = {
   // Worlds and themes
@@ -54,7 +63,7 @@ const ZH: Record<string, string> = {
   Next: '下一个', Previous: '上一个', 'Take the test': '开始测试', "Today's practice": '今日练习', 'Test again': '再测一次',
   'Back to the palace': '回到宫殿', 'Copy a shared palace': '复制分享的宫殿', 'Japanese words': '日语单词', 'English words': '英语单词',
   'Type my own': '自己输入', 'Red hat': '红帽子', Glasses: '眼镜', 'Make it gold': '变成金色', Skip: '跳过', 'Save the clip': '保存片段',
-  'Language: English': '语言：中文', "I'm done": '我说完了',
+  "I'm done": '我说完了', Language: '语言',
   // Titles
   Atrium: 'Atrium', Lumen: '光灵', 'Quick test': '小测验', Turning: '转动', 'Your path': '你的路径', Recall: '回忆', Jump: '跳跃',
   'All lanterns lit': '灯笼全亮', 'An empty palace': '空荡的宫殿', 'Welcome back': '欢迎回来',
@@ -77,7 +86,7 @@ const ZH: Record<string, string> = {
 };
 
 /** In-app text in the current language (English when there's no translation yet). */
-export const t = (en: string) => (lang === 'zh' ? ZH[en] ?? en : en);
+export const t = (en: string) => DICTS[lang]?.ui[en] ?? en;
 
 /** Templates with numbers: t2('Next stop, number {n}?', { n: 3 }). */
 const ZH_T: Record<string, string> = {
@@ -90,54 +99,83 @@ const ZH_T: Record<string, string> = {
   'This is your path: {n} pedestals, in order. A gold medallion marks every fifth one.': '这是你的路径：{n}个底座，按顺序排列。每第五个有一枚金色徽章。',
 };
 export function t2(en: string, vars: Record<string, string | number>): string {
-  const tpl = lang === 'zh' ? ZH_T[en] ?? en : en;
+  const tpl = DICTS[lang]?.tpl[en] ?? en;
   return tpl.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? ''));
 }
 
-/** Website copy, by data-i18n key: [English, Chinese]. */
-export const SITE: Record<string, [string, string]> = {
-  tagline: ['Paste anything. Walk through it. Never forget it.', '粘贴任何内容，走进它，永远记住它。'],
-  enter: ['Enter Atrium', '进入 Atrium'],
-  desktop: ['Try on Desktop', '在电脑上试用'],
-  room: ['Room mode', '房间模式'],
-  vrNote: ['To step inside in VR, open this page in the Meta Quest browser.', '要在 VR 中进入，请在 Meta Quest 浏览器中打开此页面。'],
-  howEyebrow: ['How it works', '如何运作'],
-  howTitle: ['Anything becomes a world you walk through', '任何内容，都能变成可以走进去的世界'],
-  howLede: ['Atrium turns notes, a chapter or a talk into a journey through your palace: a vivid 3D scene at every stop, each one leading to the next. The order is kept, which flashcards lose.',
-    'Atrium 把笔记、章节或演讲变成穿过你记忆宫殿的旅程：每一站都是生动的 3D 场景，一站连着一站。顺序被保留下来，而这正是闪卡做不到的。'],
-  s1Title: ['Paste anything', '粘贴任何内容'],
-  s1Text: ['A chapter, a speech, a list, a web page or a PDF. Or just say a topic: “the twelve cranial nerves”.', '一章书、一篇演讲、一份清单、一个网页或 PDF。或者只说一个主题：“十二对脑神经”。'],
-  s2Title: ['Walk through it', '走进它'],
-  s2Text: ['Every stop is a real 3D scene, and anything you name becomes its own object. Write each one with a gesture of your own.', '每一站都是真实的 3D 场景，你说出的任何东西都会变成专属物件。用你自己的手势写下每一个。'],
-  s3Title: ['Never forget it', '永远记住它'],
-  s3Text: ['Lanterns dim as memories fade. Recall forwards, backwards or straight to number seven, and they bloom back to gold.', '记忆淡去时灯笼变暗。正序、倒序或直接跳到第七站回忆，它们就会重新绽放金光。'],
-  firstEyebrow: ['Your first five minutes', '你的前五分钟'],
-  firstTitle: ['The first ten elements, forwards and backwards', '前十个化学元素，正背倒背'],
-  firstLede: ["Most adults can't name them in order. Five minutes later you can: forwards, backwards, and straight to number seven. Offline, no account, no typing.",
-    '大多数成年人无法按顺序说出它们。五分钟后你可以：正背、倒背，还能直接说出第七个。离线、无需账号、无需打字。'],
-  castNote: ['And a cast of 3D props for everything you add yourself.', '还有一整套 3D 道具，供你添加自己的内容。'],
-  promiseEyebrow: ['The promise', '承诺'],
-  promiseTitle: ['You never fall behind', '你永远不会落后'],
-  promiseLede: ['Most study apps punish a missed week with a mountain of reviews. Atrium does the opposite.', '大多数学习应用会用堆积如山的复习惩罚你错过的一周。Atrium 恰恰相反。'],
-  companionEyebrow: ['Off the headset', '摘下头显之后'],
-  companionTitle: ['Your palace, in your pocket', '口袋里的记忆宫殿'],
-  companionLede: ['The companion app pairs with a six-letter code: build palaces from text, a web page or a PDF, play the daily challenge, and see your friends.', '配套应用用六位代码配对：用文字、网页或 PDF 建造宫殿，参加每日挑战，查看好友。'],
-  closingEyebrow: ['Ready when you are', '准备好了就开始'],
-  closingTitle: ['Your palace is waiting', '你的宫殿在等你'],
-  closingLede: ["Five minutes, ten elements, and a memory you didn't know you had.", '五分钟，十个元素，以及你从未发现的记忆力。'],
-  hint: ['Sit down, put the controllers away and raise your hands. On desktop: point with the mouse, click to select, arrow keys to turn, Esc to pause.',
-    '坐下，放下手柄，举起双手。在电脑上：用鼠标指向，点击选择，方向键转动，Esc 暂停。'],
+/** Website copy, by data-i18n key, in English; other languages' copy is in their Dict. */
+export const SITE: Record<string, string> = {
+  tagline: 'Paste anything. Walk through it. Never forget it.',
+  enter: 'Enter Atrium',
+  desktop: 'Try on Desktop',
+  room: 'Room mode',
+  vrNote: 'To step inside in VR, open this page in the Meta Quest browser.',
+  howEyebrow: 'How it works',
+  howTitle: 'Anything becomes a world you walk through',
+  howLede: 'Atrium turns notes, a chapter or a talk into a journey through your palace: a vivid 3D scene at every stop, each one leading to the next. The order is kept, which flashcards lose.',
+  s1Title: 'Paste anything',
+  s1Text: 'A chapter, a speech, a list, a web page or a PDF. Or just say a topic: “the twelve cranial nerves”.',
+  s2Title: 'Walk through it',
+  s2Text: 'Every stop is a real 3D scene, and anything you name becomes its own object. Write each one with a gesture of your own.',
+  s3Title: 'Never forget it',
+  s3Text: 'Lanterns dim as memories fade. Recall forwards, backwards or straight to number seven, and they bloom back to gold.',
+  firstEyebrow: 'Your first five minutes',
+  firstTitle: 'The first ten elements, forwards and backwards',
+  firstLede: "Most adults can't name them in order. Five minutes later you can: forwards, backwards, and straight to number seven. Offline, no account, no typing.",
+  castNote: 'And a cast of 3D props for everything you add yourself.',
+  promiseEyebrow: 'The promise',
+  promiseTitle: 'You never fall behind',
+  promiseLede: 'Most study apps punish a missed week with a mountain of reviews. Atrium does the opposite.',
+  companionEyebrow: 'Off the headset',
+  companionTitle: 'Your palace, in your pocket',
+  companionLede: 'The companion app pairs with a six-letter code: build palaces from text, a web page or a PDF, play the daily challenge, and see your friends.',
+  closingEyebrow: 'Ready when you are',
+  closingTitle: 'Your palace is waiting',
+  closingLede: "Five minutes, ten elements, and a memory you didn't know you had.",
+  hint: 'Sit down, put the controllers away and raise your hands. On desktop: point with the mouse, click to select, arrow keys to turn, Esc to pause.',
 };
+const ZH_SITE: Record<string, string> = {
+  tagline: '粘贴任何内容，走进它，永远记住它。',
+  enter: '进入 Atrium',
+  desktop: '在电脑上试用',
+  room: '房间模式',
+  vrNote: '要在 VR 中进入，请在 Meta Quest 浏览器中打开此页面。',
+  howEyebrow: '如何运作',
+  howTitle: '任何内容，都能变成可以走进去的世界',
+  howLede: 'Atrium 把笔记、章节或演讲变成穿过你记忆宫殿的旅程：每一站都是生动的 3D 场景，一站连着一站。顺序被保留下来，而这正是闪卡做不到的。',
+  s1Title: '粘贴任何内容',
+  s1Text: '一章书、一篇演讲、一份清单、一个网页或 PDF。或者只说一个主题：“十二对脑神经”。',
+  s2Title: '走进它',
+  s2Text: '每一站都是真实的 3D 场景，你说出的任何东西都会变成专属物件。用你自己的手势写下每一个。',
+  s3Title: '永远记住它',
+  s3Text: '记忆淡去时灯笼变暗。正序、倒序或直接跳到第七站回忆，它们就会重新绽放金光。',
+  firstEyebrow: '你的前五分钟',
+  firstTitle: '前十个化学元素，正背倒背',
+  firstLede: '大多数成年人无法按顺序说出它们。五分钟后你可以：正背、倒背，还能直接说出第七个。离线、无需账号、无需打字。',
+  castNote: '还有一整套 3D 道具，供你添加自己的内容。',
+  promiseEyebrow: '承诺',
+  promiseTitle: '你永远不会落后',
+  promiseLede: '大多数学习应用会用堆积如山的复习惩罚你错过的一周。Atrium 恰恰相反。',
+  companionEyebrow: '摘下头显之后',
+  companionTitle: '口袋里的记忆宫殿',
+  companionLede: '配套应用用六位代码配对：用文字、网页或 PDF 建造宫殿，参加每日挑战，查看好友。',
+  closingEyebrow: '准备好了就开始',
+  closingTitle: '你的宫殿在等你',
+  closingLede: '五分钟，十个元素，以及你从未发现的记忆力。',
+  hint: '坐下，放下手柄，举起双手。在电脑上：用鼠标指向，点击选择，方向键转动，Esc 暂停。',
+};
+
+const DICTS: Partial<Record<Lang, Dict>> = { zh: { ui: ZH, tpl: ZH_T, site: ZH_SITE }, hi: HI, es: ES, ja: JA };
 
 /** Fills every [data-i18n] element in the page with the current language. */
 export function applySite(root: ParentNode = document) {
-  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.documentElement.lang = LOCALE[lang];
   for (const el of root.querySelectorAll<HTMLElement>('[data-i18n]')) {
-    const entry = SITE[el.dataset.i18n!];
+    const key = el.dataset.i18n!, entry = DICTS[lang]?.site[key] ?? SITE[key];
     if (!entry) continue;
     // Keep any icon inside a button; replace only its text.
     const text = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim());
-    if (text) text.textContent = entry[lang === 'zh' ? 1 : 0];
-    else el.textContent = entry[lang === 'zh' ? 1 : 0];
+    if (text) text.textContent = entry;
+    else el.textContent = entry;
   }
 }

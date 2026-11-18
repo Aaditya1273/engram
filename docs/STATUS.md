@@ -1,6 +1,6 @@
 # Atrium build status
 
-How every feature was checked. **Tests** are in `tests/` (`npm run test`, 93 passing). **Walkthrough** means a scripted browser run of the real app on desktop (Playwright scripts kept outside the repo), at the stated date. **Live API** means a real call to the named service, not a mock. Nothing here has been run on a Meta Quest yet; every VR-only path says so.
+How every feature was checked. **Tests** are in `tests/` (`npm run test`, 94 passing). **Walkthrough** means a scripted browser run of the real app on desktop (Playwright scripts kept outside the repo), at the stated date. **Live API** means a real call to the named service, not a mock. Nothing here has been run on a Meta Quest yet; every VR-only path says so.
 
 Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 
@@ -61,6 +61,6 @@ Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 | Speech on Quest (record → Whisper on Groq / Gemini) | 🟡 | Production round trip to Whisper works (a silent clip); Whisper's stock silence phrases ("Thank you.") are discarded. Not yet run with real spoken audio or on a Quest |
 | Room mode (passthrough, immersive-ar) | 🟡 | Code only; shown only where `immersive-ar` is supported; **not tested on a device** |
 | Frame guard (hide far scenes, then paintings) | 🟡 | Tests `frame guard`; never triggered on a device |
-| Chinese / English | 🟡 | Website, menus, onboarding and journey prompts translated; deeper flows still English. Tests `text wrapping` |
+| Languages: English, 中文, हिन्दी, Español, 日本語 | 🟡 | Website (language menu), menus, worlds, onboarding and journey prompts translated; narration voice follows the script; deeper flows still English. Tests `languages`, `text wrapping`; walkthrough (18 Nov): site in Hindi, Spanish, Japanese; first run in Japanese |
 | Abuse limits (per-IP devices, daily caps on paid calls) | ✅ | Tests `speech, caps and abuse limits` |
 | Live deployment with database | ✅ | Neon Postgres attached; production `/api/health` = `db: postgres, ai, stt, lux3d` all on. Production smoke test (18 Nov): device, sync, profile, World Builder (topic and a Wikipedia URL: all 13 cranial nerve entries), study agent, Lumen quiz, twist mapping, transcription round trip, daily challenge, duel, league, twist-to-3D (ready in 118 s, 454 KB GLB served), STL export; the app loads with no console errors |

@@ -6,7 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { setModelEnvironment, setPreferPaintings } from './shared/props';
 import { FrameGuard } from './core/frame-guard';
 import { journeys } from './core/journey';
-import { applySite, getLang, setLang, t } from './shared/i18n';
+import { applySite, getLang, LANGS, setLang, t, type Lang } from './shared/i18n';
 import { ENGLISH, ENGLISH_JOURNEY } from './shared/deck-english';
 import { dayKey, milestoneAt, THEME_NAME, unlockedThemes, weeklyStreak, WORLDS, type Theme } from './core/streak';
 
@@ -493,7 +493,7 @@ async function settings() {
     const pick = await stage.ask([
       { label: 'Connect phone', value: 'pair' },
       { label: `Theme: ${THEME_NAME[s.theme ?? 'garden']}`, value: 'theme' },
-      { label: getLang() === 'zh' ? 'Language: 中文' : 'Language: English', value: 'lang' },
+      { label: `${t('Language')}: ${LANGS[getLang()]}`, value: 'lang' },
       { label: `Gaze-only: ${s.gazeOnly ? 'on' : 'off'}`, value: 'gaze' },
       { label: `Narration: ${s.narration ? 'on' : 'off'}`, value: 'narration' },
       { label: t('More…'), value: 'more' },
@@ -503,9 +503,13 @@ async function settings() {
     if (pick === 'pair') await pairFlow(ctx, showQr);
     if (pick === 'gaze') input.gazeOnly = s.gazeOnly = !s.gazeOnly;
     if (pick === 'lang') {
-      setLang(getLang() === 'zh' ? 'en' : 'zh');
-      showLang();
-      await stage.say(getLang() === 'zh' ? '已切换到中文。' : 'Switched to English.', t('Settings'));
+      stage.show(t('Language'), '');
+      const l = await stage.ask<Lang | null>([...(Object.keys(LANGS) as Lang[]).map((k) => ({ label: LANGS[k], value: k })), { label: t('Back'), value: null }]);
+      if (l) {
+        setLang(l);
+        showLang();
+        await stage.say(LANGS[l], t('Language'));
+      }
     }
     if (pick === 'theme') await themeMenu();
     if (pick === 'narration') setNarration((s.narration = !s.narration));
@@ -610,16 +614,19 @@ const enterRoom = async () => {
   void cloud.health().then(() => warmMicrophone(cloud.stt));
 };
 const each = (sel: string, f: (b: HTMLButtonElement) => void) => document.querySelectorAll<HTMLButtonElement>(sel).forEach(f);
-// English / 中文: the page and the palace follow the same choice.
-const langToggle = document.getElementById('lang-toggle');
+// The language menu: the page and the palace follow the same choice.
+const langToggle = document.getElementById('lang-toggle') as HTMLSelectElement | null;
 const showLang = () => {
   applySite();
-  if (langToggle) langToggle.textContent = getLang() === 'zh' ? 'EN' : '中文';
+  if (langToggle) langToggle.value = getLang();
 };
-if (langToggle) langToggle.onclick = () => {
-  setLang(getLang() === 'zh' ? 'en' : 'zh');
-  showLang();
-};
+if (langToggle) {
+  langToggle.append(...(Object.keys(LANGS) as Lang[]).map((k) => new Option(LANGS[k], k)));
+  langToggle.onchange = () => {
+    setLang(langToggle.value as Lang);
+    showLang();
+  };
+}
 showLang();
 each('[data-desktop]', (b) => (b.onclick = enterDesktop));
 each('[data-ar]', (b) => (b.onclick = () => void enterRoom()));

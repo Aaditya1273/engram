@@ -23,6 +23,8 @@ import { ENGLISH } from '../src/shared/deck-english';
 import { bakeTemplate } from '../src/shared/props';
 import * as THREE from 'three';
 import { sceneFit } from '../src/headset/scene-builder';
+import { LANGS, SITE, setLang, t, t2 } from '../src/shared/i18n';
+import { ES, HI, JA } from '../src/shared/locales';
 
 // Deterministic noise so tests never flake.
 let seed = 7;
@@ -513,6 +515,23 @@ describe('Memory Athlete', () => {
     const words = ['anchor', 'violin', 'tiger', 'teapot'];
     expect(freeRecallScore(words, 'um tiger, then anchor... anchor again, and a violin')).toBe(3);
     expect(freeRecallScore(words, '')).toBe(0);
+  });
+});
+
+describe('languages', () => {
+  it('translates every line of the website, and the app falls back to English for anything new', () => {
+    expect(Object.keys(LANGS)).toEqual(['en', 'zh', 'hi', 'es', 'ja']);
+    for (const d of [HI, ES, JA]) {
+      expect(Object.keys(d.site).sort()).toEqual(Object.keys(SITE).sort());
+      for (const [en, tr] of Object.entries(d.tpl)) expect(tr.match(/\{\w+\}/g)?.sort()).toEqual(en.match(/\{\w+\}/g)?.sort());
+    }
+    setLang('hi');
+    expect(t('Settings')).toBe('सेटिंग्स');
+    expect(t('A line nobody translated')).toBe('A line nobody translated');
+    setLang('ja');
+    expect(t2("What's number {n}?", { n: 7 })).toBe('7番は何？');
+    setLang('en');
+    expect(t('Settings')).toBe('Settings');
   });
 });
 
