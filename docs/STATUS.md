@@ -33,11 +33,11 @@ Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 | Feature | Status | Verified by |
 | --- | :---: | --- |
 | 26 props as Lux3D models (image-to-3D), painting fallback | ✅ | Live API; every model rendered and inspected; test `3D model baking` |
-| Twist-to-3D and leech objects (text-to-3D → retopology → stored) | ✅ / 🟡 | Live API + walkthrough for twists ("a tiny teapot shaped like a lantern" appeared on its pedestal); mocked server tests. The leech flow has not been driven in a walkthrough |
+| Twist-to-3D and leech objects (text-to-3D → retopology → stored) | ✅ / 🟡 | Live API + walkthrough for twists ("a tiny teapot shaped like a lantern" appeared on its pedestal); on production "a small brass compass" was ready in 118 s and stored in Neon; mocked server tests. The leech flow has not been driven in a walkthrough |
 | Silver and gold finishes (material transfer), collection and rarity, finishes on pedestals | 🟡 | Live API (batch in progress: see `src/shared/finishes.json`); tests `collection rarity`; collection preview walkthrough |
 | Lumen (text-to-3D → auto-rig → 5 retargeted clips), reactions, quiz | ✅ | Live API; seen in walkthroughs; test `Lumen quiz` and a live Groq quiz |
 | Open-to-remember chest (articulation: URDF body + lid on a revolute hinge, rebuilt in three.js) | ✅ | Live API; walkthrough (18 Nov): closed chests on every stop being recalled, lids open on answer |
-| Keepsake STL / 3MF export | 🟡 | Code and route exist; never run against the real export API (needs the public deployment) |
+| Keepsake STL / 3MF export | ✅ | Production (18 Nov): a generated compass exported as a 253 KB `printable.stl` via Lux3D multi-format export (1 credit); test `exports a printable STL…` |
 | Themed worlds (World generation), home palace (Reality reconstruction), Aholo Viewer | ⬜ | Not built |
 
 ## Play and social
@@ -56,9 +56,9 @@ Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 | --- | :---: | --- |
 | Desktop (mouse, keyboard, typed input) | ✅ | All walkthroughs |
 | Meta Quest: hands, pinch, flick, 72 Hz, hands-lost pause | 🟡 | Code paths only. **Not tested on a device** |
-| Speech on Quest (record → Whisper on Groq / Gemini) | 🟡 | Test `transcribes a short clip…` (mocked Groq); never run with real audio |
+| Speech on Quest (record → Whisper on Groq / Gemini) | 🟡 | Production round trip to Whisper works (a silent clip); Whisper's stock silence phrases ("Thank you.") are discarded. Not yet run with real spoken audio or on a Quest |
 | Room mode (passthrough, immersive-ar) | 🟡 | Code only; shown only where `immersive-ar` is supported; **not tested on a device** |
 | Frame guard (hide far scenes, then paintings) | 🟡 | Tests `frame guard`; never triggered on a device |
 | Chinese / English | 🟡 | Website, menus, onboarding and journey prompts translated; deeper flows still English. Tests `text wrapping` |
 | Abuse limits (per-IP devices, daily caps on paid calls) | ✅ | Tests `speech, caps and abuse limits` |
-| Live deployment with database | ⬜ | `/api/health` reports `db: none`: every cloud feature is off on the live site until `DATABASE_URL` is set (`scripts/secrets.sh`) |
+| Live deployment with database | ✅ | Neon Postgres attached; production `/api/health` = `db: postgres, ai, stt, lux3d` all on. Production smoke test (18 Nov): device, sync, profile, World Builder (topic and a Wikipedia URL: all 13 cranial nerve entries), study agent, Lumen quiz, twist mapping, transcription round trip, daily challenge, duel, league, twist-to-3D (ready in 118 s, 454 KB GLB served), STL export; the app loads with no console errors |
