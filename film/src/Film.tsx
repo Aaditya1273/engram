@@ -40,7 +40,7 @@ const SFX: [string, number, number][] = [
 /** 0:00 One lantern lights in the dark forest; ATRIUM resolves out of its light; the glitch hit on bar 4. */
 const Open: React.FC = () => {
   const t = useT();
-  const lit = ramp(t, B(0.6), B(1.6));
+  const lit = 0.18 + 0.82 * ramp(t, 0.05, B(1.4));
   const title = ramp(t, B(2), B(2) + 1.1);
   const zoom = interpolate(t, [0, B(4)], [1.18, 1.0], clamp);
   return (
@@ -49,7 +49,7 @@ const Open: React.FC = () => {
         <AbsoluteFill style={{ transform: `scale(${zoom})`, opacity: 0.25 + 0.55 * lit }}>
           <Img src={staticFile('art/forest.webp')} style={{ width: 1920, height: 1080, objectFit: 'cover', filter: 'brightness(0.45) saturate(1.1)' }} />
         </AbsoluteFill>
-        <Fireflies opacity={lit} />
+        <Fireflies opacity={0.3 + 0.7 * lit} />
         <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ position: 'absolute', width: 900, height: 900, borderRadius: '50%', background: `radial-gradient(circle, ${C.goldHi}${lit > 0.5 ? '55' : '22'} 0%, transparent 60%)`, transform: `scale(${0.4 + lit})`, opacity: lit }} />
           <Img src={staticFile('art/lantern.png')} style={{ height: 520, opacity: 0.2 + 0.8 * lit, transform: `translateY(${-30 - title * 120}px) scale(${1 - title * 0.25})`, filter: `brightness(${0.4 + lit * 0.8}) drop-shadow(0 0 ${60 * lit}px ${C.gold})` }} />
@@ -93,8 +93,9 @@ const Pain: React.FC = () => {
   const curve = ramp(t, B(6.8), B(9), inOut);
   return (
     <AbsoluteFill style={{ background: C.paper }}>
-      <Camera dur={B(11)} push={0.06} seed="pain">
-        <AbsoluteFill style={{ backgroundImage: `radial-gradient(${C.ink}18 1.5px, transparent 1.5px)`, backgroundSize: '34px 34px', backgroundPosition: `${t * 20}px ${t * 12}px` }} />
+      <Camera dur={B(11)} push={0.14} seed="pain">
+        <Aurora colors={['#F2D58C', '#E8DCC0', '#D9C08A', '#EFE3C8']} opacity={0.55} />
+        <AbsoluteFill style={{ backgroundImage: `radial-gradient(${C.ink}30 2.6px, transparent 2.6px)`, backgroundSize: '46px 46px', backgroundPosition: `${t * 38}px ${t * 22}px` }} />
         {t < B(5.4) && <>
           <Line text="You read it." at={0.15} out={B(1.5)} color={C.ink} y={-10} size={76} />
           <Line text={<span>You <span style={{ background: `linear-gradient(90deg, #F2D58Cdd ${hl * 100}%, transparent ${hl * 100}%)`, padding: '0 10px', borderRadius: 8 }}>highlighted</span> it.</span>} at={B(1.5)} out={B(3)} color={C.ink} size={76} />
@@ -162,11 +163,12 @@ const Curve: React.FC<{ p: number; t: number }> = ({ p, t }) => {
 /** 0:38 The old answer: memory champions walk through a palace. It takes years to build one. */
 const Old: React.FC = () => {
   const t = useT();
-  const rise = ramp(t, B(1.6), B(3.2), inOut);
+  const rise = ramp(t, B(0.9), B(2.6), inOut);
   return (
     <AbsoluteFill style={{ background: C.deep }}>
       <Camera dur={B(7)} push={0.1} seed="old">
-        <Aurora opacity={0.45} />
+        <Aurora opacity={0.7} />
+        <Fireflies n={22} seed="o0" opacity={0.6} />
         <AbsoluteFill style={{ opacity: rise, transform: `translateY(${(1 - rise) * 160}px) scale(${1.05 + (1 - rise) * 0.1})` }}>
           <Img src={staticFile('art/rotunda.webp')} style={{ width: 1920, height: 1080, objectFit: 'cover', filter: 'brightness(0.62) saturate(1.05)' }} />
           <AbsoluteFill style={{ background: `linear-gradient(180deg, ${C.deep}cc 0%, transparent 35%, transparent 60%, ${C.deep}ee 100%)` }} />
@@ -177,7 +179,6 @@ const Old: React.FC = () => {
         <Line text="Every fact, a place. Every place, in order." at={B(4)} out={B(5.4)} y={-330} />
         <Line text="It takes years to build one." at={B(5.4)} out={B(6.9)} y={-330} />
       </Camera>
-      <Wash color="#000" o={ramp(t, B(6.75), B(7))} />
     </AbsoluteFill>
   );
 };
@@ -189,14 +190,15 @@ const Reveal: React.FC = () => {
   const dive = ramp(t, B(2.45), B(3), (x) => x * x * x);
   return (
     <AbsoluteFill style={{ background: C.deep }}>
-      <Aurora opacity={0.35 + 0.3 * draw} />
+      <Aurora opacity={0.45 + 0.3 * draw} />
+      <Fireflies n={30} seed="rv" opacity={0.7} />
       {t < B(1.05) && <>
         <Line text="Now it takes" at={0} out={B(1.05)} y={-110} size={46} weight={300} />
-        <Drop text="one sentence." at={0.05} size={170} gold={['sentence.']} y={40} />
+        <div style={{ position: 'absolute', inset: 0, transform: `scale(${1 + t * 0.05})` }}><Drop text="one sentence." at={0.05} size={170} gold={['sentence.']} y={40} /></div>
       </>}
       {t >= B(1) - 0.1 && (
         <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', transform: `scale(${1 + dive * 9})`, transformOrigin: '670px 540px', opacity: 1 - ramp(t, B(2.85), B(3)) }}>
-          <div style={{ transform: 'translateY(-60px)' }}><Headset draw={draw} glow={ramp(t, B(2), B(2.4))} /></div>
+          <div style={{ transform: `translateY(-60px) perspective(1400px) rotateY(${Math.sin(t * 0.9) * 9}deg) rotateX(${Math.cos(t * 0.7) * 4}deg) scale(${1 + 0.06 * draw})` }}><Headset draw={draw} glow={ramp(t, B(2), B(2.4))} /></div>
           <div style={{ position: 'absolute', top: 760, textAlign: 'center' }}>
             <div style={{ fontFamily: SERIF, fontSize: 84, color: C.goldHi, opacity: ramp(t, B(1.4), B(1.9)), letterSpacing: '0.02em' }}>Atrium</div>
             <div style={{ fontFamily: SANS, fontSize: 30, color: C.ivory, opacity: ramp(t, B(1.7), B(2.1)), marginTop: 6, letterSpacing: '0.12em' }}>BUILT FOR META QUEST</div>
@@ -226,11 +228,11 @@ const Impact: React.FC = () => {
         </>}
         {t >= B(8.6) && <>
           <Line text={<span>Built for <span style={{ color: C.goldHi }}>Meta Quest.</span></span>} at={B(8.6) + 0.1} y={-280} size={70} serif weight={500} />
-          <Chip at={B(9.4)} x={-430} y={20}>Hand tracking · pinch and gaze</Chip>
-          <Chip at={B(9.8)} x={0} y={120}>Seated · comfortable · 72 fps</Chip>
-          <Chip at={B(10.2)} x={430} y={20}>WebXR · works offline</Chip>
-          <Chip at={B(10.8)} x={-250} y={240}>Five languages</Chip>
-          <Chip at={B(11.2)} x={250} y={240}>Three worlds</Chip>
+          <Chip size={34} at={B(9.4)} x={-470} y={20}>Hand tracking · pinch and gaze</Chip>
+          <Chip size={34} at={B(9.8)} x={0} y={130}>Seated · comfortable · 72 fps</Chip>
+          <Chip size={34} at={B(10.2)} x={470} y={20}>WebXR · works offline</Chip>
+          <Chip size={34} at={B(10.8)} x={-270} y={260}>Five languages</Chip>
+          <Chip size={34} at={B(11.2)} x={270} y={260}>Three worlds</Chip>
         </>}
       </Camera>
     </AbsoluteFill>
@@ -248,7 +250,7 @@ const Lanterns: React.FC<{ t: number }> = ({ t }) => {
           const bw = ramp(t, B(2.4) + (9 - i) * 0.12, B(2.4) + (9 - i) * 0.12 + 0.2);
           const lit = Math.max(fw * (1 - ramp(t, B(2.1), B(2.3))), bw);
           return (
-            <div key={e} style={{ width: 120, height: 170, borderRadius: 60, border: `2px solid ${C.gold}${lit > 0.5 ? '' : '66'}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: `radial-gradient(circle at 50% 40%, ${C.goldHi}${Math.round(lit * 160).toString(16).padStart(2, '0')} 0%, transparent 70%)`, boxShadow: `0 0 ${50 * lit}px ${C.gold}${Math.round(lit * 200).toString(16).padStart(2, '0')}` }}>
+            <div key={e} style={{ width: 138, height: 200, borderRadius: 69, border: `2px solid ${C.gold}${lit > 0.5 ? '' : '66'}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: `radial-gradient(circle at 50% 40%, ${C.goldHi}${Math.round(lit * 160).toString(16).padStart(2, '0')} 0%, transparent 70%)`, boxShadow: `0 0 ${50 * lit}px ${C.gold}${Math.round(lit * 200).toString(16).padStart(2, '0')}` }}>
               <div style={{ fontFamily: SERIF, fontSize: 52, color: lit > 0.4 ? C.deep : C.ivory, fontWeight: 600 }}>{e}</div>
               <div style={{ fontFamily: SANS, fontSize: 22, color: lit > 0.4 ? C.deep : C.muted }}>{i + 1}</div>
             </div>
@@ -305,7 +307,6 @@ const End: React.FC = () => {
         </AbsoluteFill>
         <Line text="Built for Meta Quest · WebXR" at={2.3} size={24} y={380} color={C.gold} weight={400} />
       </Camera>
-      <Wash color="#000" o={ramp(t, B(7.6), B(8))} />
     </AbsoluteFill>
   );
 };

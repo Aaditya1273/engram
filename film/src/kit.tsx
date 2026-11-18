@@ -46,7 +46,7 @@ export const Line: React.FC<{ text: React.ReactNode; at: number; out?: number; s
     return (
       <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
         <div style={{
-          transform: `translateY(${y + (1 - a) * 18 - z * 10}px)`, opacity: v, filter: `blur(${(1 - a) * 18 + z * 14}px)`, maxWidth: width,
+          transform: `translateY(${y + (1 - a) * 18 - z * 10 - (t - at) * 9}px) scale(${1 + Math.max(0, t - at) * 0.018})`, // keeps drifting after it lands opacity: v, filter: `blur(${(1 - a) * 18 + z * 14}px)`, maxWidth: width,
           fontFamily: serif ? SERIF : SANS, fontWeight: weight, fontSize: size, color, textAlign: 'center', letterSpacing: serif ? '-0.01em' : '0.005em', lineHeight: 1.15,
         }}>{text}</div>
       </AbsoluteFill>

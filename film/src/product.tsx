@@ -1,6 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, OffthreadVideo, Sequence, staticFile } from 'remotion';
-import { BAR, C, Camera, Chip, Line, PinchRing, ramp, SANS, SERIF, useT, Wash } from './kit';
+import { BAR, C, Camera, Chip, inOut, Line, PinchRing, ramp, SANS, SERIF, useT, Wash } from './kit';
 import build from './marks/build.json';
 import recall from './marks/recall.json';
 import worlds from './marks/worlds.json';
@@ -22,7 +22,7 @@ const m = (take: string, kind: string, n = 0, label?: string) => {
   return x.t;
 };
 
-type Seg = { take: string; from: number; to: number; bars: number; line?: React.ReactNode; chip?: React.ReactNode; count?: [string, string, number] };
+type Seg = { take: string; from: number; to: number; bars: number; zoom?: [number, number, number, number]; line?: React.ReactNode; chip?: React.ReactNode; count?: [string, string, number] };
 const SEGS: Seg[] = [
   { take: 'build', from: 0.9, to: m('build', 'pinch', 0) - 1.4, bars: 2.5, line: 'Put on your Quest. Look around.' },
   { take: 'build', from: m('build', 'pinch', 0) - 1.2, to: m('build', 'pinch', 1) + 0.9, bars: 3.5, line: 'Name what you need to remember.' },
@@ -30,7 +30,7 @@ const SEGS: Seg[] = [
   { take: 'build', from: m('build', 'stop', 0) - 1.0, to: m('build', 'pinch', 4) + 0.4, bars: 6.5, line: 'A vivid scene on every pedestal.', count: ['stop', 'Stop', 12] },
   { take: 'build', from: m('build', 'pinch', 4) + 0.4, to: m('build', 'pinch', -1) + 0.6, bars: 5.5, line: 'Each one leads to the next.', count: ['stop', 'Stop', 12] },
   { take: 'recall', from: m('recall', 'pinch', 0) - 0.6, to: m('recall', 'pinch', 5) + 0.9, bars: 9, line: 'Then walk it from memory.', count: ['pinch', 'Recalled', 12] },
-  { take: 'recall', from: m('recall', 'pinch', 5) + 0.6, to: m('recall', 'pinch', 5) + 3.0, bars: 2, line: 'No controllers. Just your hands.', chip: 'Hand tracking · gaze and pinch' },
+  { take: 'recall', from: m('recall', 'pinch', 5) + 0.6, to: m('recall', 'pinch', 5) + 3.0, bars: 2, zoom: [1.05, 1.75, 61, 84], line: 'No controllers. Just your hands.', chip: 'Hand tracking · gaze and pinch' },
   { take: 'recall', from: m('recall', 'prompt', 5) - 0.3, to: m('recall', 'pinch', 8) + 0.8, bars: 4, line: 'Faster every time.', count: ['pinch', 'Recalled', 12] },
   { take: 'recall', from: m('recall', 'prompt', 9) - 0.3, to: m('recall', 'pinch', -1) + 0.8, bars: 2.5, count: ['pinch', 'Recalled', 12] },
   { take: 'recall', from: m('recall', 'pinch', -1) + 0.5, to: Math.min(m('recall', 'done') - 0.4, m('recall', 'pinch', -1) + 5.5), bars: 2, line: <span>All twelve. <span style={{ color: C.goldHi }}>In order.</span></span> },
@@ -43,7 +43,7 @@ const PLAN = (() => {
   let at = 0;
   return SEGS.map((s) => {
     const dur = s.bars * BAR, rate = (s.to - s.from) / dur;
-    const r = { ...s, at, dur, rate };
+    const r = { ...s, at, dur, rate, i: SEGS.indexOf(s) };
     at += dur;
     return r;
   });
@@ -75,12 +75,14 @@ const Segment: React.FC<{ s: (typeof PLAN)[number]; last: boolean }> = ({ s, las
   const t = useT();
   // Each cut lands with a short scale-and-clear, the previous shot still underneath for its last frames.
   const inK = ramp(t, 0, 0.22);
+  // Every shot moves: alternate push-ins and pull-backs on the pedestals, unless the segment names its own move.
+  const [z0, z1, ox, oy] = s.zoom ?? (s.i % 2 ? [1.24, 1.06, 50, 60] : [1.06, 1.26, 50, 62]);
   const pinches = TAKES[s.take].filter((x) => x.kind === 'pinch' && x.t > s.from && x.t < s.to).map((x) => (x.t - s.from) / s.rate);
   const counted = s.count ? TAKES[s.take].filter((x) => x.kind === s.count![0] && !x.label.startsWith('Walk it') && x.t <= s.from + t * s.rate).length : 0;
   return (
     <AbsoluteFill style={{ opacity: inK, filter: `blur(${(1 - inK) * 10}px)` }}>
       <Camera dur={s.dur} push={0.05} seed={`seg${s.from}`}>
-        <AbsoluteFill style={{ transform: 'scale(1.06)' }}>
+        <AbsoluteFill style={{ transform: `scale(${z0 + (z1 - z0) * ramp(t, 0, s.dur, inOut)})`, transformOrigin: `${ox}% ${oy}%` }}>
           <OffthreadVideo src={staticFile(`clips/${s.take}.mp4`)} startFrom={Math.round(s.from * 60)} playbackRate={s.rate} muted style={{ width: 1920, height: 1080 }} />
         </AbsoluteFill>
       </Camera>
