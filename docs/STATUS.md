@@ -1,6 +1,6 @@
 # Atrium build status
 
-How every feature was checked. **Tests** are in `tests/` (`npm run test`, 94 passing). **Walkthrough** means a scripted browser run of the real app on desktop (Playwright scripts kept outside the repo), at the stated date. **Live API** means a real call to the named service, not a mock. Nothing here has been run on a Meta Quest yet; every VR-only path says so.
+How every feature was checked. **Tests** are in `tests/` (`npm run test`, 106 passing; hands-first input in `tests/hands.test.ts` via a simulated WebXR session). **Walkthrough** means a scripted browser run of the real app on desktop (Playwright scripts kept outside the repo), at the stated date. **Live API** means a real call to the named service, not a mock. Nothing here has been run on a Meta Quest yet; every VR-only path says so.
 
 Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 

@@ -10,11 +10,11 @@ Atrium's AI turns anything you need to remember (a chapter, a talk, a list, a PD
 
 `Productivity track` · `New Experience division` · `Meta VR Start Developer Competition 2026`
 
-[Run it](#getting-started-developers) · [Submission](docs/SUBMISSION.md) · [Demo video](#demo) · [Architecture](#architecture) · [MCP server](#mcp-server-for-ai-agents) · [Research](#research-foundation)
+[Run it](#getting-started-developers) · [Submission](docs/SUBMISSION.md) · [Meta integration](docs/META_INTEGRATION.md) · [Demo video](#demo) · [Architecture](#architecture) · [MCP server](#mcp-server-for-ai-agents) · [Research](#research-foundation)
 
 </div>
 
-> **Build status (18 Nov 2026):** journeys and the elements onboarding, the World Builder, Lumen, Recall Rush, the collection, the arena (daily challenge, duels, friends, leagues), Memory Athlete, creator palaces, five languages (English, 中文, हिन्दी, Español, 日本語) and the Aholo Lux3D 3D pipeline are built and tested on desktop: **94 unit and integration tests** plus scripted browser walkthroughs; the live site runs on a Neon Postgres database with every cloud feature on. **Not yet:** a Meta Quest device pass, Aholo-generated worlds and home reconstruction, study rooms. The full, honest table is in **[docs/STATUS.md](docs/STATUS.md)**; Aholo timings and credit costs are in **[docs/AHOLO_API_NOTES.md](docs/AHOLO_API_NOTES.md)**.
+> **Build status (18 Nov 2026):** journeys and the elements onboarding, the World Builder, Lumen, Recall Rush, the collection, the arena (daily challenge, duels, friends, leagues), Memory Athlete, creator palaces, five languages (English, 中文, हिन्दी, Español, 日本語) and the Aholo Lux3D 3D pipeline are built and tested on desktop: **106 unit and integration tests** (12 of them drive hands-only input through a simulated WebXR session) plus scripted browser walkthroughs; the live site runs on a Neon Postgres database with every cloud feature on. **Not yet:** a Meta Quest device pass, Aholo-generated worlds and home reconstruction, study rooms. The full, honest table is in **[docs/STATUS.md](docs/STATUS.md)**; Aholo timings and credit costs are in **[docs/AHOLO_API_NOTES.md](docs/AHOLO_API_NOTES.md)**.
 
 ---
 
@@ -85,7 +85,7 @@ AI agents now find and summarise everything for us. That multiplies what we're e
 >
 > All footage is real browser or emulator capture. No Meta Quest device capture yet (see [docs/STATUS.md](docs/STATUS.md)).
 
-**Verify it yourself in two minutes:** open https://atrium-b0r.pages.dev on a computer, click through the first five minutes, then run `npm ci && npm test` (94 tests) locally. CI runs the same checks on every push.
+**Verify it yourself in two minutes:** open https://atrium-b0r.pages.dev on a computer, click through the first five minutes, then run `npm ci && npm test` (106 tests) locally. CI runs the same checks on every push.
 
 ---
 

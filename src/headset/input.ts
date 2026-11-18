@@ -1,18 +1,12 @@
 import * as THREE from 'three';
 import { PALETTE } from '../shared/theme';
 import type { Selectable } from './ui';
+import { fingerCurls, handsLost, pinchAction, wristInYawFrame } from '../core/hands';
 
 export type Modality = 'hands' | 'pointer';
 
 const TIPS: XRHandJoint[] = ['thumb-tip', 'index-finger-tip', 'middle-finger-tip', 'ring-finger-tip', 'pinky-finger-tip'];
 const HANDS: XRHandedness[] = ['left', 'right'];
-/** Wrist travel is divided by this so a ~15 cm movement ≈ 1 unit, the same scale as the pointer path. */
-const WRIST_SCALE = 0.15;
-/** Finger curl matters less than where the hand goes; it also carries more tracking jitter. */
-const CURL_WEIGHT = 0.4;
-const FLICK_M = 0.07;
-const FLICK_MAX_MS = 800;
-const HANDS_LOST_MS = 2000;
 export const DWELL_MS = 1000;
 
 interface HandSample {
@@ -88,13 +82,10 @@ export class Input {
         const p = this.pinch;
         this.pinch = null;
         const now = this.hands.get(e.inputSource.handedness)?.wrist;
-        if (p?.pos && now && performance.now() - p.at < FLICK_MAX_MS) {
-          const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
-          const dx = now.clone().sub(p.pos).dot(right);
-          // Swipe semantics: move the hand left to bring what's on the right into view.
-          if (Math.abs(dx) > FLICK_M) return this.onFlick(dx < 0 ? 1 : -1);
-        }
-        this.select();
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+        const action = pinchAction(p?.pos ?? null, now, p ? performance.now() - p.at : Infinity, right);
+        if (action === 'select') this.select();
+        else this.onFlick(action);
       });
     });
   }
@@ -180,7 +171,7 @@ export class Input {
 
     // Hands-lost recovery.
     if (this.xr && this.sawHands && !this.gazeOnly) {
-      const lost = performance.now() - this.lastHandSeen > HANDS_LOST_MS;
+      const lost = handsLost(performance.now(), this.lastHandSeen);
       if (lost !== this.handsLost) {
         this.handsLost = lost;
         this.onHandsLost(lost);
@@ -200,11 +191,11 @@ export class Input {
       const midPose = frame.getJointPose(src.hand.get('middle-finger-phalanx-proximal')!, ref);
       if (!wristPose || !midPose) continue;
       const wrist = vec(wristPose);
-      const size = Math.max(0.03, wrist.distanceTo(vec(midPose)));
-      const curls = TIPS.map((j) => {
+      const tips = TIPS.map((j) => {
         const p = frame.getJointPose!(src.hand!.get(j)!, ref);
-        return p ? (vec(p).distanceTo(wrist) / size) * CURL_WEIGHT : 0;
+        return p ? vec(p) : null;
       });
+      const curls = fingerCurls(wrist, tips, wrist.distanceTo(vec(midPose)));
       // Light smoothing against tracking jitter.
       const prev = this.hands.get(src.handedness);
       if (prev) {
@@ -226,7 +217,6 @@ export class Input {
     const rec = this.recorder!;
     if (this.modality === 'pointer') return [(this.mouse.x - rec.mouse0.x) * 1.5, (this.mouse.y - rec.mouse0.y) * 1.5];
     const out: number[] = [];
-    const unyaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -rec.yaw);
     for (const h of HANDS) {
       const s = this.hands.get(h);
       if (!s) {
@@ -234,8 +224,7 @@ export class Input {
         continue;
       }
       if (!rec.origin.has(h)) rec.origin.set(h, s.wrist.clone());
-      const d = s.wrist.clone().sub(rec.origin.get(h)!).applyQuaternion(unyaw).divideScalar(WRIST_SCALE);
-      out.push(d.x, d.y, d.z, ...s.curls);
+      out.push(...wristInYawFrame(s.wrist, rec.origin.get(h)!, rec.yaw), ...s.curls);
     }
     return out;
   }
