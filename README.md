@@ -10,7 +10,7 @@ Atrium's AI turns anything you need to remember (a chapter, a talk, a list, a PD
 
 `Productivity track` · `New Experience division` · `Meta VR Start Developer Competition 2026`
 
-[Run it](#getting-started-developers) · [Demo video](#demo) · [Architecture](#architecture) · [MCP server](#mcp-server-for-ai-agents) · [Research](#research-foundation)
+[Run it](#getting-started-developers) · [Submission](docs/SUBMISSION.md) · [Demo video](#demo) · [Architecture](#architecture) · [MCP server](#mcp-server-for-ai-agents) · [Research](#research-foundation)
 
 </div>
 
@@ -81,13 +81,11 @@ AI agents now find and summarise everything for us. That multiplies what we're e
 
 ## Demo
 
-> 📺 **Demo video (2:30):** `<YouTube or Vimeo link>`
+> 📺 **Demo video (under 3 min):** linked on the Devpost submission page.
 >
-> All footage is real headset or emulator capture.
+> All footage is real browser or emulator capture. No Meta Quest device capture yet (see [docs/STATUS.md](docs/STATUS.md)).
 
-| First five minutes | Daily session | Agent capture |
-| --- | --- | --- |
-| `docs/media/first-five.gif` | `docs/media/daily-session.gif` | `docs/media/agent-capture.gif` |
+**Verify it yourself in two minutes:** open https://atrium-b0r.pages.dev on a computer, click through the first five minutes, then run `npm ci && npm test` (94 tests) locally. CI runs the same checks on every push.
 
 ---
 
@@ -363,7 +361,7 @@ atrium/
 ### Install and run
 
 ```bash
-git clone https://github.com/<your-org>/atrium.git
+git clone https://github.com/Aaditya1273/engram.git
 cd atrium
 npm install
 
