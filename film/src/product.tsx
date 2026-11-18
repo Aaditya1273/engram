@@ -1,6 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, OffthreadVideo, Sequence, staticFile } from 'remotion';
-import { BAR, C, Camera, Chip, inOut, Line, PinchRing, ramp, SANS, SERIF, useT, Wash } from './kit';
+import { BAR, C, Camera, Chip, FPS, inOut, Line, PinchRing, ramp, SANS, SERIF, useT, Wash } from './kit';
 import build from './marks/build.json';
 import recall from './marks/recall.json';
 import worlds from './marks/worlds.json';
@@ -62,7 +62,7 @@ export const Product: React.FC<{ bars: number }> = ({ bars }) => {
   return (
     <AbsoluteFill style={{ background: '#000' }}>
       {PLAN.map((s, i) => (
-        <Sequence key={i} from={Math.round(s.at * 60)} durationInFrames={Math.round(s.dur * 60) + 8}>
+        <Sequence key={i} from={Math.round(s.at * FPS)} durationInFrames={Math.round(s.dur * FPS) + 4}>
           <Segment s={s} last={i === PLAN.length - 1} />
         </Sequence>
       ))}
@@ -83,7 +83,7 @@ const Segment: React.FC<{ s: (typeof PLAN)[number]; last: boolean }> = ({ s, las
     <AbsoluteFill style={{ opacity: inK, filter: `blur(${(1 - inK) * 10}px)` }}>
       <Camera dur={s.dur} push={0.05} seed={`seg${s.from}`}>
         <AbsoluteFill style={{ transform: `scale(${z0 + (z1 - z0) * ramp(t, 0, s.dur, inOut)})`, transformOrigin: `${ox}% ${oy}%` }}>
-          <OffthreadVideo src={staticFile(`clips/${s.take}.mp4`)} startFrom={Math.round(s.from * 60)} playbackRate={s.rate} muted style={{ width: 1920, height: 1080 }} />
+          <OffthreadVideo src={staticFile(`clips/${s.take}.mp4`)} startFrom={Math.round(s.from * FPS)} playbackRate={s.rate} muted style={{ width: 1920, height: 1080 }} />
         </AbsoluteFill>
       </Camera>
       {/* The headset's lens edge, and a soft band at the top so the narrator reads over any scene. */}

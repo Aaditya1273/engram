@@ -1,152 +1,152 @@
 {
  "marks": [
   {
-   "t": 17.057,
+   "t": 17.861,
    "kind": "pinch",
    "label": "Build a palace"
   },
   {
-   "t": 24.99,
+   "t": 25.458,
    "kind": "pinch",
    "label": "Cranial nerves"
   },
   {
-   "t": 25.821,
+   "t": 26.268,
    "kind": "building",
    "label": ""
   },
   {
-   "t": 50.088,
+   "t": 53.162,
    "kind": "built",
    "label": "The 12 cranial nerves · Built from what you gave me | 12 stops: Olfactory, Optic, Oculomotor, Trochlear…"
   },
   {
-   "t": 52.652,
+   "t": 55.91,
    "kind": "pinch",
    "label": "Walk it in"
   },
   {
-   "t": 70.089,
+   "t": 74.06,
    "kind": "stop",
-   "label": "1 · Olfactory | The cat's sniff drifts toward the bird's watchful gaze."
+   "label": "1 · Olfactory | The cat lifts its head to see the optic bird."
   },
   {
-   "t": 73.942,
+   "t": 77.569,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 81.163,
+   "t": 84.341,
    "kind": "stop",
-   "label": "2 · Optic | The bird's view turns to the dog's hat‑tied eyes."
+   "label": "2 · Optic | The bird spots a moving eye‑muscle dog."
   },
   {
-   "t": 84.77,
+   "t": 88.565,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 92.711,
+   "t": 96.074,
    "kind": "stop",
-   "label": "3 · Oculomotor | The dog spins an umbrella, guiding the next turn."
+   "label": "3 · Oculomotor | The hat spins toward the trochlear umbrella."
   },
   {
-   "t": 96.474,
+   "t": 100.06,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 103.717,
+   "t": 106.831,
    "kind": "stop",
-   "label": "4 · Trochlear | The spinning umbrella drops three balls onto a tree."
+   "label": "4 · Trochlear | A drop falls onto the trigeminal tree."
   },
   {
-   "t": 107.801,
+   "t": 110.53,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 115.909,
+   "t": 117.437,
    "kind": "stop",
-   "label": "5 · Trigeminal | One ball rolls away as a dog pulls a drop."
+   "label": "5 · Trigeminal | One ball rolls to the abducens house."
   },
   {
-   "t": 119.599,
+   "t": 121.238,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 126.68,
+   "t": 128.902,
    "kind": "stop",
-   "label": "6 · Abducens | The dog’s pull brightens a sun‑smiling face."
+   "label": "6 · Abducens | The sun shines on a smiling facial cat."
   },
   {
-   "t": 130.648,
+   "t": 132.827,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 138.692,
+   "t": 140.08,
    "kind": "stop",
-   "label": "7 · Facial | The sun’s glow lifts a bird onto a cloud."
+   "label": "7 · Facial | The cat's star eyes hear the vestibular bird."
   },
   {
-   "t": 142.53,
+   "t": 143.876,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 149.689,
+   "t": 152.007,
    "kind": "stop",
-   "label": "8 · Vestibulocochlear | The bird’s song drips from a fountain’s drop."
+   "label": "8 · Vestibulocochlear | A drop from the fountain drips onto the glossopharyngeal book."
   },
   {
-   "t": 153.46,
+   "t": 156.116,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 161.399,
+   "t": 162.33,
    "kind": "stop",
-   "label": "9 · Glossopharyngeal | The fountain’s mist guides a dog beneath a tree."
+   "label": "9 · Glossopharyngeal | The sun lights a vagus person."
   },
   {
-   "t": 165.476,
+   "t": 166.26,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 173.506,
+   "t": 172.647,
    "kind": "stop",
-   "label": "10 · Vagus | The dog’s path leads a person to lift a hat."
+   "label": "10 · Vagus | The person passes an accessory dog."
   },
   {
-   "t": 177.647,
+   "t": 176.249,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 185.695,
+   "t": 183.021,
    "kind": "stop",
-   "label": "11 · Accessory | The lifted hat opens a book for the final tongue."
+   "label": "11 · Accessory | The dog runs to the hypoglossal mountain."
   },
   {
-   "t": 189.726,
+   "t": 186.95,
    "kind": "pinch",
    "label": "Next stop"
   },
   {
-   "t": 194.851,
+   "t": 190.779,
    "kind": "stop",
-   "label": "12 · Hypoglossal | Number 12: Hypoglossal. A person reads a book, tongue moving silently."
+   "label": "12 · Hypoglossal | Number 12: Hypoglossal. Picture \"12\" glowing beside Hypoglossal."
   },
   {
-   "t": 198.688,
+   "t": 194.503,
    "kind": "pinch",
    "label": "Done"
   },
   {
-   "t": 212.024,
+   "t": 205.917,
    "kind": "walked",
    "label": ""
   }

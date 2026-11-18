@@ -1,6 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, Audio, Img, interpolate, OffthreadVideo, Sequence, staticFile, useCurrentFrame } from 'remotion';
-import { Aurora, BAR, bf, C, Camera, Chip, clamp, Drop, Finish, Fireflies, Glitch, Headset, inOut, Line, ramp, SANS, SERIF, useT, Wash } from './kit';
+import { Aurora, BAR, bf, C, Camera, Chip, clamp, Drop, Finish, Fireflies, FPS, Glitch, Headset, inOut, Line, ramp, SANS, SERIF, useT, Wash } from './kit';
 import { Product, PRODUCT_SFX } from './product';
 
 /**
@@ -23,8 +23,8 @@ export const Film: React.FC = () => (
     <Sequence from={bf(S.end)} durationInFrames={len(S.end, 96)}><End /></Sequence>
     <Finish />
     <Audio src={staticFile('audio/bed.wav')} />
-    {SFX.map(([s, at, v], i) => <Sequence key={i} from={Math.round(at * 60)} durationInFrames={120}><Audio src={staticFile(`audio/${s}.wav`)} volume={v} /></Sequence>)}
-    {PRODUCT_SFX.map(([s, at, v], i) => <Sequence key={`p${i}`} from={bf(S.product) + Math.round(at * 60)} durationInFrames={120}><Audio src={staticFile(`audio/${s}.wav`)} volume={v} /></Sequence>)}
+    {SFX.map(([s, at, v], i) => <Sequence key={i} from={Math.round(at * FPS)} durationInFrames={60}><Audio src={staticFile(`audio/${s}.wav`)} volume={v} /></Sequence>)}
+    {PRODUCT_SFX.map(([s, at, v], i) => <Sequence key={`p${i}`} from={bf(S.product) + Math.round(at * FPS)} durationInFrames={60}><Audio src={staticFile(`audio/${s}.wav`)} volume={v} /></Sequence>)}
   </AbsoluteFill>
 );
 
@@ -97,14 +97,14 @@ const Pain: React.FC = () => {
         <Aurora colors={['#F2D58C', '#E8DCC0', '#D9C08A', '#EFE3C8']} opacity={0.55} />
         <AbsoluteFill style={{ backgroundImage: `radial-gradient(${C.ink}30 2.6px, transparent 2.6px)`, backgroundSize: '46px 46px', backgroundPosition: `${t * 38}px ${t * 22}px` }} />
         {t < B(5.4) && <>
-          <Line text="You read it." at={0.15} out={B(1.5)} color={C.ink} y={-10} size={76} />
-          <Line text={<span>You <span style={{ background: `linear-gradient(90deg, #F2D58Cdd ${hl * 100}%, transparent ${hl * 100}%)`, padding: '0 10px', borderRadius: 8 }}>highlighted</span> it.</span>} at={B(1.5)} out={B(3)} color={C.ink} size={76} />
-          <Line text="You made the flashcards." at={B(3)} out={B(4.4)} color={C.ink} y={-230} size={72} />
+          <Drop text="You read it." at={0.1} out={B(1.5)} color={C.ink} serif={false} size={96} />
+          <Line text={<span>You <span style={{ background: `linear-gradient(90deg, #F2D58Cdd ${hl * 100}%, transparent ${hl * 100}%)`, padding: '0 10px', borderRadius: 8 }}>highlighted</span> it.</span>} at={B(1.5)} out={B(3)} color={C.ink} size={96} weight={500} />
+          <Drop text="You made the flashcards." at={B(3)} out={B(4.4)} color={C.ink} serif={false} y={-250} size={84} pill={['flashcards.']} />
           {cards > 0 && t < B(4.6) && [0, 1, 2, 3, 4].map((i) => {
             const fall = ramp(t, B(3) + i * 0.12, B(3) + i * 0.12 + 0.6);
             return <div key={i} style={{ position: 'absolute', left: 960 - 170 + (i - 2) * 26, top: 470 - (1 - fall) * 500 + i * 8, width: 340, height: 210, borderRadius: 14, background: '#fff', border: `1.5px solid ${C.ink}22`, boxShadow: '0 18px 40px rgba(0,0,0,0.12)', transform: `rotate(${(i - 2) * 4}deg)`, opacity: fall, fontFamily: SANS, fontSize: 30, color: C.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{['Olfactory', 'Optic', 'Oculomotor', 'Trochlear', 'Trigeminal'][i]}</div>;
           })}
-          <Line text="Two days later…" at={B(4.4)} out={B(5.5)} color={C.ink} size={76} />
+          <Drop text="Two days later…" at={B(4.4)} out={B(5.5)} color={C.ink} serif={false} size={96} />
         </>}
         {gone && <Gone t0={B(5.5)} />}
         {t >= B(6.6) && <Curve p={curve} t={t - B(6.6)} />}
@@ -121,7 +121,7 @@ const Gone: React.FC<{ t0: number }> = ({ t0 }) => {
       <div style={{ display: 'flex' }}>
         {'gone.'.split('').map((ch, i) => {
           const d = Math.max(0, t - 0.7 - i * 0.08);
-          return <span key={i} style={{ fontFamily: SERIF, fontSize: 380, fontWeight: 500, color: C.ink, letterSpacing: '-0.04em', opacity: Math.min(1, t * 4) * Math.max(0, 1 - d * 1.6), filter: `blur(${d * 26}px)`, transform: `translate(${d * (60 + i * 40)}px, ${-d * 90}px) scale(${1 + d * 0.3})`, display: 'inline-block' }}>{ch}</span>;
+          return <span key={i} style={{ fontFamily: SERIF, fontSize: 380, fontWeight: 500, color: C.ink, letterSpacing: '-0.04em', opacity: Math.min(1, t * 4) * Math.max(0, 1 - d * 1.6), filter: `blur(${d * 26}px)`, transform: `translate(${d * (60 + i * 40) + Math.max(0, 1 - t * 2.4) ** 3 * 700}px, ${-d * 90}px) scale(${1 + d * 0.3}) perspective(1200px) rotateY(${-(Math.max(0, 1 - t * 2.4) ** 3) * 58}deg)`, display: 'inline-block' }}>{ch}</span>;
         })}
       </div>
     </AbsoluteFill>
@@ -154,7 +154,7 @@ const Curve: React.FC<{ p: number; t: number }> = ({ p, t }) => {
         const x = q * 0.95, y = y0 - H * (0.25 + 0.75 * Math.exp(-x * 5.2));
         return <div key={label} style={{ position: 'absolute', left: x0 + x * W, top: y - 64, transform: 'translateX(-50%)', padding: '10px 20px', borderRadius: 12, background: '#fff', border: `1.5px solid ${C.ink}22`, boxShadow: '0 12px 30px rgba(0,0,0,0.12)', fontFamily: SANS, fontSize: 26, color: C.ink, opacity: 1 - q * 0.85, filter: `blur(${q * 6}px)`, whiteSpace: 'nowrap' }}>{label}</div>;
       })}
-      <Line text="Most of what we learn is gone within a day." at={0.6} size={60} y={-390} color={C.ink} />
+      <Drop text="Most of what we learn is gone within a day." at={0.5} size={66} y={-390} color={C.ink} serif={false} pill={['within', 'a', 'day.']} />
       <Line text="The forgetting curve · Ebbinghaus, 1885" at={1.6} size={22} y={420} color={C.muted} weight={400} />
     </AbsoluteFill>
   );
@@ -174,10 +174,10 @@ const Old: React.FC = () => {
           <AbsoluteFill style={{ background: `linear-gradient(180deg, ${C.deep}cc 0%, transparent 35%, transparent 60%, ${C.deep}ee 100%)` }} />
         </AbsoluteFill>
         <Fireflies n={28} seed="o" opacity={rise} />
-        <Line text="Memory champions don't have better memories." at={0.1} out={B(1.7)} size={70} />
+        <Drop text="Memory champions don't have better memories." at={0.1} out={B(1.7)} size={80} serif={false} />
         <Line text={<span>They walk through a <span style={{ color: C.goldHi, fontFamily: SERIF, fontWeight: 500 }}>palace.</span></span>} at={B(1.7)} out={B(4)} y={-330} size={64} />
-        <Line text="Every fact, a place. Every place, in order." at={B(4)} out={B(5.4)} y={-330} />
-        <Line text="It takes years to build one." at={B(5.4)} out={B(6.9)} y={-330} />
+        <Drop text="Every fact, a place. Every place, in order." at={B(4)} out={B(5.4)} y={-330} size={76} serif={false} gold={['place.', 'order.']} />
+        <Drop text="It takes years to build one." at={B(5.4)} out={B(7.05)} y={-330} size={80} serif={false} pill={['years']} />
       </Camera>
     </AbsoluteFill>
   );
@@ -193,8 +193,8 @@ const Reveal: React.FC = () => {
       <Aurora opacity={0.45 + 0.3 * draw} />
       <Fireflies n={30} seed="rv" opacity={0.7} />
       {t < B(1.05) && <>
-        <Line text="Now it takes" at={0} out={B(1.05)} y={-110} size={46} weight={300} />
-        <div style={{ position: 'absolute', inset: 0, transform: `scale(${1 + t * 0.05})` }}><Drop text="one sentence." at={0.05} size={170} gold={['sentence.']} y={40} /></div>
+        <Line text="Now it takes" at={0} out={B(1.05)} y={-130} size={60} />
+        <div style={{ position: 'absolute', inset: 0, transform: `scale(${1 + t * 0.05})` }}><Drop text="one sentence." at={0.02} size={200} gold={['sentence.']} y={40} swing /></div>
       </>}
       {t >= B(1) - 0.1 && (
         <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', transform: `scale(${1 + dive * 9})`, transformOrigin: '670px 540px', opacity: 1 - ramp(t, B(2.85), B(3)) }}>
@@ -219,15 +219,15 @@ const Impact: React.FC = () => {
         <Aurora opacity={0.5} />
         <Fireflies n={30} seed="i" opacity={0.6} />
         {t < B(4.5) && <>
-          <Line text={<span>Five minutes. <span style={{ color: C.goldHi }}>Ten elements.</span> Forwards and backwards.</span>} at={0.2} out={B(4.5)} y={-300} size={54} />
+          <Drop text="Five minutes. Ten elements. Forwards and backwards." at={0.15} out={B(4.5)} y={-300} size={70} serif={false} gold={['Ten', 'elements.']} />
           <Lanterns t={t} />
         </>}
         {t >= B(4.5) && t < B(8.6) && <>
-          <Line text="Spaced recall that never piles up." at={B(4.5) + 0.1} out={B(8.6)} y={-300} size={54} />
+          <Drop text="Spaced recall that never piles up." at={B(4.5) + 0.05} out={B(8.6)} y={-300} size={76} serif={false} pill={['never', 'piles', 'up.']} />
           <Fade t={t - B(4.5)} />
         </>}
         {t >= B(8.6) && <>
-          <Line text={<span>Built for <span style={{ color: C.goldHi }}>Meta Quest.</span></span>} at={B(8.6) + 0.1} y={-280} size={70} serif weight={500} />
+          <Drop text="Built for Meta Quest." at={B(8.6) + 0.05} y={-290} size={104} gold={['Meta', 'Quest.']} swing />
           <Chip size={34} at={B(9.4)} x={-470} y={20}>Hand tracking · pinch and gaze</Chip>
           <Chip size={34} at={B(9.8)} x={0} y={130}>Seated · comfortable · 72 fps</Chip>
           <Chip size={34} at={B(10.2)} x={470} y={20}>WebXR · works offline</Chip>
@@ -271,15 +271,15 @@ const Fade: React.FC<{ t: number }> = ({ t }) => {
           const a = ramp(t, 0.4 + i * 0.35, 0.8 + i * 0.35);
           return (
             <div key={d} style={{ opacity: a, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, transform: `translateY(${(1 - a) * 30}px)` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 26px)', gap: 10 }}>
-                {[0, 1, 2, 3, 4, 5].map((k) => { const relit = ramp(t, 0.9 + i * 0.35 + k * 0.05, 1.2 + i * 0.35 + k * 0.05); return <div key={k} style={{ width: 26, height: 26, borderRadius: 13, background: k < 3 ? (relit > 0.5 ? C.goldHi : '#3a4a40') : C.goldHi, boxShadow: `0 0 14px ${C.gold}88` }} />; })}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 36px)', gap: 12 }}>
+                {[0, 1, 2, 3, 4, 5].map((k) => { const relit = ramp(t, 0.9 + i * 0.35 + k * 0.05, 1.2 + i * 0.35 + k * 0.05); return <div key={k} style={{ width: 36, height: 36, borderRadius: 18, background: k < 3 ? (relit > 0.5 ? C.goldHi : '#3a4a40') : C.goldHi, boxShadow: `0 0 14px ${C.gold}88` }} />; })}
               </div>
-              <div style={{ fontFamily: SANS, fontSize: 24, color: C.ivory }}>{d}</div>
+              <div style={{ fontFamily: SANS, fontSize: 32, color: C.ivory }}>{d}</div>
             </div>
           );
         })}
       </div>
-      <Line text="About two minutes a day. Miss one, and nothing piles up." at={2.6} size={30} y={300} color={C.gold} weight={400} />
+      <Line text="About two minutes a day. Miss one, and nothing piles up." at={2.6} size={42} y={320} color={C.gold} />
     </AbsoluteFill>
   );
 };
@@ -299,13 +299,13 @@ const End: React.FC = () => {
           <Img src={staticFile('art/lantern.png')} style={{ height: 260, transform: `translateY(-210px) scale(${0.85 + 0.15 * a})`, opacity: a, filter: `drop-shadow(0 0 40px ${C.gold})` }} />
         </AbsoluteFill>
         <Drop text="ATRIUM" at={0.15} size={150} color={C.goldHi} y={20} />
-        <Line text="Walk through it. Never forget it." at={0.9} size={44} y={150} weight={300} />
+        <Drop text="Walk through it. Never forget it." at={0.8} size={60} y={160} serif={false} weight={400} gold={['forget']} />
         <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ transform: 'translateY(270px)', opacity: ramp(t, 1.5, 2.1), padding: '16px 34px', borderRadius: 999, border: `1.5px solid ${C.gold}`, background: 'rgba(8,20,14,0.7)', fontFamily: SANS, fontSize: 32, color: C.ivory, letterSpacing: '0.02em' }}>
+          <div style={{ transform: 'translateY(270px)', opacity: ramp(t, 1.5, 2.1), padding: '16px 34px', borderRadius: 999, border: `1.5px solid ${C.gold}`, background: 'rgba(8,20,14,0.7)', fontFamily: SANS, fontSize: 40, color: C.ivory, letterSpacing: '0.02em' }}>
             atrium-b0r.pages.dev<span style={{ color: C.goldHi, opacity: caret ? 1 : 0 }}>▍</span>
           </div>
         </AbsoluteFill>
-        <Line text="Built for Meta Quest · WebXR" at={2.3} size={24} y={380} color={C.gold} weight={400} />
+        <Line text="Built for Meta Quest · WebXR" at={2.3} size={32} y={395} color={C.gold} />
       </Camera>
     </AbsoluteFill>
   );

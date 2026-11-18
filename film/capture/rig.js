@@ -87,18 +87,22 @@ window.rig = (() => {
   }
 
   // ---- recording ----
-  let rec = null, chunks = [], t0 = 0, marks = [];
+  let rec = null, chunks = [], t0 = 0, marks = [], pump = 0;
   const mark = (kind, label = '') => rec && marks.push({ t: +((performance.now() - t0) / 1000).toFixed(3), kind, label });
   function start() {
     const c = document.querySelector('canvas');
     chunks = []; marks = [];
-    rec = new MediaRecorder(c.captureStream(60), { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: 18_000_000 });
+    // The XR session draws without the canvas noticing, so pull every frame explicitly (60 a second).
+    const stream = c.captureStream(0), track = stream.getVideoTracks()[0];
+    pump = setInterval(() => track.requestFrame(), 1000 / 60);
+    rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 14_000_000 });
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     rec.start(500);
     t0 = performance.now();
   }
   function stop(name) {
     return new Promise((res) => {
+      clearInterval(pump);
       rec.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
         const a = document.createElement('a');

@@ -13,7 +13,7 @@ export const C = {
 };
 
 /** The bed: 127.75 BPM, a bar is four beats. Every scene and hit sits on this grid. */
-export const FPS = 60;
+export const FPS = 30;
 export const BAR = 240 / 127.75;
 export const BARS = 96;
 export const bf = (bars: number) => Math.round(bars * BAR * FPS);
@@ -38,9 +38,9 @@ export const Camera: React.FC<{ push?: number; seed?: string; children: React.Re
 
 /** The narrator: a thin line that resolves out of a blur, and blurs away. Times in scene seconds. */
 export const Line: React.FC<{ text: React.ReactNode; at: number; out?: number; size?: number; y?: number; color?: string; serif?: boolean; weight?: number; width?: number }> =
-  ({ text, at, out = 1e9, size = 66, y = 0, color = C.ivory, serif = false, weight = 300, width = 1500 }) => {
+  ({ text, at, out = 1e9, size = 76, y = 0, color = C.ivory, serif = false, weight = 400, width = 1600 }) => {
     const t = useT();
-    const a = ramp(t, at, at + 0.75), z = ramp(t, out - 0.35, out, Easing.in(Easing.quad));
+    const a = ramp(t, at, at + 1.0), z = ramp(t, out - 0.4, out, Easing.in(Easing.quad));
     const v = a * (1 - z);
     if (v <= 0.001) return null;
     return (
@@ -53,22 +53,41 @@ export const Line: React.FC<{ text: React.ReactNode; at: number; out?: number; s
     );
   };
 
-/** Words that drop in one by one with a small overshoot (the punch lines). */
-export const Drop: React.FC<{ text: string; at: number; step?: number; size: number; color?: string; serif?: boolean; y?: number; gold?: string[] }> =
-  ({ text, at, step = 0.11, size, color = C.ivory, serif = true, y = 0, gold = [] }) => {
+/**
+ * Words that drop in one by one with a spring (about 110 ms apart). `pill` words get a gold highlighter that wipes
+ * in just after they land (adjacent pill words share one continuous pill); `swing` brings the line in with 3D
+ * perspective from the right, for the giant punches. Times in scene seconds.
+ */
+export const Drop: React.FC<{ text: string; at: number; out?: number; step?: number; size: number; color?: string; serif?: boolean; y?: number; gold?: string[]; pill?: string[]; swing?: boolean; weight?: number }> =
+  ({ text, at, out = 1e9, step = 0.11, size, color = C.ivory, serif = true, y = 0, gold = [], pill = [], swing = false, weight }) => {
     const f = useCurrentFrame(), { fps } = useVideoConfig();
+    const t = f / fps;
+    const z = ramp(t, out - 0.35, out, Easing.in(Easing.quad));
+    if (z >= 0.999) return null;
+    const s0 = (t - at) * fps;
+    const sw = s0 < 0 ? 0 : 1 - Math.exp(-s0 / 9) * Math.cos(s0 / 7);
+    const words = text.split(' ');
     return (
-      <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', gap: size * 0.26, transform: `translateY(${y}px)`, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 1700 }}>
-          {text.split(' ').map((w, i) => {
-            const s = (f / fps - at - i * step) * fps;
+      <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'center', perspective: 1400 }}>
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'center', maxWidth: 1720, transform: `translateY(${y - Math.max(0, t - at) * 8}px) ${swing ? `translateX(${(1 - sw) * 900}px) rotateY(${(1 - sw) * -58}deg)` : ''} scale(${1 + Math.max(0, t - at) * 0.015})`,
+          opacity: 1 - z, filter: `blur(${z * 14}px)`,
+        }}>
+          {words.map((w, i) => {
+            const s = (t - at - (swing ? 0 : i * step)) * fps;
             const sp = s < 0 ? 0 : 1 - Math.exp(-s / 6) * Math.cos(s / 4.2);
+            const hl = pill.includes(w), pw = ramp(t, at + i * step + 0.25, at + i * step + 0.55);
+            const next = hl && pill.includes(words[i + 1] ?? '');
             return (
               <span key={i} style={{
-                fontFamily: serif ? SERIF : SANS, fontSize: size, fontWeight: serif ? 500 : 600, color: gold.includes(w) ? C.goldHi : color,
-                opacity: Math.min(1, Math.max(0, s / 8)), filter: `blur(${Math.max(0, 10 - s)}px)`, display: 'inline-block',
-                transform: `translateY(${(1 - sp) * 60}px)`, letterSpacing: '-0.02em', textShadow: gold.includes(w) ? `0 0 40px ${C.gold}88` : undefined,
-              }}>{w}</span>
+                position: 'relative', fontFamily: serif ? SERIF : SANS, fontSize: size, fontWeight: weight ?? (serif ? 500 : 500), color: gold.includes(w) ? C.goldHi : hl ? C.ink : color,
+                opacity: swing ? 1 : Math.min(1, Math.max(0, s / 7)), filter: swing ? undefined : `blur(${Math.max(0, 9 - s)}px)`, display: 'inline-block',
+                transform: swing ? undefined : `translateY(${(1 - sp) * 56}px)`, letterSpacing: serif ? '-0.02em' : '-0.005em',
+                padding: `0 ${size * 0.13}px`, textShadow: gold.includes(w) ? `0 0 40px ${C.gold}88` : undefined, zIndex: 1,
+              }}>
+                {hl && <span style={{ position: 'absolute', zIndex: -1, left: 0, top: '12%', bottom: '8%', width: `calc(${pw * 100}% ${next ? `+ ${size * 0.02}px` : ''})`, background: C.goldHi, borderRadius: size * 0.12 }} />}
+                {w}
+              </span>
             );
           })}
         </div>
