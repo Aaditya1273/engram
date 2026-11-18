@@ -260,7 +260,7 @@ async function home(missedDays: number) {
     }
     stage.browsing = true;
     stage.showArrows(true);
-    stage.show(msg.title, [msg.body, ...lines].join('\n'));
+    stage.show(t(msg.title), [t(msg.body), ...lines].join('\n'));
     type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back' | 'quiz' | 'collection' | 'challenge' | 'athlete';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.

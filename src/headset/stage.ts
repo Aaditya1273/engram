@@ -152,12 +152,23 @@ export class Stage {
         res(o.value);
       }, buttonWidth(o.label), BUTTON_H);
       this.layoutRow(options.map(button));
-      // A standing extra (Settings on the home screen): set apart at the right end of the top row.
-      if (opts.corner) {
+      // A standing extra (Settings on the home screen): in a headset, set apart at the right end of the top row;
+      // on a computer, pinned to the screen's top-right corner, where people look for it.
+      if (opts.corner && this.input.xr) {
         const b = button(opts.corner);
-        const right = Math.max(...this.topRow.children.filter((c) => c.position.y === 0).map((c) => c.position.x + (c as Panel).w / 2));
+        const right = Math.max(...this.topRow.children.filter((x) => x.position.y === 0).map((x) => x.position.x + (x as Panel).w / 2));
         b.position.set(right + 0.07 + b.w / 2, 0, 0);
         this.topRow.add(b);
+      } else if (opts.corner) {
+        const c = opts.corner;
+        const el = this.cornerEl();
+        el.lastElementChild!.textContent = c.label;
+        el.onclick = () => {
+          this.clearRow();
+          play('tick');
+          res(c.value);
+        };
+        el.style.display = 'inline-flex';
       }
     });
   }
@@ -221,7 +232,23 @@ export class Stage {
     }, buttonWidth(o.label), BUTTON_H)));
   }
 
+  /** The on-screen corner button (computers only; a headset sees just the in-world one). Made on first use. */
+  private corner: HTMLButtonElement | null = null;
+  private cornerEl() {
+    if (this.corner) return this.corner;
+    const el = (this.corner = document.createElement('button'));
+    el.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d9b76e" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span></span>';
+    Object.assign(el.style, {
+      position: 'fixed', top: '16px', right: '16px', zIndex: '15', display: 'none', alignItems: 'center', gap: '8px',
+      minHeight: '40px', padding: '0 16px', borderRadius: '999px', border: '1px solid #d9b76e', background: 'rgba(14, 26, 21, 0.78)',
+      color: '#f4f0e6', font: '600 0.95rem system-ui, sans-serif', cursor: 'pointer', boxShadow: '0 0 18px rgba(217, 183, 110, 0.25)',
+    });
+    document.body.appendChild(el);
+    return el;
+  }
+
   clearRow() {
+    if (this.corner) this.corner.style.display = 'none';
     for (const c of [...this.topRow.children]) {
       this.topRow.remove(c);
       (c as Panel).dispose();
