@@ -99,7 +99,7 @@ export async function chatJson<T>(schema: z.ZodType<T>, name: string, system: st
     if (res.status === 429) {
       // Rate limited (Groq's free tier allows 8k tokens a minute per model): try the provider's smaller model,
       // which has its own allowance, or else wait a moment and try once more.
-      const fallback = p.name === 'groq' ? process.env.LLM_FALLBACK_MODEL || 'openai/gpt-oss-20b' : null;
+      const fallback = p.name === 'groq' ? process.env.LLM_FALLBACK_MODEL || 'qwen/qwen3.8-27b' : null;
       if (fallback) body.model = fallback;
       else await new Promise((r) => setTimeout(r, 3000));
       res = await post();

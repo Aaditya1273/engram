@@ -89,7 +89,7 @@ describe('AI drafting via an OpenAI-compatible provider', () => {
     vi.stubGlobal('fetch', fetch);
     const r = await draft('CN X - vagus');
     expect(r.drafter).toBe('groq');
-    expect(JSON.parse((fetch.mock.calls[1][1] as RequestInit).body as string).model).toBe('openai/gpt-oss-20b');
+    expect(JSON.parse((fetch.mock.calls[1][1] as RequestInit).body as string).model).toBe('qwen/qwen3.8-27b');
   });
 
   it('uses Groq when it is the only key (either spelling)', () => {
