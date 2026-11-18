@@ -51,3 +51,17 @@ export function play(s: Sound) {
       break;
   }
 }
+
+/**
+ * Recall Rush's music: a soft pentatonic arpeggio over a low pulse, one step per call. `level` (0..4, from the
+ * combo) brightens it: more voices, higher notes. The caller sets the tempo by how often it calls.
+ */
+const PENTA = [261.63, 293.66, 329.63, 392, 440, 523.25, 587.33, 659.25];
+export function beat(step: number, level: number) {
+  if (!ctx) return;
+  if (step % 4 === 0) tone(65.41 * (level >= 3 ? 1.5 : 1), 0, 0.35, 0.09, 'triangle');
+  const note = PENTA[(step * 3 + level) % PENTA.length] * (level >= 2 ? 2 : 1);
+  tone(note, 0, 0.22, 0.045 + 0.01 * level);
+  if (level >= 1 && step % 2 === 1) tone(note * 1.5, 0.06, 0.16, 0.025);
+  if (level >= 4) tone(note * 2, 0.11, 0.12, 0.02, 'triangle');
+}

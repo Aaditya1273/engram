@@ -35,6 +35,8 @@ interface SaveData {
   onboarded: boolean;
   settings: Settings;
   cloud: CloudState;
+  /** Recall Rush records: all-time and this week's best score, best combo. */
+  rush?: { best: number; bestCombo: number; week: string; weekBest: number };
 }
 
 const KEY = 'atrium:v1';

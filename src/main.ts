@@ -6,6 +6,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { setModelEnvironment, setPreferPaintings } from './shared/props';
 import { FrameGuard } from './core/frame-guard';
 import { journeys } from './core/journey';
+import { recallRush } from './headset/rush';
 import { play, unlockAudio } from './headset/audio';
 import { Cloud } from './headset/cloud';
 import {
@@ -188,7 +189,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'journeys' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing';
+    type Action = 'start' | 'practise' | 'journeys' | 'rush' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing' | 'more' | 'back';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -206,18 +207,16 @@ async function home(missedDays: number) {
     // The menu shows cloud actions (build, agent) only when online; redraw once the first connection settles.
     const wasOnline = cloud.online;
     const cameOnline = cloudReady.then((on) => (on && !wasOnline ? 'refresh' as const : new Promise<never>(() => {})));
-    const action = await Promise.race([
+    let action = await Promise.race([
       cameOnline,
+      // Five at most on the main row (a headset row must stay inside the central view); the rest live under More.
       stage.ask<Action>([
-        msg.due ? { label: 'Start', value: 'start' } : { label: 'Practise anyway', value: 'practise' },
-        { label: 'Journeys', value: 'journeys' },
-        ...(cloud.online ? [{ label: 'Build a palace', value: 'build' as const }] : []),
+        msg.due ? { label: 'Start', value: 'start' } : { label: 'Practise', value: 'practise' },
         ...(inbox.length ? [{ label: `Inbox (${inbox.length})`, value: 'inbox' as const }] : []),
-        ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
-        { label: 'Remember this', value: 'capture' },
-        ...(cloud.online && cloud.ai ? [{ label: 'Ask an agent', value: 'agent' as const }] : []),
-        ...(!input.xr && keepsakes().length ? [{ label: 'Print a keepsake', value: 'print' as const }] : []),
-        { label: 'Settings', value: 'settings' },
+        { label: 'Journeys', value: 'journeys' },
+        ...(store.data.memories.length >= 3 ? [{ label: 'Recall Rush', value: 'rush' as const }] : []),
+        ...(cloud.online ? [{ label: 'Build a palace', value: 'build' as const }] : []),
+        { label: 'More…', value: 'more' },
       ]),
       inboxChanged,
     ]);
@@ -228,10 +227,22 @@ async function home(missedDays: number) {
       stage.clearRow();
       continue;
     }
+    if (action === 'more') {
+      action = await stage.ask<Action>([
+        { label: 'Remember this', value: 'capture' },
+        ...(cloud.online && cloud.ai ? [{ label: 'Ask an agent', value: 'agent' as const }] : []),
+        ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
+        ...(!input.xr && keepsakes().length ? [{ label: 'Print a keepsake', value: 'print' as const }] : []),
+        { label: 'Settings', value: 'settings' },
+        { label: 'Back', value: 'back' },
+      ]);
+      if (action === 'back') continue;
+    }
     try {
       if (action === 'wing') await palace.focus(((palace.wing + 1) % wings) * SLOT_COUNT);
       else if (action === 'settings') await settings();
       else if (action === 'journeys') await journeysMenu();
+      else if (action === 'rush') await recallRush(ctx);
       else if (action === 'build') await buildFlow();
       else if (action === 'inbox') await inboxFlow(ctx, inbox);
       else if (action === 'capture') await captureFlow(ctx);

@@ -61,7 +61,16 @@ export class Input {
       this.mouseSeen = true;
     });
     el.addEventListener('pointerleave', () => (this.mouseSeen = false));
-    el.addEventListener('click', () => !this.xr && this.select());
+    // A click hit-tests where the mouse is now, not where it hovered last frame: new buttons can appear under a
+    // still cursor (Recall Rush swaps them every few seconds) and a fast click must hit what's actually there.
+    el.addEventListener('click', (e) => {
+      if (this.xr) return;
+      const r = el.getBoundingClientRect();
+      this.mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      this.ray();
+      this.hovered = this.raycaster.intersectObjects(this.targets(), false)[0]?.object ?? null;
+      this.select();
+    });
     window.addEventListener('keydown', (e) => {
       if (this.xr) return;
       if (e.key === 'ArrowLeft') this.onFlick(-1);

@@ -300,6 +300,8 @@ export class Palace {
   /** Each wing is another SLOT_COUNT alcoves; one wing is shown at a time. Memory slot = wing × SLOT_COUNT + alcove. */
   wing = 0;
   onAlcoveSelect: (slot: number) => void = () => {};
+  /** Per-frame callbacks for things animating outside an alcove (Recall Rush lanterns, Lumen). dt in seconds. */
+  readonly tickers = new Set<(dt: number, t: number) => void>();
   /** Frame guard level 1: only scenes within NEAR_SLOTS of the one in front are drawn. */
   nearOnly = false;
   /** The mouse ray on a computer (null in the headset): lanterns lean toward it. */
@@ -393,6 +395,7 @@ export class Palace {
       w.t = Math.min(1, w.t + (dt * 1000) / w.ms);
       this.hemi.intensity = w.from + (w.to - w.from) * (1 - (1 - w.t) ** 3);
     }
+    for (const f of this.tickers) f(dt, t);
     for (const a of this.alcoves) {
       const d = Math.abs(a.slot - this.focusSlot), around = Math.min(d, SLOT_COUNT - d);
       a.distant = this.nearOnly && around > NEAR_SLOTS;

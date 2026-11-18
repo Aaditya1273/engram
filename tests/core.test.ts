@@ -12,6 +12,7 @@ import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 import { migrate } from '../src/headset/store';
 import { FrameGuard } from '../src/core/frame-guard';
+import { beatMs, flightMs, musicLevel, nextPick, rushPoints, weekKey } from '../src/core/rush';
 import { isLandmark, journeys, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt } from '../src/core/journey';
 import { ELEMENTS } from '../src/shared/deck-elements';
 import { bakeTemplate } from '../src/shared/props';
@@ -398,5 +399,39 @@ describe('journeys', () => {
       for (const p of e.scenes[0].props) expect([...PROP_IDS, ...SCENE_ART_IDS]).toContain(p.prop);
       if (i < ELEMENTS.length - 1) expect(e.link!.length).toBeGreaterThan(10);
     }
+  });
+});
+
+describe('Recall Rush rules', () => {
+  it('speeds up with the combo, within limits', () => {
+    expect(flightMs(0)).toBe(6000);
+    expect(flightMs(8)).toBe(4000);
+    expect(flightMs(100)).toBe(2600);
+    expect([0, 3, 6, 9, 12, 30].map(musicLevel)).toEqual([0, 1, 2, 3, 4, 4]);
+    expect(beatMs(0)).toBeGreaterThan(beatMs(10));
+  });
+
+  it('scores hits higher in a long combo and for answering early', () => {
+    expect(rushPoints(0, 6000, 6000)).toBe(100);
+    expect(rushPoints(0, 0, 6000)).toBe(150);
+    expect(rushPoints(5, 6000, 6000)).toBe(200);
+  });
+
+  it('picks faint memories more often and never repeats the last two', () => {
+    const pool = [{ id: 'strong' }, { id: 'faint' }, { id: 'mid' }];
+    const r = (m: { id: string }) => ({ strong: 0.98, faint: 0.3, mid: 0.7 }[m.id]!);
+    let x = 7;
+    const rng = () => ((x = (x * 9301 + 49297) % 233280) / 233280);
+    const counts: Record<string, number> = { strong: 0, faint: 0, mid: 0 };
+    for (let i = 0; i < 600; i++) counts[nextPick(pool, r, [], rng).id]++;
+    expect(counts.faint).toBeGreaterThan(counts.mid);
+    expect(counts.mid).toBeGreaterThan(counts.strong);
+    for (let i = 0; i < 50; i++) expect(['faint', 'mid']).not.toContain(nextPick(pool, r, ['faint', 'mid'], rng).id);
+  });
+
+  it('keys weeks the ISO way', () => {
+    expect(weekKey(Date.UTC(2026, 10, 18))).toBe('2026-W47');
+    expect(weekKey(Date.UTC(2027, 0, 1))).toBe('2026-W53');
+    expect(weekKey(Date.UTC(2027, 0, 4))).toBe('2027-W01');
   });
 });

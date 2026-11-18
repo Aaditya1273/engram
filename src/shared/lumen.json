@@ -1,0 +1,17 @@
+{
+  "steps": [
+    {
+      "name": "retarget",
+      "seconds": 13,
+      "taskId": 8267325
+    }
+  ],
+  "actions": [
+    "Idle_Lantern_Loop",
+    "Yes",
+    "Dance_Loop",
+    "Idle_No_Loop",
+    "Idle_Talking_Loop"
+  ],
+  "bytes": 493952
+}
