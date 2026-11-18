@@ -226,6 +226,8 @@ function canopyTexture() {
  */
 interface Scenery {
   backdrop: string; tiles: number; centred?: boolean; vines: string; canopy: string; rays: number;
+  /** Multiplies the view through the arches: below white pushes a busy painting back so the memories lead. */
+  backdropShade?: string;
   /** The room itself: stone tints a neutral marble (absent = the garden's green marble), floor and banner colours, ferns. */
   stone?: string; /** The neutral marble to tint: pale for light stone, high-contrast (dark, bright veins) for dark stone. */ stoneMap?: string;
   /** How much the stone glows, relative to the garden's marble (a pale stone needs more). */ stoneGlow?: number; floor?: [light: string, dark: string]; banner?: [mid: string, dark: string]; ferns: boolean;
@@ -234,7 +236,7 @@ const SCENERY: Record<'garden' | 'moonlit' | 'sakura', Scenery> = {
   garden: { backdrop: 'palace/forest.webp', tiles: 1, vines: 'palace/vines.webp', canopy: DECOR.canopyShade, rays: 0.3, ferns: true },
   // Midnight-blue stone and torii-red banners under the moon.
   moonlit: {
-    backdrop: 'palace/moonlit.webp', tiles: 1, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#2c3552', rays: 0.07,
+    backdrop: 'palace/moonlit-soft.webp', backdropShade: '#7d84a6', tiles: 1, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#2c3552', rays: 0.07,
     stone: '#6f7fd6', stoneMap: 'palace/marble-veined.webp', stoneGlow: 1.5, floor: ['#2b335f', '#11152c'], banner: ['#a32b36', '#5c141c'], ferns: false,
   },
   // Pale blush marble, a petal-pink floor and banners.
@@ -397,6 +399,8 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D): (theme: 
   return (theme) => {
     const s = SCENERY[theme as keyof typeof SCENERY] ?? SCENERY.garden;
     forest.material.map = paint(s.backdrop, s.tiles, s.centred);
+    forest.material.color.set(s.backdropShade ?? '#ffffff');
+    canopyWall.material.color.set(s.backdropShade ?? '#ffffff');
     canopyWall.material.map = paint(s.backdrop, s.tiles, s.centred, 0.25, 0.75); // the top of the painting, above the cornice
     if (!loaded.has(s.vines)) loaded.set(s.vines, texture(s.vines));
     vineMat.map = vineMat.emissiveMap = loaded.get(s.vines)!;
