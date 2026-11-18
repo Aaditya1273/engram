@@ -68,6 +68,25 @@ const THEME_LANTERNS: Partial<Record<Theme, string[]>> = {
 };
 /** Each model is fitted to the painted lantern's place: its top on the chain, 17 cm tall. Loaded on first use. */
 const LANTERN_H = 0.17;
+/** Worlds with a pale sky and stone: lantern light is shown as a warm halo (see Alcove.setGlowStyle). */
+const LIGHT_WORLDS = new Set<Theme>(['sakura']);
+/** The halo painted round a lit lantern in a light world: warm ivory at the heart, golden, then gone. Shared. */
+let lightHalo: THREE.Texture | null = null;
+function lightHaloTexture() {
+  if (lightHalo) return lightHalo;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d')!, g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255, 250, 225, 0.95)');
+  g.addColorStop(0.3, 'rgba(255, 214, 120, 0.7)');
+  g.addColorStop(0.65, 'rgba(255, 190, 90, 0.25)');
+  g.addColorStop(1, 'rgba(255, 190, 90, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  lightHalo = new THREE.CanvasTexture(c);
+  lightHalo.colorSpace = THREE.SRGBColorSpace;
+  return lightHalo;
+}
 const lanternModels = new Map<string, Promise<THREE.Object3D>>();
 function loadLantern(name: string) {
   if (!lanternModels.has(name)) {
@@ -269,6 +288,19 @@ export class Alcove {
     this.core.visible = !template;
   }
 
+  /**
+   * Added light vanishes against a pale sky, so in light worlds the lantern's glow and its pool on the floor are
+   * painted on as a warm amber halo instead; dark worlds keep the additive glow.
+   */
+  setGlowStyle(light: boolean) {
+    for (const m of [this.glow.material, this.wash.material]) {
+      m.userData.additive ??= m.map;
+      m.map = light ? lightHaloTexture() : m.userData.additive;
+      m.blending = light ? THREE.NormalBlending : THREE.AdditiveBlending;
+      m.needsUpdate = true;
+    }
+  }
+
   /** Unlit: a dim silhouette; lit: its paper and roof glow. */
   private lightModel(lit: number) {
     for (const m of this.modelMats) {
@@ -424,6 +456,7 @@ export class Palace {
     this.dress(theme);
     setUiTone(theme);
     for (const f of this.themeListeners) f(theme);
+    this.alcoves.forEach((a) => a.setGlowStyle(LIGHT_WORLDS.has(theme)));
     // Worlds with their own 3D lanterns hang them (alternating); if a model can't load, the painted ones simply stay.
     const names = THEME_LANTERNS[theme];
     if (names) {
