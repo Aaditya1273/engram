@@ -123,7 +123,8 @@ export function safeUrl(raw: string): URL | null {
 export async function fetchPage(raw: string): Promise<string> {
   const u = safeUrl(raw);
   if (!u) throw new Error('That address is not a public web page.');
-  const res = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(10_000), headers: { accept: 'text/html,text/plain' } });
+  // Sites like Wikipedia refuse anonymous clients; say who we are (their bot policy asks for this).
+  const res = await fetch(u, { redirect: 'follow', signal: AbortSignal.timeout(10_000), headers: { accept: 'text/html,text/plain', 'user-agent': 'AtriumPalaceBuilder/1.0 (+https://atrium-b0r.pages.dev; memory-palace study app)' } });
   if (!res.ok) throw new Error(`The page answered ${res.status}.`);
   const body = (await res.text()).slice(0, 2_000_000);
   return (res.headers.get('content-type') ?? '').includes('html') ? htmlToText(body) : body;

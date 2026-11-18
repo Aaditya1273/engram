@@ -52,6 +52,13 @@ async function gemini(audio: ArrayBuffer, mime: string, lang: string): Promise<s
   return j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('').trim() ?? '';
 }
 
+/**
+ * Whisper fills near-silence with stock phrases from its training subtitles. A whole transcript that is one of
+ * these is treated as silence, so background noise is never graded as an answer.
+ */
+const HALLUCINATIONS = /^(thank you( (so much|very much))?|thanks( for watching)?|you|bye|okay|please subscribe|subtitles by.*|ご視聴ありがとうございました|谢谢观看|字幕.*)[.!。！]*$/i;
+export const isHallucination = (text: string) => HALLUCINATIONS.test(text.trim());
+
 /** Whisper writes "Neko." for a one-word answer; recall matching wants the bare word too. */
 const clean = (s: string) => s.replace(/^["'“”「」\s]+|["'“”「」.。!！?？,、\s]+$/g, '');
 
@@ -61,7 +68,7 @@ export async function transcribe(audio: ArrayBuffer, mime: string, lang: string)
     try {
       const text = await run(audio, mime, lang);
       if (text === null) continue;
-      return text ? [...new Set([text, clean(text)])] : [];
+      return text && !isHallucination(text) ? [...new Set([text, clean(text)])] : [];
     } catch (err) {
       console.error('[stt]', (err as Error).message);
     }

@@ -222,6 +222,18 @@ describe('twist-to-3D (Aholo Lux3D, mocked)', () => {
     expect((await call('GET', `/api/models/${data.id}`, other)).status).toBe(404);
   });
 
+  it('exports a printable STL, reading past the export task\'s placeholder slots', async () => {
+    process.env.AHOLO_API_KEY = 'k';
+    const q = await (await import('../server/db')).db();
+    const [{ id }] = await q<{ id: string }>(`select id from models where status = 'ready' limit 1`);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('/task/create')) return new Response(JSON.stringify({ c: '0', d: 909 }));
+      return new Response(JSON.stringify({ c: '0', d: { status: 3, outputs: ['NOT_REQUESTED', '', 'NOT_REQUESTED', 'NOT_REQUESTED', 'NOT_REQUESTED', 'https://cdn.test/out/model.stl', 'NOT_REQUESTED'].map((content) => ({ content })) } }));
+    }));
+    expect((await call('POST', `/api/models/${id}/export?format=stl`, headset)).data).toEqual({ status: 'working' });
+    expect((await call('POST', `/api/models/${id}/export?format=stl`, headset)).data).toEqual({ url: 'https://cdn.test/out/model.stl' });
+  });
+
   it('is off without a key, and capped per day', async () => {
     expect((await call('POST', '/api/models', headset, { text: 'a teapot' })).status).toBe(503);
     process.env.AHOLO_API_KEY = 'k';
@@ -261,6 +273,12 @@ describe('speech, caps and abuse limits', () => {
     const form = init!.body as FormData;
     expect(form.get('language')).toBe('ja');
     expect(form.get('model')).toBe('whisper-large-v3-turbo');
+  });
+
+  it('treats Whisper\'s stock silence phrases as silence', async () => {
+    process.env.GROQ_API_KEY = 'g';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ text: ' Thank you. ' }))));
+    expect(((await (await audio(dev)).json()) as { alternatives: string[] }).alternatives).toEqual([]);
   });
 
   it('refuses oversized clips and is off without a key', async () => {

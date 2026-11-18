@@ -62,7 +62,9 @@ export async function createModel(userId: string, text: string): Promise<{ id: s
   return { id };
 }
 
-const glbOf = (t: Task) => t.outputs?.map((o) => o.content ?? '').find((u) => u && new URL(u).pathname.endsWith('.glb'));
+/** Output URLs only: some tasks (export) fill unrequested slots with placeholders such as "NOT_REQUESTED". */
+const urlsOf = (t: Task) => (t.outputs ?? []).map((o) => o.content ?? '').filter((u) => /^https?:\/\//.test(u));
+const glbOf = (t: Task) => urlsOf(t).find((u) => new URL(u).pathname.toLowerCase().endsWith('.glb'));
 
 /** Advances the job at most one step and returns where it is. Safe to call repeatedly from several devices. */
 export async function advanceModel(userId: string, id: string): Promise<{ status: ModelStatus } | null> {
@@ -126,6 +128,6 @@ export async function exportModel(id: string, publicUrl: string, format: 'stl' |
     return { status: 'failed' };
   }
   const want = format === 'stl' ? '.stl' : '.3mf';
-  const url = t.status === 3 ? t.outputs?.map((o) => o.content ?? '').find((u) => u && new URL(u).pathname.toLowerCase().endsWith(want)) : undefined;
+  const url = t.status === 3 ? urlsOf(t).find((u) => new URL(u).pathname.toLowerCase().endsWith(want)) : undefined;
   return url ? { url } : { status: 'working' };
 }
