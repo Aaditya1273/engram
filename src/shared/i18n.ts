@@ -88,6 +88,7 @@ export const SITE: Record<string, [string, string]> = {
   tagline: ['Paste anything. Walk through it. Never forget it.', '粘贴任何内容，走进它，永远记住它。'],
   enter: ['Enter Atrium', '进入 Atrium'],
   desktop: ['Try on Desktop', '在电脑上试用'],
+  room: ['Room mode', '房间模式'],
   vrNote: ['To step inside in VR, open this page in the Meta Quest browser.', '要在 VR 中进入，请在 Meta Quest 浏览器中打开此页面。'],
   howEyebrow: ['How it works', '如何运作'],
   howTitle: ['Anything becomes a world you walk through', '任何内容，都能变成可以走进去的世界'],

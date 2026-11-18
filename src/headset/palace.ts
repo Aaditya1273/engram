@@ -348,8 +348,21 @@ export class Palace {
     camera.add(this.fadeMesh);
   }
 
+  /** Everything buildDecor added (arcade, pedestals, forest): hidden in room mode so the real room shows. */
+  private decor: THREE.Object3D[] = [];
+
+  /**
+   * Room mode (passthrough): the palace's architecture disappears and your memories, lanterns and plaques stand
+   * in a ring around your chair in your own room. The virtual palace is the default and the fallback.
+   */
+  setRoomMode(on: boolean) {
+    for (const o of this.decor) o.visible = !on;
+  }
+
   private buildRoom() {
+    const before = new Set([...this.ring.children, ...this.root.children]);
     buildDecor(this.ring, this.root);
+    this.decor = [...this.ring.children, ...this.root.children].filter((o) => !before.has(o));
   }
 
   /** Warm the room up (0 = dim, 1 = fully lit). */

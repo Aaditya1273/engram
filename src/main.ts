@@ -31,7 +31,8 @@ import type { InboxItem } from './shared/types';
 const store = new Store();
 applyUrlParams(store);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// alpha: room mode (passthrough) needs a transparent clear so the real room shows behind the memories.
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
@@ -545,6 +546,29 @@ const enterVr = async () => {
   start();
   void cloud.health().then(() => warmMicrophone(cloud.stt));
 };
+/** Room mode: an immersive-ar session on headsets with passthrough; the architecture hides, the room shows. */
+let arSupported = false;
+void navigator.xr?.isSessionSupported('immersive-ar').then((ok) => {
+  arSupported = ok;
+  document.querySelectorAll<HTMLElement>('[data-ar]').forEach((b) => (b.hidden = !ok));
+}, () => {});
+const enterRoom = async () => {
+  if (!arSupported) return;
+  unlockAudio();
+  const session = await navigator.xr!.requestSession('immersive-ar', { optionalFeatures: ['local-floor', 'hand-tracking'] });
+  await renderer.xr.setSession(session);
+  const bg = scene.background, fog = scene.fog;
+  scene.background = null;
+  scene.fog = null;
+  palace.setRoomMode(true);
+  session.addEventListener('end', () => {
+    scene.background = bg;
+    scene.fog = fog;
+    palace.setRoomMode(false);
+  });
+  start();
+  void cloud.health().then(() => warmMicrophone(cloud.stt));
+};
 const each = (sel: string, f: (b: HTMLButtonElement) => void) => document.querySelectorAll<HTMLButtonElement>(sel).forEach(f);
 // English / 中文: the page and the palace follow the same choice.
 const langToggle = document.getElementById('lang-toggle');
@@ -558,6 +582,7 @@ if (langToggle) langToggle.onclick = () => {
 };
 showLang();
 each('[data-desktop]', (b) => (b.onclick = enterDesktop));
+each('[data-ar]', (b) => (b.onclick = () => void enterRoom()));
 each('[data-enter]', (b) => (b.onclick = () => (xrSupported ? void enterVr() : enterDesktop())));
 each('[data-vr]', (b) => {
   b.onclick = () => {
