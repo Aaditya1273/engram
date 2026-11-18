@@ -149,15 +149,17 @@ export class Stage {
    * Desktop only: a text field over the canvas for when typing beats talking. Resolves with the text,
    * or '' on Escape. Keys typed here don't reach the palace's shortcuts.
    */
-  typeText(placeholder: string): Promise<string> {
+  typeText(placeholder: string, opts: { multiline?: boolean } = {}): Promise<string> {
     return new Promise((res) => {
-      const el = document.createElement('input');
-      el.type = 'text';
-      el.maxLength = 120;
+      // Multi-line for pasting a chapter or notes: Ctrl/Cmd+Enter builds, plain Enter is a new line.
+      const el = document.createElement(opts.multiline ? 'textarea' : 'input') as HTMLInputElement;
+      if (opts.multiline) Object.assign(el.style, { height: '38vh', borderRadius: '18px', resize: 'none', lineHeight: '1.45' });
+      else el.type = 'text';
+      el.maxLength = opts.multiline ? 40_000 : 120;
       el.placeholder = placeholder;
       el.setAttribute('aria-label', placeholder);
       Object.assign(el.style, {
-        position: 'fixed', left: '50%', bottom: '18%', transform: 'translateX(-50%)', width: 'min(32rem, calc(100vw - 32px))',
+        position: 'fixed', left: '50%', bottom: '18%', transform: 'translateX(-50%)', width: opts.multiline ? 'min(46rem, calc(100vw - 32px))' : 'min(32rem, calc(100vw - 32px))',
         padding: '14px 18px', borderRadius: '999px', border: '1px solid #d9b76e', background: 'rgba(14, 26, 21, 0.92)',
         color: '#f4f0e6', font: '500 1.05rem system-ui, sans-serif', outline: 'none', zIndex: '20', boxShadow: '0 0 24px rgba(217, 183, 110, 0.25)',
       });
@@ -167,7 +169,7 @@ export class Stage {
       };
       el.onkeydown = (e) => {
         e.stopPropagation();
-        if (e.key === 'Enter') done(el.value);
+        if (e.key === 'Enter' && (!opts.multiline || e.ctrlKey || e.metaKey)) done(el.value);
         if (e.key === 'Escape') done('');
       };
       document.body.appendChild(el);

@@ -5,7 +5,7 @@ import { DESIRED_RETENTION } from '../core/model';
 import { canRepair, dayKey, daysBetween, rollover } from '../core/streak';
 import { planSession } from '../core/triage';
 import { applyTwist, isEmptyTwist, parseTwist } from '../core/twist';
-import { isLandmark, journeyStops, namedInOrder, recallOrder, stopPrompt, type RecallMode } from '../core/journey';
+import { isLandmark, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt, type RecallMode } from '../core/journey';
 import { ELEMENTS, ELEMENTS_JOURNEY } from '../shared/deck-elements';
 import { JA_STARTER } from '../shared/deck-ja';
 import type { DeckItem, GestureSignature, InboxItem, Memory, SceneSpec } from '../shared/types';
@@ -335,6 +335,7 @@ export async function encodeJourney(
     const scene = item.scenes[0];
     palace.alcove(slot).setScene(scene);
     const title = `${i + 1} · ${item.display}`;
+    if (item.room && item.room !== items[i - 1]?.room) await stage.say(`Room: ${item.room}.`, item.room);
     await stage.say(`${ordinal(i + 1)}: ${item.display}. ${scene.mnemonic}`, title);
     placed.push(placeMemory(ctx, item, scene, slot, undefined, undefined, {
       topic: where.topic ?? journey.name, goalId: where.goalId, journey: { ...journey, index: i, link: item.link || undefined },
@@ -364,6 +365,34 @@ export async function journeyRecall(ctx: Ctx, stops: Memory[], mode: RecallMode,
   return right;
 }
 
+/**
+ * Rehearsal, for a talk or a procedure walked as a journey: speak it through without looking, then hear which
+ * points you covered, which you skipped, and how many came in order. Up to 90 seconds.
+ */
+async function rehearse(ctx: Ctx, stops: Memory[]) {
+  const { stage, palace, store } = ctx;
+  const name = stops[0].journey!.name;
+  for (const m of stops) palace.alcove(m.slot).setVeiled(true);
+  await stage.say('Say it all the way through, in your own words, as if you were giving it. Pause for a few seconds when you are done.', 'Rehearse');
+  stage.show('Rehearse', 'Listening… take your time.');
+  const l = listen(store.data.settings.answerLang, 90_000, { long: true });
+  stage.offer([{ label: "I'm done", onSelect: () => l.stop() }]);
+  const said = (await l.result).join(' ');
+  stage.clearRow();
+  for (const m of stops) palace.alcove(m.slot).setVeiled(false);
+  const r = rehearsalReport(said, stops.map((m) => m.display));
+  if (!said.trim()) return void (await stage.say("I didn't hear anything. Try again when you're ready.", 'Rehearse'));
+  const missed = r.missed.map((i) => `${i + 1}, ${stops[i].display}`);
+  await stage.say(
+    `You covered ${r.covered.length} of ${stops.length} points, ${r.inOrder} in order.${missed.length ? ` You skipped: ${missed.slice(0, 3).join('; ')}${missed.length > 3 ? ', and more' : ''}.` : ' Nothing skipped.'}`,
+    `${r.covered.length} of ${stops.length} · ${name}`,
+  );
+  for (const i of r.missed.slice(0, 3)) {
+    await palace.focus(stops[i].slot);
+    await stage.say(`${i + 1}: ${stops[i].display}. ${stops[i].mnemonic}`, `${i + 1} · ${stops[i].display}`);
+  }
+}
+
 /** Walk one of your journeys again: pick it, then the direction. */
 export async function walkJourney(ctx: Ctx, id: string) {
   const { stage, store } = ctx;
@@ -371,13 +400,15 @@ export async function walkJourney(ctx: Ctx, id: string) {
   if (!stops.length) return;
   const name = stops[0].journey!.name;
   stage.show(name, `${stops.length} stops. How do you want to walk it?`);
-  const mode = await stage.ask<RecallMode | null>([
+  const mode = await stage.ask<RecallMode | 'rehearse' | null>([
     { label: 'Forwards', value: 'forwards' },
     { label: 'Backwards', value: 'backwards' },
     { label: 'By number', value: 'position' },
+    ...(speechAvailable() ? [{ label: 'Rehearse it', value: 'rehearse' as const }] : []),
     { label: 'Back', value: null },
   ]);
   if (!mode) return;
+  if (mode === 'rehearse') return rehearse(ctx, stops);
   const right = await journeyRecall(ctx, stops, mode, Math.min(5, stops.length));
   const asked = mode === 'position' ? Math.min(5, stops.length) : stops.length;
   void ctx.cloud.sync();
@@ -567,6 +598,7 @@ export function arrivalMessage(store: Store, missedDays: number): { title: strin
   const plan = dueSummary(store, missedDays);
   const n = plan.ids.length;
   if (plan.comeback) return { title: 'Welcome back', body: "Let's walk through the ones that matter most. No pile, no count.", due: n };
+  if (store.data.memories.length === 0) return { title: 'An empty palace', body: 'Build a palace from anything you need to remember, or walk a journey.', due: 0 };
   if (n === 0) {
     const next = Math.min(...store.data.memories.map((m) => store.due(m)));
     const mins = Math.max(1, Math.round((next - store.now()) / 60_000));
@@ -584,11 +616,47 @@ export function arrivalMessage(store: Store, missedDays: number): { title: strin
 /** Up to three new memories per round, each co-created: pick a scene, add a twist, invent a gesture. */
 export async function inboxFlow(ctx: Ctx, items: InboxItem[]) {
   try {
-    await coCreate(ctx, items);
+    // Journeys first, whole and in order; then single items.
+    const groups = new Map<string, InboxItem[]>();
+    for (const e of items) if (e.item.journey) groups.set(e.item.journey.id, [...(groups.get(e.item.journey.id) ?? []), e]);
+    for (const group of groups.values()) if (!(await placeJourney(ctx, group.sort((a, b) => a.item.journey!.index - b.item.journey!.index)))) return;
+    await coCreate(ctx, items.filter((e) => !e.item.journey));
   } finally {
     // Whatever path ended the round (done, "Later", palace full), new memories go up now.
     void ctx.cloud.sync();
   }
+}
+
+/**
+ * A journey from the World Builder: a free run of pedestals, a short walk along it, then each stop placed in
+ * order with its scene and story link. Returns false if the learner chose "Later".
+ */
+async function placeJourney(ctx: Ctx, entries: InboxItem[]): Promise<boolean> {
+  const { stage, palace, store, cloud } = ctx;
+  const j = entries[0].item.journey!;
+  const from = entries[0].source === 'agent' ? 'An agent built this' : 'Built from what you gave me';
+  stage.show(`${j.name} · ${from}`, `${entries.length} stops: ${entries.slice(0, 4).map((e) => e.item.display).join(', ')}${entries.length > 4 ? '…' : ''}`);
+  const action = await stage.ask([
+    { label: 'Walk it in', value: 'make' as const },
+    { label: 'Discard', value: 'discard' as const },
+    { label: 'Later', value: 'later' as const },
+  ]);
+  if (action === 'later') return false;
+  if (action === 'discard') {
+    for (const e of entries) await cloud.discard(e.id);
+    return true;
+  }
+  const start = store.freeRun(entries.length);
+  await palace.focus(start);
+  await explorationWalk(ctx, start, entries.length);
+  const placed = await encodeJourney(ctx, entries.map((e) => e.item), start, { id: j.id, name: j.name }, { topic: j.name, goalId: entries[0].goalId });
+  for (const e of entries) await cloud.markPlaced(e.id);
+  stage.show(j.name, 'Walk it once now, while it is fresh?');
+  if (await stage.ask([{ label: 'Walk it', value: true }, { label: 'Later', value: false }])) {
+    const right = await journeyRecall(ctx, placed, 'forwards');
+    await stage.say(`${right} of ${placed.length}, first time through.`, j.name);
+  }
+  return true;
 }
 
 async function coCreate(ctx: Ctx, items: InboxItem[]) {

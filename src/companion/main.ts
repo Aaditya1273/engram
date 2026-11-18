@@ -86,6 +86,40 @@ async function pair(code: string) {
 
 // ---------------------------------------------------------------- capture
 
+/** World Builder: text, a topic, a web page or a PDF becomes one ordered journey in the headset inbox. */
+async function buildPalace() {
+  const text = $<HTMLTextAreaElement>('pal-text').value.trim();
+  const url = $<HTMLInputElement>('pal-url').value.trim();
+  const pdf = $<HTMLInputElement>('pal-pdf').files?.[0];
+  if (!text && !url && !pdf) return status('pal-status', 'Give a topic, some text, a web address or a PDF.', 'bad');
+  const btn = $<HTMLButtonElement>('pal-btn');
+  btn.disabled = true;
+  status('pal-status', 'Building: finding the order, the rooms, and a scene for every stop…');
+  try {
+    let r: { name: string; count: number };
+    if (pdf) {
+      if (pdf.size > 8_000_000) throw new Error('That PDF is too large (8 MB at most).');
+      const res = await fetch(`/api/palace${text && text.length < 80 ? `?name=${encodeURIComponent(text)}` : ''}`, {
+        method: 'POST', body: pdf, headers: { 'content-type': 'application/pdf', authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+      r = data as typeof r;
+    } else {
+      const short = text.length < 80 && !text.includes('\n');
+      r = await api('/palace', { method: 'POST', body: JSON.stringify(url ? { url, name: short && text ? text : undefined } : short ? { name: text } : { text }) });
+    }
+    status('pal-status', `"${r.name}": ${r.count} stops, waiting in your headset inbox. Walk it in from the palace.`, 'ok');
+    $<HTMLTextAreaElement>('pal-text').value = '';
+    $<HTMLInputElement>('pal-url').value = '';
+    $<HTMLInputElement>('pal-pdf').value = '';
+  } catch (e) {
+    status('pal-status', (e as Error).message, 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function capture() {
   const text = $<HTMLTextAreaElement>('cap-text').value.trim();
   if (!text) return status('cap-status', 'Type or paste something first.', 'bad');
@@ -285,6 +319,7 @@ function render() {
 $('pair-btn').onclick = () => pair($<HTMLInputElement>('pair-code').value);
 $('pair-code').onkeydown = (e) => e.key === 'Enter' && pair($<HTMLInputElement>('pair-code').value);
 $('cap-btn').onclick = capture;
+$('pal-btn').onclick = buildPalace;
 $('walk-start').onclick = startWalk;
 $('walk-check').onclick = checkWalk;
 $('walk-a').onkeydown = (e) => e.key === 'Enter' && checkWalk();

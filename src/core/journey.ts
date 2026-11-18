@@ -75,3 +75,36 @@ export function namedInOrder(transcript: string, answers: string[][]): number {
   }
   return n;
 }
+
+const STOP_WORDS = new Set(['the', 'and', 'with', 'for', 'from', 'that', 'this', 'your', 'into', 'over', 'well', 'have', 'then', 'them', 'they', 'what', 'when', 'about']);
+const contentWords = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2 && !STOP_WORDS.has(w));
+
+/**
+ * Rehearsing a talk walked as a journey: which points the speaker covered, and how many came in the right order.
+ * A point counts as covered when most of its key words are said (stems match: "scrubbing" covers "scrub").
+ * In order = the longest run of covered points whose first mentions keep the journey's order.
+ */
+export function rehearsalReport(transcript: string, points: string[]): { covered: number[]; missed: number[]; inOrder: number } {
+  const said = contentWords(transcript);
+  const firstAt = (w: string) => said.findIndex((s) => s.startsWith(w.slice(0, Math.max(4, w.length - 2))) || w.startsWith(s.slice(0, Math.max(4, s.length - 2))));
+  const positions = points.map((p) => {
+    const words = contentWords(p);
+    if (!words.length) return -1;
+    const hits = words.map(firstAt).filter((i) => i >= 0);
+    return hits.length / words.length >= 0.6 ? Math.min(...hits) : -1;
+  });
+  const covered = positions.flatMap((p, i) => (p >= 0 ? [i] : []));
+  // Longest increasing subsequence of mention positions, over covered points in journey order.
+  const seq = covered.map((i) => positions[i]);
+  const best: number[] = [];
+  for (const x of seq) {
+    let lo = 0, hi = best.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (best[mid] < x) lo = mid + 1;
+      else hi = mid;
+    }
+    best[lo] = x;
+  }
+  return { covered, missed: points.flatMap((_, i) => (positions[i] < 0 ? [i] : [])), inOrder: best.length };
+}

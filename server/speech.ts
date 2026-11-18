@@ -5,7 +5,7 @@
  * pinchable choices, as it always did.
  */
 
-export const MAX_AUDIO_BYTES = 1_500_000; // ~90 s of Opus; answers are a few seconds
+export const MAX_AUDIO_BYTES = 3_000_000; // a 90-second rehearsal in Opus with room to spare; answers are a few seconds
 
 const groqKey = () => process.env.GROQ_API_KEY || process.env.GORQ_API_KEY;
 export const sttEnabled = () => !!(groqKey() || process.env.GEMINI_API_KEY);
@@ -24,7 +24,7 @@ async function groq(audio: ArrayBuffer, mime: string, lang: string): Promise<str
     method: 'POST',
     headers: { authorization: `Bearer ${groqKey()}` },
     body: fd,
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`groq ${res.status}`);
   return ((await res.json()) as { text?: string }).text?.trim() ?? '';
@@ -45,7 +45,7 @@ async function gemini(audio: ArrayBuffer, mime: string, lang: string): Promise<s
       }],
       generationConfig: { temperature: 0 },
     }),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`gemini ${res.status}`);
   const j = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };

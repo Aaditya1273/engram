@@ -12,7 +12,7 @@ import { PROP_IDS, pickVariant } from '../src/shared/props';
 import { SCENE_ART_IDS } from '../src/shared/props-catalog';
 import { migrate } from '../src/headset/store';
 import { FrameGuard } from '../src/core/frame-guard';
-import { isLandmark, journeys, journeyStops, namedInOrder, recallOrder, stopPrompt } from '../src/core/journey';
+import { isLandmark, journeys, journeyStops, namedInOrder, recallOrder, rehearsalReport, stopPrompt } from '../src/core/journey';
 import { ELEMENTS } from '../src/shared/deck-elements';
 import { bakeTemplate } from '../src/shared/props';
 import * as THREE from 'three';
@@ -371,6 +371,17 @@ describe('journeys', () => {
     expect(namedInOrder('Hydrogen helium lithium beryllium boron carbon nitrogen oxygen fluorine neon', names)).toBe(10);
     expect(namedInOrder('helium hydrogen', names)).toBe(1);
     expect(namedInOrder('no idea', names)).toBe(0);
+  });
+
+  it('reports which talk points were covered and how many in order', () => {
+    const points = ['Wet your hands', 'Apply soap', 'Scrub 20 seconds', 'Rinse well', 'Dry with towel'];
+    const talk = 'First you wet your hands. Then rinse them well. Oh and before that, apply plenty of soap, then dry them with a towel.';
+    const r = rehearsalReport(talk, points);
+    expect(r.covered).toEqual([0, 1, 3, 4]);
+    expect(r.missed).toEqual([2]);
+    expect(r.inOrder).toBe(3); // wet, soap, dry keep order; rinse came too early
+    expect(rehearsalReport('', points).covered).toEqual([]);
+    expect(rehearsalReport('scrubbing for twenty seconds, scrub scrub 20 seconds', points).covered).toEqual([2]);
   });
 
   it('groups memories into journeys in path order', () => {

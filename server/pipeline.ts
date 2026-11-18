@@ -44,7 +44,7 @@ const Placement = z.object({
   scale: num(1).describe('0.4..1.2, 1 is about 10 cm tall'),
   color: z.string().catch('').describe('empty string keeps the prop\'s painted colours (preferred); a hex colour like #d94848 only when the mnemonic names a colour'),
 });
-const Scene = z.object({
+export const Scene = z.object({
   mnemonic: z.string().describe('one vivid sentence linking the cue to the answer, under 20 words'),
   focus: num(0).describe('index into props of the main subject'),
   // Drop props the model invented instead of failing the whole scene.
@@ -117,7 +117,7 @@ const clamp = (v: number, lo: number, hi: number) => (Number.isFinite(v) ? Math.
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /** Model output is untrusted too: clamp every number, keep only known props, force exactly three scenes. */
-function toScene(s: z.infer<typeof Scene>): SceneSpec | null {
+export function toScene(s: z.infer<typeof Scene>): SceneSpec | null {
   const props = s.props.slice(0, 5).map((p) => ({
     prop: p.prop,
     pos: [clamp(p.x, -0.12, 0.12), clamp(p.y, 0, 0.25), clamp(p.z, -0.08, 0.08)] as [number, number, number],
@@ -189,7 +189,7 @@ export function offlineDraft(text: string, topicHint?: string): DraftResult {
   return { topic: (topicHint || 'Captured').slice(0, 60), items, drafter: 'offline' };
 }
 
-function guessLang(s: string): Lang {
+export function guessLang(s: string): Lang {
   if (/[぀-ヿ]/.test(s)) return 'ja-JP';
   if (/[가-힯]/.test(s)) return 'ko-KR';
   if (/[一-鿿]/.test(s)) return 'zh-CN';

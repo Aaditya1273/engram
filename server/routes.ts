@@ -9,6 +9,7 @@ import {
 } from './ops';
 import { db } from './db';
 import { MAX_AUDIO_BYTES, sttEnabled, transcribe } from './speech';
+import { buildPalace, fetchPage, fileJourney, MAX_MATERIAL, pdfToText } from './palace';
 import { advanceModel, createModel, exportModel, lux3dEnabled, MODEL_PROMPT_MAX, modelFile } from './lux3d';
 
 /** The whole API as one fetch handler: deployed as a single Vercel function, mounted in Vite for dev. */
@@ -141,6 +142,32 @@ export async function handle(req: Request): Promise<Response> {
       const input = await body(req, CaptureInput);
       const r = await capture(who.userId, input.source, input.text, input.topic, input.goal);
       return json({ topic: r.topic, drafter: r.drafter, count: r.items.length, items: r.items.map((i) => ({ question: i.question, answer: i.display })) }, 201);
+    }
+    // ---- World Builder: anything -> an ordered journey in the inbox
+    if (path === '/api/palace' && m === 'POST') {
+      const who = await need(req, 'device', 'write');
+      if (!(await rateLimit(who.tokenId, 20))) throw new HttpError(429, 'Too many palaces this hour');
+      await cap('draft');
+      let material = '', name: string | undefined;
+      if ((req.headers.get('content-type') ?? '').includes('application/pdf')) {
+        const bytes = await req.arrayBuffer();
+        if (bytes.byteLength > 8_000_000) throw new HttpError(413, 'That PDF is too large (8 MB at most)');
+        material = await pdfToText(bytes).catch(() => { throw new HttpError(400, 'That file could not be read as a PDF'); });
+        name = url.searchParams.get('name')?.slice(0, 80) || undefined;
+      } else {
+        const input = await body(req, z.object({
+          text: z.string().max(MAX_MATERIAL).optional(), url: z.string().max(2000).optional(), name: z.string().trim().max(80).optional(),
+        }));
+        name = input.name || undefined;
+        if (input.url) material = await fetchPage(input.url).catch((e: Error) => { throw new HttpError(400, e.message); });
+        else material = input.text ?? '';
+        if (!material.trim() && name) material = `Topic: ${name}`;
+      }
+      if (!material.trim()) throw new HttpError(400, 'Give some text, a web address, a PDF, or a topic');
+      const r = await buildPalace(material, name);
+      if (!r.items.length) throw new HttpError(422, 'Nothing to remember was found in that. Try a list, notes, or a topic.');
+      const filed = await fileJourney(who.userId, 'phone', r);
+      return json({ ...filed, name: r.name, count: r.items.length, drafter: r.drafter, stops: r.items.map((i) => ({ room: i.room, question: i.question, answer: i.display })) }, 201);
     }
     if (path === '/api/agent/facts' && m === 'POST') {
       const who = await need(req, 'device', 'write');

@@ -13,7 +13,7 @@ import {
 } from './headset/flows';
 import { Input } from './headset/input';
 import { EYE_Y, Palace, SLOT_COUNT } from './headset/palace';
-import { setNarration, setTranscriber, warmMicrophone } from './headset/speech';
+import { listen, setNarration, setTranscriber, speechAvailable, warmMicrophone } from './headset/speech';
 import { Stage } from './headset/stage';
 import { Store } from './headset/store';
 import { makeQrPanel, setTextScale } from './headset/ui';
@@ -134,7 +134,7 @@ addEventListener('resize', () => {
 async function run() {
   // Cloud is optional: register/sync in the background; the palace never waits for the network.
   // After a sync, show anything new from other devices. Never clear here: a flow may be mid-scene.
-  void cloud.connect().then(() => {
+  cloudReady = cloud.connect().then(() => {
     // No browser recogniser (Quest): answers are recorded and transcribed by the server instead.
     if (cloud.stt) setTranscriber((audio, lang) => cloud.transcribe(audio, lang));
     return Promise.all([cloud.sync(), cloud.refreshGoals()]);
@@ -143,7 +143,7 @@ async function run() {
       showMemory(ctx, m);
       watchModels(ctx, m);
     }
-  });
+  }).then(() => cloud.online);
   const { missedDays } = arrive(store);
   if (!store.data.onboarded) {
     try {
@@ -171,6 +171,8 @@ addEventListener('unhandledrejection', (e) => console.error('[atrium] unhandled'
 addEventListener('error', (e) => console.error('[atrium] error', e.error ?? e.message));
 
 const INBOX_POLL_MS = 15_000;
+/** Resolves once the first cloud connection attempt settles (true if online): the home menu then redraws. */
+let cloudReady: Promise<boolean> = Promise.resolve(false);
 
 /** The palace at rest: browse alcoves, start the daily session, co-create the inbox, capture, settings. */
 async function home(missedDays: number) {
@@ -186,7 +188,7 @@ async function home(missedDays: number) {
     stage.browsing = true;
     stage.showArrows(true);
     stage.show(msg.title, [msg.body, ...lines].join('\n'));
-    type Action = 'start' | 'practise' | 'journeys' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing';
+    type Action = 'start' | 'practise' | 'journeys' | 'build' | 'inbox' | 'capture' | 'agent' | 'print' | 'settings' | 'refresh' | 'wing';
     const wings = Math.max(1, ...store.data.memories.map((m) => Palace.wingOf(m.slot) + 1));
     // Items sent from the phone or an agent arrive while the menu is up; re-render when the count changes.
     let stopPoll = () => {};
@@ -201,10 +203,15 @@ async function home(missedDays: number) {
       }, INBOX_POLL_MS);
       stopPoll = () => clearInterval(timer);
     });
+    // The menu shows cloud actions (build, agent) only when online; redraw once the first connection settles.
+    const wasOnline = cloud.online;
+    const cameOnline = cloudReady.then((on) => (on && !wasOnline ? 'refresh' as const : new Promise<never>(() => {})));
     const action = await Promise.race([
+      cameOnline,
       stage.ask<Action>([
         msg.due ? { label: 'Start', value: 'start' } : { label: 'Practise anyway', value: 'practise' },
         { label: 'Journeys', value: 'journeys' },
+        ...(cloud.online ? [{ label: 'Build a palace', value: 'build' as const }] : []),
         ...(inbox.length ? [{ label: `Inbox (${inbox.length})`, value: 'inbox' as const }] : []),
         ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
         { label: 'Remember this', value: 'capture' },
@@ -225,6 +232,7 @@ async function home(missedDays: number) {
       if (action === 'wing') await palace.focus(((palace.wing + 1) % wings) * SLOT_COUNT);
       else if (action === 'settings') await settings();
       else if (action === 'journeys') await journeysMenu();
+      else if (action === 'build') await buildFlow();
       else if (action === 'inbox') await inboxFlow(ctx, inbox);
       else if (action === 'capture') await captureFlow(ctx);
       else if (action === 'agent') await agentFlow();
@@ -267,6 +275,42 @@ async function agentFlow() {
     await stage.say(`The agent sent ${r.count} facts about ${r.topic} to your inbox. Open the inbox to make each one yours.`, title);
   } catch (e) {
     await stage.say(`The agent couldn't reach you just now. ${(e as Error).message}`, title);
+  }
+}
+
+/**
+ * World Builder from the palace: paste notes or a chapter, give a web address, or name a topic, and it comes
+ * back as an ordered journey, walked in straight away. In the headset, say the topic.
+ */
+async function buildFlow() {
+  const title = 'Build a palace';
+  let req: { text?: string; url?: string; name?: string } | null = null;
+  if (input.xr) {
+    await stage.say('Say a topic to remember in order, like "the twelve cranial nerves" or "the planets".', title);
+    stage.show(title, 'Listening…');
+    const heard = speechAvailable() ? (await listen(store.data.settings.twistLang, 8000).result)[0]?.trim() : '';
+    if (heard) req = { name: heard };
+    else {
+      const pick = await stage.ask([{ label: 'Planets', value: 'The planets in order from the Sun' }, { label: 'Cranial nerves', value: 'The 12 cranial nerves' }, { label: 'Back', value: '' }]);
+      if (pick) req = { name: pick };
+    }
+  } else {
+    stage.show(title, 'Paste notes, a chapter, a list, or a web address. Or just type a topic. Then press Ctrl+Enter.');
+    const text = await stage.typeText('e.g. the 12 cranial nerves, or paste a whole chapter here…', { multiline: true });
+    if (/^https?:\/\/\S+$/.test(text)) req = { url: text };
+    else if (text.length < 80 && !text.includes('\n')) req = { name: text };
+    else if (text) req = { text };
+  }
+  if (!req) return;
+  stage.show(title, 'Building your palace: finding the order, the rooms, a scene for every stop…');
+  try {
+    const r = await cloud.buildPalace(req);
+    play('light');
+    await stage.say(`${r.name}: ${r.count} stops. Let's walk it in.`, title);
+    const entries = (await cloud.inbox()).filter((e) => r.inboxIds.includes(e.id));
+    await inboxFlow(ctx, entries);
+  } catch (e) {
+    await stage.say(`I couldn't build that one. ${(e as Error).message}`, title);
   }
 }
 

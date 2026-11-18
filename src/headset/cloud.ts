@@ -24,7 +24,7 @@ export class Cloud {
     const res = await fetch(`/api${path}`, {
       ...init,
       headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...init.headers },
-      signal: AbortSignal.timeout(path === '/capture' ? 120_000 : 15_000),
+      signal: AbortSignal.timeout(path === '/capture' || path === '/palace' || path.startsWith('/agent') ? 120_000 : path.startsWith('/transcribe') ? 40_000 : 15_000),
     });
     if (res.status === 401 && token) {
       // Token revoked or account deleted elsewhere: start over as a new device next time.
@@ -142,6 +142,11 @@ export class Cloud {
     } catch {
       return fallback;
     }
+  }
+
+  /** World Builder: text, a web page or a topic becomes an ordered journey, filed in the inbox. */
+  buildPalace(input: { text?: string; url?: string; name?: string }) {
+    return this.api<{ journey: { id: string; name: string }; inboxIds: string[]; name: string; count: number }>('/palace', { method: 'POST', body: JSON.stringify(input) });
   }
 
   /** The built-in study agent files five facts on a topic into the inbox, like any MCP agent would. */

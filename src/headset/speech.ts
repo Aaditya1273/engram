@@ -45,13 +45,14 @@ export interface Listening {
   stop(): void;
 }
 
-export function listen(lang: string, timeoutMs = 6000): Listening {
-  if (broken || !Ctor) return cloudAvailable() ? record(lang, timeoutMs) : { result: Promise.resolve([]), stop() {} };
+/** long: a talk, not an answer; keep listening through pauses until the timeout or stop(). */
+export function listen(lang: string, timeoutMs = 6000, opts: { long?: boolean } = {}): Listening {
+  if (broken || !Ctor) return cloudAvailable() ? record(lang, timeoutMs, opts.long ? LONG_SILENCE_MS : END_SILENCE_MS) : { result: Promise.resolve([]), stop() {} };
   const rec = new Ctor();
   rec.lang = lang;
-  rec.maxAlternatives = 5;
+  rec.maxAlternatives = opts.long ? 1 : 5;
   rec.interimResults = false;
-  rec.continuous = false;
+  rec.continuous = !!opts.long;
   const alts: string[] = [];
   let timer = 0;
   const result = new Promise<string[]>((res) => {
@@ -93,14 +94,14 @@ function microphone() {
 }
 
 /** Loudness (RMS, 0..1) above which the clip counts as speech, and the quiet after it that ends the answer. */
-const VOICE_RMS = 0.035, END_SILENCE_MS = 900, MIN_SPEECH_MS = 150;
+const VOICE_RMS = 0.035, END_SILENCE_MS = 900, LONG_SILENCE_MS = 4000, MIN_SPEECH_MS = 150;
 const MIC_WAIT_MS = 8000;
 
 /**
  * Records until the speaker stops (or the timeout), then sends the clip to the server. Silence never
  * leaves the device: if nobody spoke, nothing is uploaded and the result is empty.
  */
-function record(lang: string, timeoutMs: number): Listening {
+function record(lang: string, timeoutMs: number, endSilenceMs: number): Listening {
   let stopRec = () => {};
   const result = (async (): Promise<string[]> => {
     let stream: MediaStream;
@@ -135,7 +136,7 @@ function record(lang: string, timeoutMs: number): Listening {
         lastVoice = now;
       }
       last = now;
-      if (now - started > timeoutMs || (spokeMs > MIN_SPEECH_MS && now - lastVoice > END_SILENCE_MS)) stopRec();
+      if (now - started > timeoutMs || (spokeMs > MIN_SPEECH_MS && now - lastVoice > endSilenceMs)) stopRec();
     }, 50);
     await done;
     clearInterval(tick);

@@ -45,6 +45,8 @@ export interface DeckItem {
   scenes: SceneSpec[];
   /** Journey items: the story line that carries you from this stop to the next. */
   link?: string;
+  /** Journey items: the room (group) this stop belongs to, e.g. "Nerves of the eye". */
+  room?: string;
 }
 
 export type Grade = 'again' | 'hard' | 'good' | 'easy';
@@ -82,7 +84,8 @@ export interface InboxItem {
   source: 'voice' | 'phone' | 'agent';
   topic: string;
   goalId?: string;
-  item: DeckItem;
+  /** Set when the item is one stop of a journey built by the World Builder; the headset places them together, in order. */
+  item: DeckItem & { journey?: { id: string; name: string; index: number; room?: string } };
   createdAt: string;
 }
 

@@ -4,6 +4,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { useMemoryDb } from '../server/db';
 import { handle } from '../server/routes';
 import { offlineDraft } from '../server/pipeline';
+import { htmlToText, safeUrl, settle } from '../server/palace';
 import type { Memory, Review } from '../src/shared/types';
 
 // Real Postgres (PGlite, in memory), real routes, offline drafter (no AI keys in tests).
@@ -121,14 +122,16 @@ describe('MCP server for agents', () => {
     expect((await call('POST', '/api/mcp', headset, {})).status).toBe(401);
   });
 
-  it('lists the six tools, writes into the inbox and reads knowledge', async () => {
+  it('lists the eight tools, writes into the inbox and reads knowledge', async () => {
     const created = await call('POST', '/api/agents', phone, { name: 'Tutor' });
     agentKey = created.data.token;
     agentId = created.data.id;
     expect(created.data.mcpUrl).toBe(`${BASE}/api/mcp`);
     const client = await connect(agentKey);
     const names = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(names).toEqual(['add_memories', 'create_goal', 'get_gaps', 'get_known', 'get_readiness', 'list_due']);
+    expect(names).toEqual(['add_memories', 'build_palace', 'create_goal', 'get_gaps', 'get_journey', 'get_known', 'get_readiness', 'list_due']);
+    const built = result(await client.callTool({ name: 'build_palace', arguments: { topic: 'Planets', text: 'Mercury - first\nVenus - second\nEarth - third' } }));
+    expect(built.stops.map((s: { answer: string }) => s.answer)).toEqual(['first', 'second', 'third']);
 
     const goal = result(await client.callTool({ name: 'create_goal', arguments: { name: 'Anatomy block', deadline: '2027-03-01' } }));
     expect(goal.name).toBe('Anatomy block');
@@ -263,7 +266,7 @@ describe('speech, caps and abuse limits', () => {
   it('refuses oversized clips and is off without a key', async () => {
     expect((await audio(dev)).status).toBe(503);
     process.env.GROQ_API_KEY = 'g';
-    expect((await audio(dev, new Uint8Array(1_600_000))).status).toBe(413);
+    expect((await audio(dev, new Uint8Array(3_100_000))).status).toBe(413);
   });
 
   it('stops at the deployment-wide daily cap', async () => {
@@ -283,5 +286,46 @@ describe('speech, caps and abuse limits', () => {
     }
     expect(codes.slice(0, 10).every((c) => c === 201)).toBe(true);
     expect(codes[10]).toBe(429);
+  });
+});
+
+describe('World Builder', () => {
+  let dev: string;
+  beforeAll(async () => {
+    dev = (await call('POST', '/api/device', undefined, { name: 'Builder' })).data.token;
+  });
+
+  it('turns ordered notes into one journey in the inbox, stops in order (offline drafter)', async () => {
+    const notes = 'CN I - olfactory\nCN II - optic\nCN III - oculomotor\nCN IV - trochlear';
+    const { status, data } = await call('POST', '/api/palace', dev, { text: notes, name: 'Cranial nerves' });
+    expect(status).toBe(201);
+    expect(data.count).toBe(4);
+    expect(data.drafter).toBe('offline');
+    const inbox = (await call('GET', '/api/inbox', dev)).data as { id: string; item: { display: string; scenes: unknown[]; journey: { id: string; name: string; index: number } } }[];
+    const mine = inbox.filter((e) => data.inboxIds.includes(e.id)).sort((a, b) => a.item.journey.index - b.item.journey.index);
+    expect(mine.map((e) => e.item.display)).toEqual(['olfactory', 'optic', 'oculomotor', 'trochlear']);
+    expect(new Set(mine.map((e) => e.item.journey.id)).size).toBe(1);
+    expect(mine[0].item.journey.name).toBe('Cranial nerves');
+    expect(mine[0].item.scenes).toHaveLength(1);
+  });
+
+  it('needs material, refuses private addresses, and needs a token', async () => {
+    expect((await call('POST', '/api/palace', undefined, { text: 'a - b' })).status).toBe(401);
+    expect((await call('POST', '/api/palace', dev, {})).status).toBe(400);
+    expect((await call('POST', '/api/palace', dev, { url: 'http://localhost:5179/secret' })).status).toBe(400);
+    expect((await call('POST', '/api/palace', dev, { url: 'http://192.168.1.4/' })).status).toBe(400);
+  });
+
+  it('gives every drafted scene a footing and keeps painted colours', () => {
+    const s = settle({ mnemonic: 'm', props: [{ prop: 'sun', pos: [0, 0.2, 0], color: '#ffffff' }, { prop: 'ball', pos: [0.05, 0.09, 0] }] });
+    expect(s.props.map((p) => p.pos[1])).toEqual([0.2, 0]);
+    expect(s.props.every((p) => p.color === undefined)).toBe(true);
+  });
+
+  it('reads web pages as plain text and only public http(s) addresses', () => {
+    expect(htmlToText('<html><head><style>x{}</style><script>alert(1)</script></head><body><h1>Nerves</h1><p>Olfactory &amp; optic</p></body></html>'))
+      .toBe('Nerves\nOlfactory & optic');
+    expect(safeUrl('https://en.wikipedia.org/wiki/Cranial_nerves')).not.toBeNull();
+    for (const bad of ['file:///etc/passwd', 'http://127.0.0.1/', 'http://10.0.0.2/', 'http://169.254.169.254/latest', 'http://[::1]/', 'not a url']) expect(safeUrl(bad)).toBeNull();
   });
 });

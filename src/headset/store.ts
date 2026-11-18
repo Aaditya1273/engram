@@ -197,6 +197,15 @@ export class Store {
     this.save();
   }
 
+  /** The first slot starting a run of n free pedestals, kept within one wing so a journey never splits. */
+  freeRun(n: number, wingSize = 20): number {
+    const used = new Set(this.data.memories.map((m) => m.slot));
+    for (let s = 0; ; s++) {
+      const fits = Math.floor(s / wingSize) === Math.floor((s + Math.min(n, wingSize) - 1) / wingSize);
+      if (fits && Array.from({ length: Math.min(n, wingSize) }, (_, i) => s + i).every((x) => !used.has(x))) return s;
+    }
+  }
+
   nextFreeSlot(): number {
     const used = new Set(this.data.memories.map((m) => m.slot));
     let i = 0;

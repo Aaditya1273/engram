@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { globalCap, rateLimit, type Principal, type Scope } from './auth';
 import { gaps, known, listDue, readiness } from './knowledge';
 import { capture, createGoal, GoalInput, listGoals, loadKnowledge, resolveGoal } from './ops';
+import { buildPalace, fileJourney, MAX_MATERIAL } from './palace';
 
 export const AGENT_WRITES_PER_HOUR = 30;
 
@@ -52,6 +53,43 @@ export async function handleMcp(req: Request, who: Principal): Promise<Response>
     if (!parsed.success) return fail(`Invalid goal: ${parsed.error.issues.map((i) => i.message).join('; ')}`);
     if (!(await rateLimit(who.tokenId, AGENT_WRITES_PER_HOUR))) return fail('Rate limit reached.');
     return text(await createGoal(who.userId, parsed.data));
+  });
+
+  server.registerTool('build_palace', {
+    title: 'Build a memory palace',
+    description:
+      "Turn material, or just a topic, into an ORDERED memory journey: one stop per item or key point, in order, each with a vivid scene and a story link to the next stop. Use it for things that must be remembered in order (a list, steps, a timeline, a talk). It waits in the user's inbox; they walk it in, in the headset.",
+    inputSchema: {
+      topic: z.string().max(80).optional().describe('What to build, e.g. "The 12 cranial nerves" (used as the name, and as the material if no text is given)'),
+      text: z.string().max(MAX_MATERIAL).optional().describe('Material to build from: notes, a chapter, a talk, a list'),
+    },
+  }, async ({ topic, text: material }) => {
+    if (!can('write')) return fail('This key is read-only.');
+    if (!topic && !material?.trim()) return fail('Provide `topic` or `text`.');
+    if (!(await rateLimit(who.tokenId, AGENT_WRITES_PER_HOUR))) return fail(`Rate limit: at most ${AGENT_WRITES_PER_HOUR} writes per hour per key.`);
+    if (!(await globalCap('draft'))) return fail('Atrium has reached today\'s drafting limit. Try again tomorrow.');
+    const r = await buildPalace(material?.trim() || `Topic: ${topic}`, topic);
+    if (!r.items.length) return fail('Nothing to remember was found in that.');
+    const filed = await fileJourney(who.userId, 'agent', r);
+    return text({ journey_id: filed.journey.id, name: r.name, stops: r.items.map((i, n) => ({ n: n + 1, room: i.room, answer: i.display })), note: 'The journey waits in the inbox until the user walks it in.' });
+  });
+
+  server.registerTool('get_journey', {
+    title: 'A journey and how well it is known',
+    description: "The stops of one of the user's journeys in order, with each stop's current recall probability. Omit `id` to list journeys.",
+    inputSchema: { id: z.string().max(80).optional() },
+  }, async ({ id }) => {
+    if (!can('read')) return fail('This key cannot read.');
+    const all = await loadKnowledge(who.userId);
+    const stops = all.filter((s) => s.m.journey && (!id || s.m.journey.id === id));
+    if (!id) {
+      const byId = new Map<string, { id: string; name: string; stops: number }>();
+      for (const s of stops) byId.set(s.m.journey!.id, { id: s.m.journey!.id, name: s.m.journey!.name, stops: (byId.get(s.m.journey!.id)?.stops ?? 0) + 1 });
+      return text([...byId.values()]);
+    }
+    if (!stops.length) return fail(`No journey with id "${id}".`);
+    stops.sort((a, b) => a.m.journey!.index - b.m.journey!.index);
+    return text({ name: stops[0].m.journey!.name, stops: stops.map((s) => ({ n: s.m.journey!.index + 1, answer: s.m.display, recall: Math.round(s.r * 100) / 100 })) });
   });
 
   server.registerTool('list_due', {
