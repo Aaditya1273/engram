@@ -161,7 +161,7 @@ async function run() {
     if (!store.data.settings.world) await chooseWorld();
     // The intro is the best five minutes Atrium has, but never a wall: anyone can go straight to their palace.
     stage.show(t('Lumen'), t('A five-minute walk-through: the first ten elements, forwards and backwards. Or go straight to your palace.'));
-    const intro = await stage.ask([{ label: t('Start the intro'), value: true }, { label: t('Skip to my palace'), value: false }]);
+    const intro = await stage.ask([{ label: t('Skip to my palace'), value: false }, { label: t('Start the intro'), value: true, primary: true }], { menu: true });
     if (intro) {
       try {
         await firstFive(ctx);
@@ -193,7 +193,7 @@ async function chooseWorld() {
   for (;;) {
     palace.setTheme(pick);
     stage.show(t('Choose your world'), `${t(THEME_NAME[pick])}: ${t(WORLD_BLURB[pick])}\n${t('The other two open after 7 days of ember.')}`);
-    const a = await stage.ask<Theme | 'go'>([...WORLDS.map((w) => ({ label: t(THEME_NAME[w]), value: w })), { label: t('Begin here'), value: 'go' }]);
+    const a = await stage.ask<Theme | 'go'>([...WORLDS.map((w) => ({ label: t(THEME_NAME[w]), value: w, selected: w === pick })), { label: t('Begin here'), value: 'go', primary: true }], { menu: true });
     if (a === 'go') break;
     pick = a;
   }
@@ -212,7 +212,7 @@ async function themeMenu() {
   const th = await stage.ask<Theme | null>([
     ...[...WORLDS, 'golden' as const].map((x) => ({ label: open.includes(x) ? t(THEME_NAME[x]) : `${t(THEME_NAME[x])} · ${t(x === 'golden' ? '365 days' : 'start over')}`, value: x })),
     { label: t('Back'), value: null },
-  ]);
+  ], { menu: true });
   if (!th) return;
   if (open.includes(th)) {
     s.theme = th;
@@ -222,7 +222,7 @@ async function themeMenu() {
   if (th === 'golden') return void (await stage.say(t('Golden hour opens at 365 days of ember.'), t('Theme')));
   palace.setTheme(th);
   stage.show(`${t('Start over in')} ${t(THEME_NAME[th])}?`, t('Your streak goes back to day 1 and this becomes your world. Every memory stays in your palace.'));
-  if (!(await stage.ask([{ label: t('Start over'), value: true }, { label: t('Cancel'), value: false }]))) return void palace.setTheme(s.theme ?? world);
+  if (!(await stage.ask([{ label: t('Cancel'), value: false }, { label: t('Start over'), value: true, primary: true }], { menu: true }))) return void palace.setTheme(s.theme ?? world);
   store.restartIn(th);
   void cloud.sync();
   await stage.say(`${t('Day 1 in')} ${t(THEME_NAME[th])}. ${t('The other two worlds open after 7 days of ember.')}`, t('Theme'));
@@ -509,13 +509,13 @@ async function settings() {
       { label: `Narration: ${s.narration ? 'on' : 'off'}`, value: 'narration' },
       { label: t('More…'), value: 'more' },
       { label: t('Back'), value: 'back' },
-    ]);
+    ], { menu: true });
     if (pick === 'back') return;
     if (pick === 'pair') await pairFlow(ctx, showQr);
     if (pick === 'gaze') input.gazeOnly = s.gazeOnly = !s.gazeOnly;
     if (pick === 'lang') {
       stage.show(t('Language'), '');
-      const l = await stage.ask<Lang | null>([...(Object.keys(LANGS) as Lang[]).map((k) => ({ label: LANGS[k], value: k })), { label: t('Back'), value: null }]);
+      const l = await stage.ask<Lang | null>([...(Object.keys(LANGS) as Lang[]).map((k) => ({ label: LANGS[k], value: k, selected: k === getLang() })), { label: t('Back'), value: null }], { menu: true });
       if (l) {
         setLang(l);
         showLang();
@@ -532,7 +532,7 @@ async function settings() {
         { label: 'About', value: 'about' },
         { label: 'Erase everything', value: 'reset' },
         { label: t('Back'), value: 'back' },
-      ]);
+      ], { menu: true });
       if (more === 'wind') return void (await windDown(ctx));
       if (more === 'text') setTextScale(1.2);
       if (more === 'weekly') {

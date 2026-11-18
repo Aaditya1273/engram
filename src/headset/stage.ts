@@ -13,6 +13,9 @@ const CARD_BASE = new THREE.CylinderGeometry(0.1, 0.105, 0.012, 16);
 const CARD_MAT = new THREE.MeshLambertMaterial({ color: DECOR.capTop, emissive: DECOR.goldEmissive, emissiveIntensity: 0.4 });
 const CARD_HIT = new THREE.BoxGeometry(0.23, 0.34, 0.2);
 const BUTTON_H = 0.072;
+/** The top row at rest, and where a menu's buttons gather: mid-view, just above the caption. */
+const ROW_AT = new THREE.Vector3(0, 1.53, -1.1), MENU_AT = new THREE.Vector3(0, 1.18, -1.0);
+type Choice<T> = { label: string; value: T; primary?: boolean; selected?: boolean };
 const HIT_MAT = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
 
 /**
@@ -44,7 +47,17 @@ export class Stage {
     this.caption.position.set(0, 0.79, -0.95);
     this.caption.lookAt(0, 1.0, 0);
     this.caption.visible = false;
-    this.topRow.position.set(0, 1.53, -1.1);
+    this.topRow.position.copy(ROW_AT);
+    // A menu dims the palace behind it: a dark shell round the seated viewer, under every panel (they draw later).
+    this.dimmer.position.set(0, 1.2, 0);
+    this.dimmer.renderOrder = 5;
+    this.dimmer.visible = false;
+    this.hud.add(this.dimmer);
+    palace.tickers.add((dt) => {
+      const m = this.dimmer.material;
+      m.opacity += (this.dimTarget - m.opacity) * Math.min(1, dt * 8);
+      this.dimmer.visible = m.opacity > 0.01;
+    });
     this.cards.position.set(0, 1.12, -0.82);
     // A framed backdrop behind the three choices, so the alcoves behind them don't show through and clutter the pick.
     this.backdrop.position.set(0, 0.06, -0.08);
@@ -143,16 +156,40 @@ export class Stage {
     this.arrows.visible = on;
   }
 
-  async ask<T>(options: { label: string; value: T }[], opts: { corner?: { label: string; value: T } } = {}): Promise<T> {
+  private dimmer = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12),
+    new THREE.MeshBasicMaterial({ color: '#05060a', transparent: true, opacity: 0, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false }));
+  private dimTarget = 0;
+
+  /**
+   * Offer a choice. `menu` makes it a game-style menu: the palace dims, the buttons gather mid-view at one width,
+   * primary choices sit on their own row below, and a `selected` choice glows.
+   */
+  async ask<T>(options: Choice<T>[], opts: { corner?: { label: string; value: T }; menu?: boolean } = {}): Promise<T> {
     await this.whilePaused();
     return new Promise<T>((res) => {
       this.clearRow();
-      const button = (o: { label: string; value: T }) => makeButton(o.label, () => {
+      const menu = !!opts.menu;
+      const w = menu ? Math.max(0.15, ...options.map((o) => buttonWidth(o.label))) : 0;
+      const button = (o: Choice<T>) => makeButton(o.label, () => {
         this.clearRow();
         play('tick');
         res(o.value);
-      }, buttonWidth(o.label), BUTTON_H);
-      this.layoutRow(options.map(button));
+      }, menu ? (o.primary ? w * 1.25 : w) : buttonWidth(o.label), menu && o.primary ? BUTTON_H * 1.15 : BUTTON_H,
+      { variant: o.primary ? 'primary' : o.selected ? 'selected' : undefined });
+      this.topRow.position.copy(menu ? MENU_AT : ROW_AT);
+      this.dimTarget = menu ? 0.55 : 0;
+      const rows = this.layoutRow(options.filter((o) => !menu || !o.primary).map(button));
+      if (menu) {
+        // The main action on its own row, centred below the others.
+        const prime = options.filter((o) => o.primary).map(button);
+        const total = prime.reduce((s, b) => s + b.w, 0) + 0.02 * (prime.length - 1);
+        let x = -total / 2;
+        for (const b of prime) {
+          b.position.set(x + b.w / 2, -rows * (BUTTON_H + 0.014) - 0.02, 0);
+          x += b.w + 0.02;
+          this.topRow.add(b);
+        }
+      }
       // A standing extra (Settings on the home screen): in a headset, set apart at the right end of the top row;
       // on a computer, pinned to the screen's top-right corner, where people look for it.
       if (opts.corner && this.input.xr) {
@@ -237,7 +274,8 @@ export class Stage {
    */
   private layoutRow(buttons: Panel[]) {
     const gap = 0.016, perRow = 5;
-    for (let r = 0; r * perRow < buttons.length; r++) {
+    let r = 0;
+    for (; r * perRow < buttons.length; r++) {
       const row = buttons.slice(r * perRow, r * perRow + perRow);
       const total = row.reduce((s, b) => s + b.w, 0) + gap * (row.length - 1);
       let x = -total / 2;
@@ -247,6 +285,7 @@ export class Stage {
         this.topRow.add(b);
       }
     }
+    return r; // rows used
   }
 
   /** Buttons that stay up while something else happens (e.g. "Show me" during recall). */
@@ -274,6 +313,7 @@ export class Stage {
   }
 
   clearRow() {
+    this.dimTarget = 0;
     if (this.corner) this.corner.style.display = 'none';
     for (const c of [...this.topRow.children]) {
       this.topRow.remove(c);

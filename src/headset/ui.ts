@@ -119,6 +119,8 @@ export interface PanelStyle {
   radius?: number;
   /** Body weight: buttons read better a little heavier. */
   weight?: number;
+  /** Pill buttons in a menu: 'primary' is the filled gold main action, 'selected' the choice currently shown. */
+  variant?: 'primary' | 'selected';
   /**
    * 'ornate': the caption card (notched corners, double gold frame, leaf crest). 'round': a circular gold-ringed
    * button. 'pill': a button or plaque, glowing gold rim, one line of text that shrinks to fit rather than wrap.
@@ -137,7 +139,7 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private tex: THREE.CanvasTexture;
-  private style: Required<PanelStyle>;
+  private style: Required<Omit<PanelStyle, 'variant'>> & Pick<PanelStyle, 'variant'>;
   private content: { title?: string; body?: string } = {};
   private appear = 1;
   private hoverT = 0;
@@ -299,18 +301,24 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     const { ctx, canvas, style } = this;
     const W = canvas.width, H = canvas.height, glow = 10, x = glow, y = glow, w = W - glow * 2, h = H - glow * 2, r = h / 2;
     const lift = ease(this.hoverT);
+    const primary = style.variant === 'primary', lit = this.hovered || style.variant === 'selected';
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, r);
     const fill = ctx.createLinearGradient(0, y, 0, y + h);
-    fill.addColorStop(0, this.hovered ? rgba(tone.hoverTop, 0.98) : rgba(tone.top, 0.96));
-    fill.addColorStop(1, this.hovered ? rgba(tone.hoverBottom, 0.98) : rgba(tone.bottom, 0.96));
+    if (primary) {
+      fill.addColorStop(0, this.hovered ? '#FFE7A8' : '#F0D48F');
+      fill.addColorStop(1, this.hovered ? '#D9A64E' : '#C3923F');
+    } else {
+      fill.addColorStop(0, lit ? rgba(tone.hoverTop, 0.98) : rgba(tone.top, 0.96));
+      fill.addColorStop(1, lit ? rgba(tone.hoverBottom, 0.98) : rgba(tone.bottom, 0.96));
+    }
     ctx.fillStyle = fill;
     ctx.fill();
     ctx.save();
     ctx.shadowColor = 'rgba(233, 196, 120, 0.9)';
-    ctx.shadowBlur = this.hovered ? 14 : 7;
-    ctx.lineWidth = this.hovered ? 4.5 : 3;
-    ctx.strokeStyle = '#D9B76E';
+    ctx.shadowBlur = primary || style.variant === 'selected' ? 18 : this.hovered ? 14 : 7;
+    ctx.lineWidth = style.variant === 'selected' ? 5.5 : this.hovered ? 4.5 : 3;
+    ctx.strokeStyle = primary ? '#FFF1C7' : style.variant === 'selected' ? '#F2D58C' : '#D9B76E';
     ctx.stroke();
     ctx.restore();
     const i = 6;
@@ -328,7 +336,7 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
       size *= room / tw;
       ctx.font = `${style.weight} ${size}px ${FONT.body}`;
     }
-    ctx.fillStyle = this.hovered ? '#FFFDF6' : style.fg;
+    ctx.fillStyle = primary ? '#2A1D08' : lit ? '#FFFDF6' : style.fg;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, W / 2, H / 2 + size * 0.04);
