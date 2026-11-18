@@ -17,6 +17,25 @@ export const setTextScale = (s: number) => {
   for (const p of live) p.draw();
 };
 
+/**
+ * The fill of captions, buttons and round controls, as RGB: top and bottom of the gradient, and the same when
+ * hovered. Each world has its own (setUiTone); text and gold rims stay the same everywhere.
+ */
+type Rgb = [number, number, number];
+export interface UiTone { top: Rgb; bottom: Rgb; hoverTop: Rgb; hoverBottom: Rgb }
+export const UI_TONES = {
+  garden: { top: [30, 70, 54], bottom: [14, 38, 29], hoverTop: [44, 96, 74], hoverBottom: [22, 58, 44] },
+  moonlit: { top: [34, 44, 92], bottom: [14, 18, 44], hoverTop: [52, 66, 128], hoverBottom: [26, 32, 72] },
+  sakura: { top: [122, 52, 80], bottom: [74, 26, 47], hoverTop: [150, 70, 102], hoverBottom: [98, 38, 64] },
+} satisfies Record<string, UiTone>;
+let tone: UiTone = UI_TONES.garden;
+const rgba = (c: Rgb, a: number) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
+/** Recolours every panel for a world (an unknown world keeps the garden's green). */
+export const setUiTone = (world: string) => {
+  tone = (UI_TONES as Record<string, UiTone>)[world] ?? UI_TONES.garden;
+  for (const p of live) p.draw();
+};
+
 /** Every live panel, so they can redraw once the bundled fonts finish loading. */
 const live = new Set<Panel>();
 if (typeof document !== 'undefined' && document.fonts) {
@@ -180,7 +199,8 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     else {
       ctx.beginPath();
       ctx.roundRect(inset, inset, W - inset * 2, H - inset * 2, style.radius * PX_PER_M);
-      ctx.fillStyle = this.hovered && style.bg === PANEL.button ? PANEL.buttonHover : style.bg;
+      // Panels on the default fill follow the world's tone; ones given their own colour keep it.
+      ctx.fillStyle = this.hovered && style.bg === PANEL.button ? rgba(tone.hoverTop, 0.98) : style.bg === PANEL.bg || style.bg === PANEL.button ? rgba(tone.bottom, 0.92) : style.bg;
       ctx.fill();
       ctx.lineWidth = this.hovered ? 6 : 2.5;
       ctx.strokeStyle = this.hovered ? PANEL.focus : style.border;
@@ -224,8 +244,8 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     const x = glow, y = crest * 0.55, w = W - glow * 2, h = H - y - glow;
     notched(ctx, x, y, w, h, r);
     const fill = ctx.createLinearGradient(0, y, 0, y + h);
-    fill.addColorStop(0, 'rgba(30, 70, 54, 0.97)');
-    fill.addColorStop(1, 'rgba(14, 38, 29, 0.97)');
+    fill.addColorStop(0, rgba(tone.top, 0.97));
+    fill.addColorStop(1, rgba(tone.bottom, 0.97));
     ctx.fillStyle = fill;
     ctx.fill();
     ctx.save();
@@ -279,8 +299,8 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, r);
     const fill = ctx.createLinearGradient(0, y, 0, y + h);
-    fill.addColorStop(0, this.hovered ? 'rgba(44, 96, 74, 0.98)' : 'rgba(30, 70, 54, 0.96)');
-    fill.addColorStop(1, this.hovered ? 'rgba(22, 58, 44, 0.98)' : 'rgba(13, 36, 27, 0.96)');
+    fill.addColorStop(0, this.hovered ? rgba(tone.hoverTop, 0.98) : rgba(tone.top, 0.96));
+    fill.addColorStop(1, this.hovered ? rgba(tone.hoverBottom, 0.98) : rgba(tone.bottom, 0.96));
     ctx.fillStyle = fill;
     ctx.fill();
     ctx.save();
@@ -318,7 +338,7 @@ export class Panel extends THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMateri
     const W = canvas.width, c = W / 2, R = c - 14;
     ctx.beginPath();
     ctx.arc(c, c, R, 0, Math.PI * 2);
-    ctx.fillStyle = this.hovered ? 'rgba(30, 70, 54, 0.92)' : 'rgba(16, 40, 31, 0.78)';
+    ctx.fillStyle = this.hovered ? rgba(tone.top, 0.92) : rgba(tone.bottom, 0.78);
     ctx.fill();
     ctx.save();
     ctx.shadowColor = 'rgba(233, 196, 120, 0.9)';

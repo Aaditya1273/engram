@@ -9,7 +9,7 @@ import { modelEnvironment } from '../shared/props';
 import { buildDecor } from './decor';
 import { buildScene, type BuiltScene } from './scene-builder';
 import { Chest } from './chest';
-import { glowTexture, Panel, type Selectable } from './ui';
+import { glowTexture, Panel, setUiTone, type Selectable } from './ui';
 
 import { EYE_Y, LANTERN_HOOP_Y, RADIUS, SCENE_Y, SLOT_COUNT, SLOT_DEG, SNAP_SLOTS } from './layout';
 
@@ -411,6 +411,7 @@ export class Palace {
     this.hemi.groundColor.set(ground);
     this.theme = theme;
     this.dress(theme);
+    setUiTone(theme);
     // The moonlit night hangs 3D sakura lanterns; if the model can't load, the painted ones simply stay.
     if (theme === 'moonlit') void loadSakuraLantern().then((t) => this.theme === 'moonlit' && this.alcoves.forEach((a) => a.setLanternModel(t)), () => {});
     else this.alcoves.forEach((a) => a.setLanternModel(null));

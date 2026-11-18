@@ -36,8 +36,8 @@ const canvasTexture = (w: number, h: number, draw: (ctx: CanvasRenderingContext2
   return t;
 };
 
-/** A hanging pennant: forest green, gold border, the gold leaf emblem (drawn in once its image loads). */
-function bannerTexture() {
+/** A hanging pennant: forest green (or the theme's colour), gold border, the gold leaf emblem (drawn in once its image loads). */
+function bannerTexture(mid: string = DECOR.banner, dark: string = DECOR.bannerDark) {
   const W = 128, H = 448;
   const shape = (ctx: CanvasRenderingContext2D, inset: number) => {
     ctx.beginPath();
@@ -50,9 +50,9 @@ function bannerTexture() {
   };
   const t = canvasTexture(W, H, (ctx) => {
     const g = ctx.createLinearGradient(0, 0, W, 0);
-    g.addColorStop(0, DECOR.bannerDark);
-    g.addColorStop(0.5, DECOR.banner);
-    g.addColorStop(1, DECOR.bannerDark);
+    g.addColorStop(0, dark);
+    g.addColorStop(0.5, mid);
+    g.addColorStop(1, dark);
     shape(ctx, 4);
     ctx.fillStyle = g;
     ctx.fill();
@@ -139,13 +139,13 @@ function rng(seed: number) {
  * The floor, drawn top-down: polished stone flags in rings and spokes, gold inlay rings, and a gold
  * four-petal rosette at the centre where you sit.
  */
-function floorTexture(radius: number) {
+function floorTexture(radius: number, light: string = DECOR.floorLight, dark: string = DECOR.floor) {
   const N = 1024, c = N / 2, px = c / radius;
   return canvasTexture(N, N, (ctx) => {
     const r = rng(3);
     const g = ctx.createRadialGradient(c, c, 0, c, c, c);
-    g.addColorStop(0, DECOR.floorLight);
-    g.addColorStop(1, DECOR.floor);
+    g.addColorStop(0, light);
+    g.addColorStop(1, dark);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, N, N);
     for (let i = 0; i < 2400; i++) {
@@ -224,10 +224,23 @@ function canopyTexture() {
  * backdrop image, one per bay; `centred` puts each painting's middle in an arch and repeats them unmirrored (the
  * seams hide behind the piers), for paintings that aren't symmetric. Themes not listed keep the garden's forest and only tint the light.
  */
-const SCENERY: Record<'garden' | 'moonlit' | 'sakura', { backdrop: string; tiles: number; centred?: boolean; vines: string; canopy: string; rays: number }> = {
-  garden: { backdrop: 'palace/forest.webp', tiles: 1, vines: 'palace/vines.webp', canopy: DECOR.canopyShade, rays: 0.3 },
-  moonlit: { backdrop: 'palace/moonlit.webp', tiles: 1, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#2c3552', rays: 0.07 },
-  sakura: { backdrop: 'palace/sakura.webp', tiles: 2, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#f0c8d4', rays: 0.3 },
+interface Scenery {
+  backdrop: string; tiles: number; centred?: boolean; vines: string; canopy: string; rays: number;
+  /** The room itself: stone tints a neutral marble (absent = the garden's green marble), floor and banner colours, ferns. */
+  stone?: string; /** How much the stone glows, relative to the garden's marble (a pale stone needs more). */ stoneGlow?: number; floor?: [light: string, dark: string]; banner?: [mid: string, dark: string]; ferns: boolean;
+}
+const SCENERY: Record<'garden' | 'moonlit' | 'sakura', Scenery> = {
+  garden: { backdrop: 'palace/forest.webp', tiles: 1, vines: 'palace/vines.webp', canopy: DECOR.canopyShade, rays: 0.3, ferns: true },
+  // Midnight-blue stone and torii-red banners under the moon.
+  moonlit: {
+    backdrop: 'palace/moonlit.webp', tiles: 1, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#2c3552', rays: 0.07,
+    stone: '#2a3260', floor: ['#2b335f', '#11152c'], banner: ['#a32b36', '#5c141c'], ferns: false,
+  },
+  // Pale blush marble, a petal-pink floor and banners.
+  sakura: {
+    backdrop: 'palace/sakura.webp', tiles: 2, centred: true, vines: 'palace/sakura-vines.webp', canopy: '#f0c8d4', rays: 0.3,
+    stone: '#f3d7df', stoneGlow: 1.3, floor: ['#e9d2d8', '#b88f9a'], banner: ['#d9869b', '#9c4f64'], ferns: false,
+  },
 };
 
 /** Arcade dimensions: ten wide bays, the opening an arch on tall jambs. */
@@ -247,7 +260,7 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D): (theme: 
     gold: gold(),
     cap: new THREE.MeshLambertMaterial({ color: DECOR.capTop, emissive: DECOR.goldEmissive, emissiveIntensity: 0.4 }),
     emblem: new THREE.MeshBasicMaterial({ map: texture('palace/emblem.webp'), alphaTest: 0.4, color: DECOR.emblemTint }),
-    banner: new THREE.MeshLambertMaterial({ map: bannerTexture(), alphaTest: 0.5, side: THREE.DoubleSide, emissive: DECOR.bannerDark, emissiveIntensity: 0.3 }),
+    banner: new THREE.MeshLambertMaterial({ alphaTest: 0.5, side: THREE.DoubleSide, emissive: DECOR.bannerDark, emissiveIntensity: 0.3 }),
     fern: (() => {
       const t = texture('site/fern.webp');
       return new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.45, side: THREE.DoubleSide, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.4 });
@@ -325,7 +338,7 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D): (theme: 
 
   // ---- The room: steps, polished floor with its gold rings, cornice, canopy, forest, lantern hoop. ----
   const floorR = A.r - 0.45;
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(floorR + 0.02, 64), glowing(floorTexture(floorR + 0.02), '#ffffff', 0.4));
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(floorR + 0.02, 64), new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.4 }));
   floor.rotation.x = -Math.PI / 2;
   const ringMat = new THREE.MeshBasicMaterial({ color: DECOR.goldLine, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
   const glowRings = [1.0, 2.15].map((r) => {
@@ -339,6 +352,7 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D): (theme: 
       (pts, v, i, a) => (i % 2 ? pts : [...pts, new THREE.Vector2(v, a[i + 1])]), []), 96),
     glowing(texture('palace/marble.webp', [40, 1]), '#ffffff', 0.5),
   );
+  const stoneMats = [M.stone, M.cornice, M.pedestal, M.plinth, steps.material as THREE.MeshLambertMaterial];
   (steps.material as THREE.Material).side = THREE.DoubleSide; // lathe winding faces inward
   const cornice = new THREE.Mesh(new THREE.CylinderGeometry(A.r + 0.05, A.r + 0.05, 0.22, 96, 1, true), M.cornice);
   cornice.position.y = A.height + 0.11;
@@ -387,7 +401,24 @@ export function buildDecor(ring: THREE.Object3D, room: THREE.Object3D): (theme: 
     vineMat.map = vineMat.emissiveMap = loaded.get(s.vines)!;
     canopy.material.color.set(s.canopy);
     ((rays.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = s.rays;
-    for (const m of [forest.material, canopyWall.material, vineMat]) m.needsUpdate = true;
+    // The room: marble (green, or the neutral marble in the theme's tint), floor, banners, ferns.
+    for (const m of stoneMats) {
+      const green = (m.userData.green ??= m.map!) as THREE.Texture;
+      const grey = s.stone ? ((m.userData.grey ??= texture('palace/marble-grey.webp', [green.repeat.x, green.repeat.y])) as THREE.Texture) : green;
+      m.map = m.emissiveMap = grey;
+      m.color.set(s.stone ?? '#ffffff');
+      m.emissive.set(s.stone ?? '#ffffff');
+      m.emissiveIntensity = (m.userData.glow ??= m.emissiveIntensity) * (s.stoneGlow ?? 1);
+    }
+    const fl = s.floor ?? [DECOR.floorLight, DECOR.floor];
+    if (!loaded.has(`floor ${fl}`)) loaded.set(`floor ${fl}`, floorTexture(floorR + 0.02, ...fl));
+    floor.material.map = floor.material.emissiveMap = loaded.get(`floor ${fl}`)!;
+    const bn = s.banner ?? [DECOR.banner, DECOR.bannerDark];
+    if (!loaded.has(`banner ${bn}`)) loaded.set(`banner ${bn}`, bannerTexture(...bn));
+    M.banner.map = loaded.get(`banner ${bn}`)!;
+    M.banner.emissive.set(bn[1]);
+    M.fern.visible = s.ferns;
+    for (const m of [forest.material, canopyWall.material, vineMat, floor.material]) m.needsUpdate = true;
   };
 }
 

@@ -38,7 +38,7 @@ Status: ✅ works end to end · 🟡 built, partly verified · ⬜ not built
 | Silver and gold finishes (material transfer), collection and rarity, finishes on pedestals | 🟡 | Live API (batch in progress: see `src/shared/finishes.json`); tests `collection rarity`; collection preview walkthrough |
 | Lumen (text-to-3D → auto-rig → 5 retargeted clips), reactions, quiz | ✅ | Live API; seen in walkthroughs; test `Lumen quiz` and a live Groq quiz |
 | Open-to-remember chest (articulation: URDF body + lid on a revolute hinge, rebuilt in three.js) | ✅ | Live API; walkthrough (18 Nov): closed chests on every stop being recalled, lids open on answer |
-| Theme scenery: Sakura (two blossom valleys, blossom vines), Moonlit (shrine lake, blossom vines, 3D sakura pagoda lanterns from Lux3D image-to-3D, 4.2k triangles each) | ✅ | Walkthrough (18 Nov): both themes and the garden rendered, lanterns lit and unlit, no console errors. Not seen on a Quest |
+| Theme scenery (the whole room: marble, floor, banners, captions and buttons follow the world): Sakura (pale blush marble, two blossom valleys, blossom vines), Moonlit (midnight-blue stone, torii-red banners, shrine lake, blossom vines, 3D sakura pagoda lanterns from Lux3D image-to-3D, 4.2k triangles each) | ✅ | Walkthrough (18 Nov): both themes and the garden rendered, lanterns lit and unlit, no console errors. Not seen on a Quest |
 | Keepsake STL / 3MF export | ✅ | Production (18 Nov): a generated compass exported as a 253 KB `printable.stl` via Lux3D multi-format export (1 credit); test `exports a printable STL…` |
 | Themed worlds (World generation), home palace (Reality reconstruction), Aholo Viewer | ⬜ | Not built |
 
