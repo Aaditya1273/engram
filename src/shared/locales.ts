@@ -6,6 +6,9 @@ import type { Dict } from './i18n';
 
 export const HI: Dict = {
   "ui": {
+    "A five-minute walk-through: the first ten elements, forwards and backwards. Or go straight to your palace.": "पाँच मिनट का परिचय: पहले दस तत्व, आगे से और पीछे से। या सीधे अपने महल में जाएँ।",
+    "Start the intro": "परिचय शुरू करें",
+    "Skip to my palace": "सीधे मेरे महल में",
     "Language": "भाषा",
     "Choose your world": "अपनी दुनिया चुनें",
     "Begin here": "यहाँ से शुरू करें",
@@ -140,6 +143,9 @@ export const HI: Dict = {
 
 export const ES: Dict = {
   "ui": {
+    "A five-minute walk-through: the first ten elements, forwards and backwards. Or go straight to your palace.": "Un recorrido de cinco minutos: los diez primeros elementos, hacia delante y hacia atrás. O ve directo a tu palacio.",
+    "Start the intro": "Empezar la introducción",
+    "Skip to my palace": "Ir a mi palacio",
     "Language": "Idioma",
     "Choose your world": "Elige tu mundo",
     "Begin here": "Empezar aquí",
@@ -274,6 +280,9 @@ export const ES: Dict = {
 
 export const JA: Dict = {
   "ui": {
+    "A five-minute walk-through: the first ten elements, forwards and backwards. Or go straight to your palace.": "5分間のはじめての体験：最初の10元素を順番にも逆順にも。それとも、すぐに宮殿へ。",
+    "Start the intro": "はじめる",
+    "Skip to my palace": "宮殿へ進む",
     "Language": "言語",
     "Choose your world": "あなたの世界を選ぼう",
     "Begin here": "ここから始める",

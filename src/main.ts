@@ -159,13 +159,22 @@ async function run() {
   palace.setTheme(store.data.settings.theme ?? 'garden');
   if (!store.data.onboarded) {
     if (!store.data.settings.world) await chooseWorld();
-    try {
-      await firstFive(ctx);
-    } catch (err) {
-      // Never strand a first-time user in a broken tutorial: what they placed is saved; carry on to the palace.
-      await recover(err);
+    // The intro is the best five minutes Atrium has, but never a wall: anyone can go straight to their palace.
+    stage.show(t('Lumen'), t('A five-minute walk-through: the first ten elements, forwards and backwards. Or go straight to your palace.'));
+    const intro = await stage.ask([{ label: t('Start the intro'), value: true }, { label: t('Skip to my palace'), value: false }]);
+    if (intro) {
+      try {
+        await firstFive(ctx);
+      } catch (err) {
+        // Never strand a first-time user in a broken tutorial: what they placed is saved; carry on to the palace.
+        await recover(err);
+        store.data.onboarded = true;
+        store.save();
+      }
+    } else {
       store.data.onboarded = true;
       store.save();
+      palace.setWarmth(1, 800);
     }
   } else palace.setWarmth(1, 800);
   await home(missedDays);

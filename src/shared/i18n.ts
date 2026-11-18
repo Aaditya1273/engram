@@ -64,6 +64,9 @@ const ZH: Record<string, string> = {
   'Back to the palace': '回到宫殿', 'Copy a shared palace': '复制分享的宫殿', 'Japanese words': '日语单词', 'English words': '英语单词',
   'Type my own': '自己输入', 'Red hat': '红帽子', Glasses: '眼镜', 'Make it gold': '变成金色', Skip: '跳过', 'Save the clip': '保存片段',
   "I'm done": '我说完了', Language: '语言',
+  "A five-minute walk-through: the first ten elements, forwards and backwards. Or go straight to your palace.": "五分钟的入门：前十个化学元素，正背和倒背。也可以直接进入你的宫殿。",
+  "Start the intro": "开始入门",
+  "Skip to my palace": "直接进入宫殿",
   // Titles
   Atrium: 'Atrium', Lumen: '光灵', 'Quick test': '小测验', Turning: '转动', 'Your path': '你的路径', Recall: '回忆', Jump: '跳跃',
   'All lanterns lit': '灯笼全亮', 'An empty palace': '空荡的宫殿', 'Welcome back': '欢迎回来',
