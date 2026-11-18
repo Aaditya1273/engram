@@ -142,15 +142,23 @@ export class Stage {
     this.arrows.visible = on;
   }
 
-  async ask<T>(options: { label: string; value: T }[]): Promise<T> {
+  async ask<T>(options: { label: string; value: T }[], opts: { corner?: { label: string; value: T } } = {}): Promise<T> {
     await this.whilePaused();
     return new Promise<T>((res) => {
       this.clearRow();
-      this.layoutRow(options.map((o) => makeButton(o.label, () => {
+      const button = (o: { label: string; value: T }) => makeButton(o.label, () => {
         this.clearRow();
         play('tick');
         res(o.value);
-      }, buttonWidth(o.label), BUTTON_H)));
+      }, buttonWidth(o.label), BUTTON_H);
+      this.layoutRow(options.map(button));
+      // A standing extra (Settings on the home screen): set apart at the right end of the top row.
+      if (opts.corner) {
+        const b = button(opts.corner);
+        const right = Math.max(...this.topRow.children.filter((c) => c.position.y === 0).map((c) => c.position.x + (c as Panel).w / 2));
+        b.position.set(right + 0.07 + b.w / 2, 0, 0);
+        this.topRow.add(b);
+      }
     });
   }
 

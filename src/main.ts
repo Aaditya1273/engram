@@ -295,7 +295,7 @@ async function home(missedDays: number) {
         ...(store.data.memories.length >= 3 ? [{ label: t('Recall Rush'), value: 'rush' as const }] : []),
         ...(cloud.online ? [{ label: t('Build a palace'), value: 'build' as const }] : []),
         { label: t('More…'), value: 'more' },
-      ]),
+      ], { corner: { label: t('Settings'), value: 'settings' } }),
       inboxChanged,
     ]);
     stopPoll();
@@ -314,7 +314,6 @@ async function home(missedDays: number) {
         ...(cloud.online && cloud.ai ? [{ label: t('Ask an agent'), value: 'agent' as const }] : []),
         ...(wings > 1 ? [{ label: `Wing ${((palace.wing + 1) % wings) + 1} of ${wings}`, value: 'wing' as const }] : []),
         ...(!input.xr && keepsakes().length ? [{ label: t('Print a keepsake'), value: 'print' as const }] : []),
-        { label: t('Settings'), value: 'settings' },
         { label: t('Back'), value: 'back' },
       ]);
       if (action === 'back') continue;
